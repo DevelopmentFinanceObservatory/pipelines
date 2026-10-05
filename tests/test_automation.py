@@ -43,8 +43,10 @@ IDS_DBT_MODEL_NAMES = (
     "int_ids_resolved",
     "int_ids_unified",
     "int_ids_mapped",
+    "int_ids_observations",
     "dc_ids_statvars",
-    "dc_ids_observations",
+    "dc_ids_debt_observations",
+    "dc_ids_economy_observations",
     "dc_ids_provenance",
 )
 
@@ -77,17 +79,19 @@ CRS_RAW_TABLE_KEY = dg.AssetKey("oecd_dac_crs_raw_table")
 CRS_RAW_METADATA_KEY = dg.AssetKey("oecd_dac_crs_raw_metadata")
 CRS_EXPORT_KEY = dg.AssetKey("oecd_dac_crs_dc_export")
 
-DAC1_SOURCE_KEY = dg.AssetKey("oecd_dac_1_source")
-DAC1_RAW_FILE_KEY = dg.AssetKey("oecd_dac_1_raw_file")
-DAC1_RAW_TABLE_KEY = dg.AssetKey("oecd_dac_1_raw_table")
+DAC1_SOURCE_KEY = dg.AssetKey("oecd_dac1_source")
+DAC1_RAW_FILE_KEY = dg.AssetKey("oecd_dac1_raw_file")
+DAC1_RAW_TABLE_KEY = dg.AssetKey("oecd_dac1_raw_table")
+DAC1_RAW_METADATA_KEY = dg.AssetKey("oecd_dac1_raw_metadata")
+DAC1_EXPORT_KEY = dg.AssetKey("oecd_dac1_dc_export")
 
-DAC2A_SOURCE_KEY = dg.AssetKey("oecd_dac_2a_source")
-DAC2A_RAW_FILE_KEY = dg.AssetKey("oecd_dac_2a_raw_file")
-DAC2A_RAW_TABLE_KEY = dg.AssetKey("oecd_dac_2a_raw_table")
+DAC2A_SOURCE_KEY = dg.AssetKey("oecd_dac2a_source")
+DAC2A_RAW_FILE_KEY = dg.AssetKey("oecd_dac2a_raw_file")
+DAC2A_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2a_raw_table")
 
-DAC2B_SOURCE_KEY = dg.AssetKey("oecd_dac_2b_source")
-DAC2B_RAW_FILE_KEY = dg.AssetKey("oecd_dac_2b_raw_file")
-DAC2B_RAW_TABLE_KEY = dg.AssetKey("oecd_dac_2b_raw_table")
+DAC2B_SOURCE_KEY = dg.AssetKey("oecd_dac2b_source")
+DAC2B_RAW_FILE_KEY = dg.AssetKey("oecd_dac2b_raw_file")
+DAC2B_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2b_raw_table")
 
 # The seven dbt models under models/oecd/dac_crs, keyed by dbt schema + name
 CRS_DBT_MODEL_NAMES = (
@@ -111,10 +115,32 @@ CRS_ASSET_KEYS = {
     CRS_EXPORT_KEY,
 } | CRS_DBT_MODEL_KEYS
 
+DAC1_DBT_MODEL_NAMES = (
+    "stg_dac1",
+    "int_dac1_resolved",
+    "int_dac1_unified",
+    "int_dac1_mapped",
+    "dc_dac1_donor_observations",
+    "dc_dac1_flow_observations",
+    "dc_dac1_provenance",
+    "dc_dac1_statvars",
+)
+DAC1_DBT_MODEL_KEYS = {
+    dg.AssetKey(["oecd_dac1", name]) for name in DAC1_DBT_MODEL_NAMES
+}
+
 DAC1_ASSET_KEYS = {
     DAC1_SOURCE_KEY,
     DAC1_RAW_FILE_KEY,
     DAC1_RAW_TABLE_KEY,
+    DAC1_RAW_METADATA_KEY,
+    DAC1_EXPORT_KEY,
+} | DAC1_DBT_MODEL_KEYS
+
+# What the DAC1 models wait on from outside the pipeline.
+DAC1_PARENT_KEYS = SHARED_MAPPING_KEYS | {
+    DAC1_RAW_METADATA_KEY,
+    dg.AssetKey(["oecd_dac1", "dac1_indicator_mapping"]),
 }
 
 DAC2A_ASSET_KEYS = {
@@ -217,9 +243,8 @@ CONVERSION_TABLES_IMF_EXPORT_KEY = dg.AssetKey("one_conversion_tables_imf_dc_exp
 
 # The dbt models under models/one/conversion_tables, keyed by dbt schema + name
 CONVERSION_TABLES_DBT_MODEL_NAMES = (
-    "stg_conversion_tables_dac_1",
-    "int_conversion_tables_dac_1_resolved",
-    "int_conversion_tables_dac_1_series",
+    "int_conversion_tables_dac1_resolved",
+    "int_conversion_tables_dac1_series",
     "int_conversion_tables_weo_series",
     "int_conversion_tables_dac_rate_members",
     "int_conversion_tables_dac_rate_references",
@@ -254,11 +279,11 @@ CONVERSION_TABLES_ASSET_KEYS = {
     CONVERSION_TABLES_IMF_EXPORT_KEY,
 } | CONVERSION_TABLES_DBT_MODEL_KEYS
 
-# What the conversion tables wait on from outside their own models: the DAC1 raw
-# table, the WEO unified layer and its currency map, the shared mappings, and the
-# seed naming each shared currency's reference area.
+# What the conversion tables wait on from outside their own models: DAC1 staging,
+# the WEO unified layer and its currency map, the shared mappings, and the seed
+# naming each shared currency's reference area.
 CONVERSION_TABLES_PARENT_KEYS = SHARED_MAPPING_KEYS | {
-    DAC1_RAW_TABLE_KEY,
+    dg.AssetKey(["oecd_dac1", "stg_dac1"]),
     dg.AssetKey(["imf_weo", "int_weo_unified"]),
     dg.AssetKey(["imf_weo", "weo_currency_mapping"]),
     dg.AssetKey(["one_conversion_tables", "currency_rate_reference"]),
@@ -478,8 +503,9 @@ def test_automation_sensor_targets_the_automated_assets(
         (IDS_DBT_MODEL_KEYS, IDS_RAW_TABLE_KEY, IDS_PARENT_KEYS),
         (IMS_DBT_MODEL_KEYS, IMS_RAW_TABLE_KEY, IMS_PARENT_KEYS),
         (WEO_DBT_MODEL_KEYS, WEO_RAW_TABLE_KEY, WEO_PARENT_KEYS),
+        (DAC1_DBT_MODEL_KEYS, DAC1_RAW_TABLE_KEY, DAC1_PARENT_KEYS),
     ],
-    ids=["crs", "ids", "ims", "weo"],
+    ids=["crs", "ids", "ims", "weo", "dac1"],
 )
 def test_dbt_models_are_requested_when_the_raw_table_updates(
     dbt_model_keys: set[dg.AssetKey],
@@ -695,6 +721,7 @@ def test_dbt_translation_predicate_matches_intended_schemas() -> None:
 
     assert automated_dbt_schemas == {
         "world_bank_ids",
+        "oecd_dac1",
         "oecd_dac_crs",
         "dfo_ontology",
         "one_imputed_multilateral_sectors",
@@ -787,17 +814,16 @@ def test_a_failed_check_recovers_on_new_upstream_data() -> None:
 
 
 # The DAC1 chain, which the IMF table must never read.
-DAC1_LINEAGE_KEYS = {DAC1_RAW_TABLE_KEY} | {
+DAC1_LINEAGE_KEYS = {DAC1_RAW_TABLE_KEY, dg.AssetKey(["oecd_dac1", "stg_dac1"])} | {
     dg.AssetKey(["one_conversion_tables", name])
     for name in (
-        "stg_conversion_tables_dac_1",
-        "int_conversion_tables_dac_1_resolved",
-        "int_conversion_tables_dac_1_series",
+        "int_conversion_tables_dac1_resolved",
+        "int_conversion_tables_dac1_series",
     )
 }
 
 
-def test_the_imf_conversion_table_reads_no_dac_1_asset() -> None:
+def test_the_imf_conversion_table_reads_no_dac1_asset() -> None:
     """Test no DAC1 asset is upstream of the IMF export
 
     A failing check on any upstream asset withholds the export, so a DAC1 asset
@@ -829,7 +855,7 @@ def test_the_imf_conversion_table_reads_no_dac_1_asset() -> None:
         ),
         (
             "int_conversion_tables_dac_rate_band",
-            "dac_1_and_weo_rates_agree_within_a_factor_of_two",
+            "dac1_and_weo_rates_agree_within_a_factor_of_two",
             {CONVERSION_TABLES_DAC_EXPORT_KEY},
         ),
         (

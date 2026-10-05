@@ -552,3 +552,8 @@ dcid:CurrencyUnit,ZAR,dcid:CurrencyZAR,Rand,iso4217AlphaCode
 dcid:CurrencyUnit,ZMW,dcid:CurrencyZMW,Zambian Kwacha,iso4217AlphaCode
 dcid:CurrencyUnit,ZWG,dcid:CurrencyZWG,Zimbabwe Gold,iso4217AlphaCode
 dcid:Organization,918,dcid:EuropeanUnionInstitutions,European Union institutions,dacCode
+dcid:DACGroup,20001,dcid:DACCountriesTotal,DAC countries,dacCode
+dcid:Grouping,20003,dcid:GroupOfSeven,Group of Seven,dacCode
+dcid:DAC1AidTypeEnum,1010,dcid:DAC1AidType1010,official development assistance (DAC 1 aid type),classificationCode
+dcid:DAC1AidTypeEnum,1015,dcid:DAC1AidType1015,bilateral ODA (DAC 1 aid type),classificationCode
+dcid:DAC1AidTypeEnum,8864,dcid:DAC1AidType8864,humanitarian aid to the West Bank and Gaza Strip (DAC 1 aid type),classificationCode

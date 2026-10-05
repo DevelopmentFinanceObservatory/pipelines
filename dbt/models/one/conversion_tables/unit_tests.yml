@@ -1,41 +1,23 @@
 unit_tests:
-  - name: stg_dac_1_keeps_total_net_oda_in_three_price_bases
-    model: stg_conversion_tables_dac_1
+  - name: dac1_resolved_names_the_dac_total_and_drops_other_group_totals
+    model: int_conversion_tables_dac1_resolved
     description: >
-      Only aid type 1010 and flow 1140 in amount types A, D and N are staged,
-      and a row DAC1 publishes with no value is dropped.
+      Only total net ODA (aid type 1010, flow 1140) is kept. Donor 20001
+      becomes DACCountriesTotal, a donor resolves through its DAC code to a
+      country or organisation node, and every other group total (a code of
+      20000 or above) is dropped. A CurrencyUnit row sharing a DAC code is not
+      a donor.
     given:
-      - input: source('oecd_dac_1', 'raw_dac_1')
+      - input: ref('stg_dac1')
         rows:
-          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: A, TIME: 2024, Value: 10.0}
-          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: D, TIME: 2024, Value: 8.0}
-          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: N, TIME: 2024, Value: 9.0}
-          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: Q, TIME: 2024, Value: 1.0}
-          - {donor_code: 5, AIDTYPE: 1015, FLOWS: 1140, AMOUNTTYPE: A, TIME: 2024, Value: 1.0}
-          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1120, AMOUNTTYPE: A, TIME: 2024, Value: 1.0}
-          - {donor_code: 20001, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: N, TIME: 2024, Value: null}
-    expect:
-      rows:
-        - {donor_code: "5", year: 2024, amount_type: A, value: 10.0}
-        - {donor_code: "5", year: 2024, amount_type: D, value: 8.0}
-        - {donor_code: "5", year: 2024, amount_type: N, value: 9.0}
-
-  - name: dac_1_resolved_names_the_dac_total_and_drops_other_group_totals
-    model: int_conversion_tables_dac_1_resolved
-    description: >
-      Donor 20001 becomes DACCountriesTotal, a donor resolves through its DAC
-      code to a country or organisation node, and every other group total (a
-      code of 20000 or above) is dropped. A CurrencyUnit row sharing a DAC
-      code is not a donor.
-    given:
-      - input: ref('stg_conversion_tables_dac_1')
-        rows:
-          - {donor_code: "20001", year: 2024, amount_type: A, value: 1.0}
-          - {donor_code: "918", year: 2024, amount_type: A, value: 2.0}
-          - {donor_code: "302", year: 2024, amount_type: A, value: 3.0}
-          - {donor_code: "20000", year: 2024, amount_type: A, value: 4.0}
-          - {donor_code: "20003", year: 2024, amount_type: A, value: 5.0}
-          - {donor_code: "21600", year: 2024, amount_type: A, value: 6.0}
+          - {donor_code: "20001", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 1.0}
+          - {donor_code: "918", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 2.0}
+          - {donor_code: "302", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 3.0}
+          - {donor_code: "20000", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 4.0}
+          - {donor_code: "20003", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 5.0}
+          - {donor_code: "21600", aid_type: "1010", flow: "1140", year: 2024, amount_type: A, value: 6.0}
+          - {donor_code: "302", aid_type: "1015", flow: "1140", year: 2024, amount_type: A, value: 7.0}
+          - {donor_code: "302", aid_type: "1010", flow: "1120", year: 2024, amount_type: A, value: 8.0}
       - input: ref('code_mapping')
         rows:
           - {list: "dcid:Organization", code: "918", dcid: "dcid:EuropeanUnionInstitutions", property: dacCode}
@@ -71,7 +53,7 @@ unit_tests:
       Countries, Total) has no rate. The IMF reference row for the euro does
       not apply. Each rate is national currency over US dollars.
     given:
-      - input: ref('int_conversion_tables_dac_1_series')
+      - input: ref('int_conversion_tables_dac1_series')
         rows:
           - {entity: "dcid:country/DEU", year: 2024, current_usd: 10.0, constant_usd: 10.0, national_currency: 9.0}
           - {entity: "dcid:EuropeanUnionInstitutions", year: 2024, current_usd: 20.0, constant_usd: 20.0, national_currency: 18.0}
@@ -225,7 +207,7 @@ unit_tests:
       100 x current / constant ODA, and a donor-year with no current-dollar
       amount has no deflator.
     given:
-      - input: ref('int_conversion_tables_dac_1_series')
+      - input: ref('int_conversion_tables_dac1_series')
         rows:
           - {entity: "dcid:DACCountriesTotal", year: 2023, current_usd: 90.0, constant_usd: 100.0, national_currency: null}
           - {entity: "dcid:country/TLS", year: 2010, current_usd: null, constant_usd: 5.0, national_currency: null}

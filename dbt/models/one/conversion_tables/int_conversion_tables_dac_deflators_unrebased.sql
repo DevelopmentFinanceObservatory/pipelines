@@ -8,7 +8,7 @@ select
     year,
     false as is_estimate,
     100 * current_usd / constant_usd as deflator
-from {{ ref("int_conversion_tables_dac_1_series") }}
+from {{ ref("int_conversion_tables_dac1_series") }}
 where
     current_usd is not null
     and constant_usd <> 0

@@ -3,15 +3,15 @@ version: 2
 seeds:
   - name: ids_measure_mapping
     description: >
-      Core StatVar properties for each World Bank IDS measure, keyed on the first
-      two segments of the series code. Transcribed from the Position 2 block of the
-      IDS mapping spreadsheet's Segment code mapping tab. These are Data Commons
-      core schema rather than ontology nodes, which is why they are seeded rather
-      than resolved through code_mapping like the constraint values.
+      StatVar properties fixed by each World Bank IDS measure, keyed on the first
+      two segments of the series code: its population type, measured property and
+      stat type, and where the measure sets them, its unit, what it is net of, its
+      fixed capital consumption basis and the property its observations are about.
+      Transcribed from the Position 2 block of the IDS mapping spreadsheet's
+      Segment code mapping tab.
 
-      Keyed on the dataset prefix as well as the measure because GSR means exports of
-      goods and services under BX and imports under BM, and nothing else in the code
-      tells them apart.
+      Keyed on the dataset prefix as well as the measure because a measure code can
+      mean different things under different prefixes.
     config:
       column_types:
         dataset: string
@@ -21,6 +21,8 @@ seeds:
         stat_type: string
         unit: string
         net_of: string
+        fixed_capital_consumption_basis: string
+        entity_property: string
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -59,14 +61,25 @@ seeds:
           DCID of what is subtracted, on the two net measures. Not in code_mapping
           because NFL and NTR already key to Disbursement there, and one code cannot
           resolve to two nodes within one list.
+      - name: fixed_capital_consumption_basis
+        description: DCID of the fixed capital consumption basis, set for GNI only
+      - name: entity_property
+        description: >
+          The observation property naming the debtor: financingRecipient for a debt
+          measure, whose itemised observations name the creditor as well, and
+          observationAbout for a measure of the debtor economy itself, such as GNI
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['financingRecipient', 'observationAbout']
 
   - name: ids_unit_mapping
     description: >
       Unit and denominator properties for the trailing segments of a World Bank IDS
-      series code. Transcribed from the Trailing segments block of the IDS mapping
-      spreadsheet's Segment code mapping tab, with two corrections recorded in the
-      issue plan: MO also denominates, and a DT before a unit segment is the external
-      debt denominator rather than the Debtor Reporting System marker.
+      series code, for the series the import publishes. Transcribed from the
+      Trailing segments block of the IDS mapping spreadsheet's Segment code mapping
+      tab.
     config:
       column_types:
         code: string
@@ -85,7 +98,7 @@ seeds:
         description: >
           Whether the segment names the unit or the denominator. Only the unit rows
           are candidates for the rightmost-unit-segment rule; a denominator is read
-          wherever it appears, which is why MO is a unit row that also denominates.
+          from position 4.
         data_tests:
           - not_null
           - accepted_values:

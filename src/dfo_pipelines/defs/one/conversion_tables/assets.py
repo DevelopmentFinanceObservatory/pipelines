@@ -10,7 +10,12 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.data_commons.export import DOCS_ROOT, ExportSpec, export_bundle
+from dfo_pipelines.data_commons.export import (
+    DOCS_ROOT,
+    ExportSpec,
+    ObservationInput,
+    export_bundle,
+)
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
@@ -32,17 +37,21 @@ def _export_spec(*, table: str) -> ExportSpec:
         provenance_model=f"{SCHEMA}.dc_conversion_tables_{table}_provenance",
         conversion_recipe=None,
         statvar_model=f"{SCHEMA}.dc_conversion_tables_{table}_statvars",
-        observation_model=f"{SCHEMA}.dc_conversion_tables_{table}_observations",
+        observation_inputs=(
+            ObservationInput(
+                model=f"{SCHEMA}.dc_conversion_tables_{table}_observations",
+                property_to_column={
+                    "variable": "variable",
+                    "date": "date",
+                    "value": "value",
+                    "unit": "unit",
+                    "observationAbout": "observation_about",
+                    # Null on a reported value, so only projected rows carry it.
+                    "measurementMethod": "measurement_method",
+                },
+            ),
+        ),
         statvar_column_to_property={"name": "name"},
-        observation_property_to_column={
-            "variable": "variable",
-            "date": "date",
-            "value": "value",
-            "unit": "unit",
-            "observationAbout": "observation_about",
-            # Null on a reported value, so only projected rows carry the property.
-            "measurementMethod": "measurement_method",
-        },
         docs_dir=DOCS_DIR,
         constant_observation_properties={"observationPeriod": "P1Y"},
         provenance_column_to_property={"deflator_base_year": "deflatorBaseYear"},

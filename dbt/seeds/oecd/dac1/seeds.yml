@@ -1,0 +1,91 @@
+version: 2
+
+seeds:
+  - name: dac1_indicator_mapping
+    description: >
+      Each DAC1 aid type and flow the import publishes, with the properties of
+      the StatVar it measures. Pairs with the same properties share a StatVar.
+    config:
+      column_types:
+        aid_type: string
+        flow: string
+        statvar_dcid: string
+        population_type: string
+        measured_property: string
+        stat_type: string
+        measurement_qualifier: string
+        financial_flow_type: string
+        financial_obligation_type: string
+        netting_basis: string
+        fixed_capital_consumption_basis: string
+        dac_type_of_finance: string
+        dac1_aid_type: string
+        denominator_aid_type: string
+        unit: string
+        entity_property: string
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac1_mapping_per_aid_type_and_flow
+          arguments:
+            combination_of_columns:
+              - aid_type
+              - flow
+      - dbt_utils.expression_is_true:
+          name: dac1_mapping_reuses_a_statvar_or_defines_one
+          description: >
+            A row either names an existing StatVar or gives the properties to
+            mint one, never both.
+          arguments:
+            expression: (statvar_dcid is null) = (population_type is not null)
+    columns:
+      - name: aid_type
+        description: DAC1 aid type code
+        data_tests:
+          - not_null
+      - name: flow
+        description: DAC1 fund flow code
+        data_tests:
+          - not_null
+      - name: statvar_dcid
+        description: DCID of an existing StatVar the pair is published under, such as Count_Person
+      - name: population_type
+        description: DCID of the population type, empty where the StatVar already exists
+      - name: measured_property
+        description: DCID of the measured property
+      - name: stat_type
+        description: DCID of the stat type
+      - name: measurement_qualifier
+        description: DCID of the measurement qualifier
+      - name: financial_flow_type
+        description: DCID of the financialFlowType constraint
+      - name: financial_obligation_type
+        description: DCID of the financialObligationType constraint
+      - name: netting_basis
+        description: DCID of the nettingBasis constraint
+      - name: fixed_capital_consumption_basis
+        description: DCID of the fixedCapitalConsumptionBasis constraint
+      - name: dac_type_of_finance
+        description: DCID of the dacTypeOfFinance constraint
+      - name: dac1_aid_type
+        description: >
+          DAC1 aid type code of the dac1AidType constraint. The aid type a share
+          of GNI measures, or the aid type an older grant equivalent code
+          repeats, where it differs from aid_type.
+      - name: denominator_aid_type
+        description: Aid type whose StatVar this one is a share of
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dac1_indicator_mapping')
+                field: aid_type
+      - name: unit
+        description: DCID of the unit, or empty for a count
+      - name: entity_property
+        description: >
+          The observation property naming the entity: financingProvider for a
+          donor's flows, observationAbout for its GNI and population
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["financingProvider", "observationAbout"]

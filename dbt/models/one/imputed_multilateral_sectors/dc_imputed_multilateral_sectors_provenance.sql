@@ -40,10 +40,10 @@ extraction as (
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as last_data_refresh_date,
         -- CRS and Members' Total Use each have their own publication cycle
-        -- (next_crs_release_date, next_multisystem_release_date); the source
+        -- (next_oecd_release_date, next_multisystem_release_date); the source
         -- next in line is whichever of the two comes first.
         least(
-            {{ next_crs_release_date('metadata.crs_release_date') }},
+            {{ next_oecd_release_date('metadata.crs_release_date') }},
             {{ next_multisystem_release_date('metadata.multisystem_release_date') }}
         ) as next_source_release_date
     from metadata

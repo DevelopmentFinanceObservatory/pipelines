@@ -1,29 +1,28 @@
 version: 2
 
 sources:
-  - name: oecd_dac_1
+  - name: oecd_dac1
     description: OECD DAC1, official and private flows by donor, as the bulk file publishes it
     tables:
-      - name: raw_dac_1
+      - name: raw_dac1
         description: >
           The DAC1 bulk file, one row per donor, part, aid type, flow, amount
-          type and year, loaded by oecd_dac_1_raw_table with the donor and part
-          columns renamed. Only the columns consumed by
-          stg_conversion_tables_dac_1 are declared.
+          type and year, loaded by oecd_dac1_raw_table with the donor and part
+          columns renamed. Only the columns stg_dac1 consumes are declared.
         config:
           meta:
             dagster:
-              asset_key: ["oecd_dac_1_raw_table"]
+              asset_key: ["oecd_dac1_raw_table"]
         data_tests:
           - dbt_expectations.expect_table_columns_to_contain_set:
-              name: dac_1_required_columns_present
+              name: dac1_required_columns_present
               arguments:
                 column_list:
                   - donor_code
                   - AIDTYPE
                   - FLOWS
                   - AMOUNTTYPE
-                  - TIME
+                  - Year
                   - Value
         columns:
           - name: donor_code
@@ -42,9 +41,33 @@ sources:
             description: >
               Price basis of the value: A for current US dollars, D for constant
               US dollars of the DAC base year, N for national currency
-          - name: TIME
+          - name: Year
             data_type: bigint
             description: Year the value refers to
           - name: Value
             data_type: double
             description: Amount in millions of the amount type's currency
+      - name: raw_dac1_metadata
+        description: >
+          One row containing metadata about the data currently loaded into the raw
+          table.
+        config:
+          meta:
+            dagster:
+              asset_key: ["oecd_dac1_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_dac1_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw file was downloaded
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When OECD last published the DAC1 bulk file
+            data_tests:
+              - not_null

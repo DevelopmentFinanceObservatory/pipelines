@@ -1,9 +1,10 @@
 import dagster as dg
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
-from oda_reader import bulk_download_dac2a
+from oda_reader import bulk_download_dac2b
+from oda_reader.dac2b import DAC2B_BULK_LABEL
 from oda_reader.download.download_tools import (
-    DAC2A_FLOW_URL,
+    DAC2B_FLOW_URL,
     get_bulk_file_url_with_version,
 )
 
@@ -12,27 +13,27 @@ from dfo_pipelines.defs.resources import UPathFileStoreResource
 
 
 @dg.observable_source_asset(
-    group_name="oecd_dac_2a",
+    group_name="oecd_dac2b",
     automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
-def oecd_dac_2a_source() -> dg.ObserveResult:
-    """Observed OECD DAC 2a data version.
+def oecd_dac2b_source() -> dg.ObserveResult:
+    """Observed OECD DAC2b data version.
 
     The source is observed daily via calls to the OECD API.
     """
     # bypass_annotation_cache defeats oda_reader's 7-day on-disk HTTP cache,
     # which would otherwise let a daily observation serve a version token up to
     # a week old. Refreshing that cache entry is also what lets the
-    # bulk_download_dac2a call in oecd_dac_2a_raw_file see the new version, since
+    # bulk_download_dac2b call in oecd_dac2b_raw_file see the new version, since
     # it re-resolves the URL itself without a bypass.
     url, version = get_bulk_file_url_with_version(
-        flow_url=DAC2A_FLOW_URL,
-        label="DAC2A full dataset (dotStat format)",
+        flow_url=DAC2B_FLOW_URL,
+        label=DAC2B_BULK_LABEL,
         bypass_annotation_cache=True,
     )
 
     if version is None:
-        raise ValueError(f"DAC2a version check: could not get version for {url}")
+        raise ValueError(f"DAC2b version check: could not get version for {url}")
 
     data_version = dg.DataVersion(";".join([url, version]))
 
@@ -46,29 +47,29 @@ def oecd_dac_2a_source() -> dg.ObserveResult:
 
 
 @dg.asset(
-    deps=[oecd_dac_2a_source],
-    group_name="oecd_dac_2a",
+    deps=[oecd_dac2b_source],
+    group_name="oecd_dac2b",
     kinds={"file", "parquet"},
     automation_condition=EAGER_WHEN_CHECKS_PASS,
     check_specs=[
         dg.AssetCheckSpec(
-            name="file_not_empty", asset="oecd_dac_2a_raw_file", blocking=True
+            name="file_not_empty", asset="oecd_dac2b_raw_file", blocking=True
         )
     ],
 )
-def oecd_dac_2a_raw_file(
+def oecd_dac2b_raw_file(
     context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
 ):
-    """Raw OECD DAC2a bulk download file"""
-    directory = raw_file_store.build_date_partitioned_path("oecd_dac_2a/dac_2a")
+    """Raw OECD DAC2b bulk download file"""
+    directory = raw_file_store.build_date_partitioned_path("oecd_dac2b/dac2b")
     directory.mkdir(parents=True, exist_ok=True)
     file_path = directory / "data.parquet"
-    tmp_path = directory / "table2a_data.parquet"
-    bulk_download_dac2a(save_to_path=str(directory), use_raw_cache=False)
+    tmp_path = directory / "table2b_data.parquet"
+    bulk_download_dac2b(save_to_path=str(directory), use_raw_cache=False)
     tmp_path.rename(file_path)
     rows = pq.read_metadata(file_path).num_rows
     file_size = file_path.stat().st_size
-    context.log.info(f"Wrote OECD DAC2a data to {file_path}")
+    context.log.info(f"Wrote OECD DAC2b data to {file_path}")
     return dg.MaterializeResult(
         value=str(file_path),
         metadata={
@@ -82,22 +83,22 @@ def oecd_dac_2a_raw_file(
 
 
 @dg.asset(
-    group_name="oecd_dac_2a",
+    group_name="oecd_dac2b",
     kinds={"duckdb"},
     automation_condition=EAGER_WHEN_CHECKS_PASS,
     check_specs=[
         dg.AssetCheckSpec(
-            name="table_not_empty", asset="oecd_dac_2a_raw_table", blocking=True
+            name="table_not_empty", asset="oecd_dac2b_raw_table", blocking=True
         )
     ],
 )
-def oecd_dac_2a_raw_table(
-    duckdb: DuckDBResource, oecd_dac_2a_raw_file: str
+def oecd_dac2b_raw_table(
+    duckdb: DuckDBResource, oecd_dac2b_raw_file: str
 ) -> dg.MaterializeResult:
-    """Raw OECD DAC 2a database table"""
-    schema = "oecd_dac_2a"
-    table = "raw_dac_2a"
-    published = pq.read_schema(oecd_dac_2a_raw_file).names
+    """Raw OECD DAC2b database table"""
+    schema = "oecd_dac2b"
+    table = "raw_dac2b"
+    published = pq.read_schema(oecd_dac2b_raw_file).names
     renames = {
         "RECIPIENT": "recipient_code",
         "Recipient": "recipient_name",
@@ -113,7 +114,7 @@ def oecd_dac_2a_raw_table(
         conn.execute(
             f"CREATE OR REPLACE TABLE {schema}.{table} AS "
             f"SELECT * FROM read_parquet(?) AS source({columns})",
-            [oecd_dac_2a_raw_file],
+            [oecd_dac2b_raw_file],
         )
         rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
     return dg.MaterializeResult(

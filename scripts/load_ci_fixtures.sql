@@ -39,6 +39,10 @@ CREATE OR REPLACE TABLE imf_weo.raw_weo_metadata AS
         TIMESTAMPTZ '2026-09-11 09:14:22+00' AS downloaded_at,
         DATE '2026-04-14' AS source_release_date;
 
-CREATE SCHEMA IF NOT EXISTS oecd_dac_1;
-CREATE OR REPLACE TABLE oecd_dac_1.raw_dac_1 AS
-    SELECT * FROM read_parquet('tests/oecd/dac_1/fixtures/raw_dac_1.parquet');
+CREATE SCHEMA IF NOT EXISTS oecd_dac1;
+CREATE OR REPLACE TABLE oecd_dac1.raw_dac1 AS
+    SELECT * FROM read_parquet('tests/oecd/dac1/fixtures/raw_dac1.parquet');
+CREATE OR REPLACE TABLE oecd_dac1.raw_dac1_metadata AS
+    SELECT
+        TIMESTAMPTZ '2026-09-15 09:14:22+00' AS downloaded_at,
+        DATE '2026-07-07' AS source_release_date;
