@@ -1,0 +1,173 @@
+unit_tests:
+  - name: stg_dac1_drops_rows_with_no_value
+    model: stg_dac1
+    description: A row DAC1 publishes with no value is not staged.
+    given:
+      - input: source('oecd_dac1', 'raw_dac1')
+        rows:
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: A, Year: 2024, Value: 10.5}
+          - {donor_code: 20001, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: N, Year: 2024, Value: null}
+    expect:
+      rows:
+        - {donor_code: "5", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 10.5}
+
+  - name: resolved_replaces_each_donor_with_its_node
+    model: int_dac1_resolved
+    description: >
+      A donor resolves through its DAC code to a country, organisation or group
+      of donors. A currency sharing the DAC code is not a donor.
+    given:
+      - input: ref('stg_dac1')
+        rows:
+          - {donor_code: "302", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 1.0}
+          - {donor_code: "918", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 2.0}
+          - {donor_code: "20001", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 3.0}
+          - {donor_code: "20003", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 4.0}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: "302", dcid: "dcid:country/USA", property: dacCode}
+          - {list: "dcid:CurrencyUnit", code: "302", dcid: "dcid:CurrencyUSD", property: dacCode}
+          - {list: "dcid:Organization", code: "918", dcid: "dcid:EuropeanUnionInstitutions", property: dacCode}
+          - {list: "dcid:DACGroup", code: "20001", dcid: "dcid:DACCountriesTotal", property: dacCode}
+          - {list: "dcid:Grouping", code: "20003", dcid: "dcid:GroupOfSeven", property: dacCode}
+    expect:
+      rows:
+        - {donor: "dcid:country/USA", value: 1.0}
+        - {donor: "dcid:EuropeanUnionInstitutions", value: 2.0}
+        - {donor: "dcid:DACCountriesTotal", value: 3.0}
+        - {donor: "dcid:GroupOfSeven", value: 4.0}
+
+  - name: unified_keeps_only_the_values_the_import_publishes
+    model: int_dac1_unified
+    description: >
+      Keeps current US dollars only, drops the rows int_dac1_unified filters
+      out, and names the West Bank and Gaza recipient.
+    given:
+      - input: ref('int_dac1_resolved')
+        rows:
+          - {donor: "dcid:country/FRA", aid_type: "1010", flow: "1140", amount_type: A, year: 2024, value: 1.0}
+          - {donor: "dcid:country/FRA", aid_type: "1010", flow: "1140", amount_type: D, year: 2024, value: 2.0}
+          - {donor: "dcid:country/FRA", aid_type: "1010", flow: "1130", amount_type: A, year: 2024, value: 3.0}
+          - {donor: "dcid:country/FRA", aid_type: "1010", flow: "1160", amount_type: A, year: 2024, value: 4.0}
+          - {donor: "dcid:country/FRA", aid_type: "11010", flow: "1160", amount_type: A, year: 2024, value: 5.0}
+          - {donor: "dcid:country/FRA", aid_type: "1", flow: "1120", amount_type: A, year: 2024, value: 6.0}
+          - {donor: "dcid:country/FRA", aid_type: "1", flow: "1140", amount_type: A, year: 2024, value: 7.0}
+          - {donor: "dcid:country/FRA", aid_type: "3", flow: "1160", amount_type: A, year: 2024, value: 8.0}
+          - {donor: "dcid:country/FRA", aid_type: "3", flow: "1140", amount_type: A, year: 2024, value: 9.0}
+          - {donor: "dcid:country/FRA", aid_type: "8863", flow: "1140", amount_type: A, year: 2024, value: 10.0}
+    expect:
+      rows:
+        - {aid_type: "1010", flow: "1140", recipient: null, value: 1.0}
+        - {aid_type: "11010", flow: "1160", recipient: null, value: 5.0}
+        - {aid_type: "1", flow: "1140", recipient: null, value: 7.0}
+        - {aid_type: "3", flow: "1140", recipient: null, value: 9.0}
+        - {aid_type: "8863", flow: "1140", recipient: "dcid:country/PSE", value: 10.0}
+
+  - name: mapped_mints_each_statvar_from_the_mapping
+    model: int_dac1_mapped
+    description: >
+      Mints each StatVar from the mapping. A share of GNI takes the GNI StatVar
+      the mapping names as denominator, and an older grant equivalent code its
+      base aid type. GNI and population are named StatVars the import does not
+      define.
+    given:
+      - input: ref('int_dac1_unified')
+        rows:
+          - {donor: "dcid:country/FRA", aid_type: "1010", flow: "1140", year: 2024, value: 1.0}
+          - {donor: "dcid:country/FRA", aid_type: "2", flow: "1140", year: 2024, value: 0.5}
+          - {donor: "dcid:country/FRA", aid_type: "11010", flow: "1160", year: 2024, value: 2.0}
+          - {donor: "dcid:country/FRA", aid_type: "1", flow: "1140", year: 2024, value: 3.0}
+          - {donor: "dcid:country/FRA", aid_type: "4", flow: "1140", year: 2024, value: 68.0}
+      - input: ref('dac1_indicator_mapping')
+        rows: &dac1_indicator_mapping_rows
+          - {aid_type: "1010", flow: "1140", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", dac1_aid_type: "1010", unit: "dcid:CurrencyUSD", entity_property: financingProvider}
+          - {aid_type: "2", flow: "1140", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", dac1_aid_type: "1010", denominator_aid_type: "1", unit: "dcid:Percent", entity_property: financingProvider}
+          - {aid_type: "11010", flow: "1160", population_type: "dcid:FinancialFlow", measured_property: "dcid:grantEquivalent", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", financial_flow_type: "dcid:Disbursement", dac1_aid_type: "1010", unit: "dcid:CurrencyUSD", entity_property: financingProvider}
+          - {aid_type: "1", flow: "1140", statvar_dcid: "dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal", unit: "dcid:CurrencyUSD", entity_property: observationAbout}
+          - {aid_type: "4", flow: "1140", statvar_dcid: "dcid:Count_Person", entity_property: observationAbout}
+      - input: ref('code_mapping')
+        rows: &dac1_aid_type_codes
+          - {list: "dcid:DAC1AidTypeEnum", code: "1010", dcid: "dcid:DAC1AidType1010", label: "official development assistance (DAC 1 aid type)", property: classificationCode}
+      - input: ref('stat_type_mapping')
+        rows: &dac1_stat_types
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+    expect:
+      rows:
+        - {aid_type: "1010", defines_statvar: true, statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_DAC1AidType1010_Nominal", statvar_name: "Official development assistance (net disbursements)", measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,dac1AidType"}
+        - {aid_type: "2", defines_statvar: true, statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_DAC1AidType1010_Nominal_AsAFractionOf_PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal", statvar_name: "Official development assistance (net disbursements, % of GNI)", measurement_denominator: "dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal", constraint_properties: "nettingBasis,financialFlowType,dac1AidType"}
+        - {aid_type: "11010", defines_statvar: true, statvar_dcid: "dcid:GrantEquivalent_FinancialFlow_Disbursement_DAC1AidType1010_Nominal", statvar_name: "Official development assistance (grant equivalents)", measurement_denominator: null, constraint_properties: "financialFlowType,dac1AidType"}
+        - {aid_type: "1", defines_statvar: false, statvar_dcid: "dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal", statvar_name: null, measurement_denominator: null, constraint_properties: null}
+        - {aid_type: "4", defines_statvar: false, statvar_dcid: "dcid:Count_Person", statvar_name: null, measurement_denominator: null, constraint_properties: null}
+
+  - name: mapped_publishes_values_in_units
+    model: int_dac1_mapped
+    description: >
+      An amount in millions is published in US dollars rounded to cents,
+      population in whole persons, and a percentage as it is.
+    given:
+      - input: ref('int_dac1_unified')
+        rows:
+          - {donor: "dcid:country/USA", aid_type: "1010", flow: "1140", year: 2024, value: 208.530512345}
+          - {donor: "dcid:country/USA", aid_type: "2", flow: "1140", year: 2024, value: 0.225381}
+          - {donor: "dcid:country/USA", aid_type: "1", flow: "1140", year: 2024, value: 29050950.123456}
+          - {donor: "dcid:country/USA", aid_type: "4", flow: "1140", year: 2024, value: 340.110000004}
+      - input: ref('dac1_indicator_mapping')
+        rows: *dac1_indicator_mapping_rows
+      - input: ref('code_mapping')
+        rows: *dac1_aid_type_codes
+      - input: ref('stat_type_mapping')
+        rows: *dac1_stat_types
+    expect:
+      rows:
+        - {aid_type: "1010", value: 208530512.35}
+        - {aid_type: "2", value: 0.225381}
+        - {aid_type: "1", value: 29050950123456.00}
+        - {aid_type: "4", value: 340110000}
+
+  - name: statvars_name_the_entities_each_observation_carries
+    model: dc_dac1_statvars
+    description: >
+      A flow carries its provider, and its recipient where the aid type names
+      one. GNI is about the provider, so carries neither. A StatVar the import
+      does not define is left out.
+    given:
+      - input: ref('int_dac1_mapped')
+        rows:
+          - {statvar_dcid: "dcid:Flow", defines_statvar: true, entity_property: financingProvider, aid_type: "1010", recipient: null}
+          - {statvar_dcid: "dcid:Flow", defines_statvar: true, entity_property: financingProvider, aid_type: "1010", recipient: null}
+          - {statvar_dcid: "dcid:FlowToPSE", defines_statvar: true, entity_property: financingProvider, aid_type: "8864", recipient: "dcid:country/PSE"}
+          - {statvar_dcid: "dcid:GNI", defines_statvar: true, entity_property: observationAbout, aid_type: "1", recipient: null}
+          - {statvar_dcid: "dcid:Count_Person", defines_statvar: false, entity_property: observationAbout, aid_type: "4", recipient: null}
+    expect:
+      rows:
+        - {dcid: "dcid:Flow", observation_properties: financingProvider}
+        - {dcid: "dcid:FlowToPSE", observation_properties: "financingProvider,financingRecipient"}
+        - {dcid: "dcid:GNI", observation_properties: null}
+
+  - name: flow_observations_keep_only_flows
+    model: dc_dac1_flow_observations
+    description: A value about the provider is left to the donor observations.
+    given:
+      - input: ref('int_dac1_mapped')
+        rows:
+          - {statvar_dcid: "dcid:Flow", entity_property: financingProvider, donor: "dcid:country/USA", recipient: "dcid:country/PSE", year: 2024, value: 208530512.35, unit: "dcid:CurrencyUSD"}
+          - {statvar_dcid: "dcid:Share", entity_property: financingProvider, donor: "dcid:country/USA", recipient: null, year: 2024, value: 0.225381, unit: "dcid:Percent"}
+          - {statvar_dcid: "dcid:GNI", entity_property: observationAbout, donor: "dcid:country/USA", recipient: null, year: 2024, value: 29050950000000.00, unit: "dcid:CurrencyUSD"}
+    expect:
+      rows:
+        - {variable: "dcid:Flow", date: 2024, financing_provider: "dcid:country/USA", financing_recipient: "dcid:country/PSE", value: 208530512.35, unit: "dcid:CurrencyUSD"}
+        - {variable: "dcid:Share", date: 2024, financing_provider: "dcid:country/USA", financing_recipient: null, value: 0.225381, unit: "dcid:Percent"}
+
+  - name: donor_observations_keep_only_values_about_the_provider
+    model: dc_dac1_donor_observations
+    description: A flow is left to the flow observations.
+    given:
+      - input: ref('int_dac1_mapped')
+        rows:
+          - {statvar_dcid: "dcid:GNI", entity_property: observationAbout, donor: "dcid:country/USA", year: 2024, value: 29050950123456.00, unit: "dcid:CurrencyUSD"}
+          - {statvar_dcid: "dcid:Count_Person", entity_property: observationAbout, donor: "dcid:country/USA", year: 2024, value: 340110000, unit: null}
+          - {statvar_dcid: "dcid:Flow", entity_property: financingProvider, donor: "dcid:country/USA", year: 2024, value: 1.0, unit: "dcid:CurrencyUSD"}
+    expect:
+      rows:
+        - {variable: "dcid:GNI", date: 2024, observation_about: "dcid:country/USA", value: 29050950123456.00, unit: "dcid:CurrencyUSD"}
+        - {variable: "dcid:Count_Person", date: 2024, observation_about: "dcid:country/USA", value: 340110000, unit: null}

@@ -15,6 +15,7 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportMetadata,
     ExportSpec,
+    ObservationInput,
     export_bundle,
 )
 
@@ -24,25 +25,29 @@ FIXTURES = Path(__file__).parent / "fixtures"
 ONE_CONSTRAINT_STATVAR = "dcid:Variable1"
 TWO_CONSTRAINT_STATVAR = "dcid:Variable2"
 
-EXPORT_SPEC = ExportSpec(
-    import_name="test_import",
-    provenance_dcid="Provenance1",
-    provenance_model="test_import.provenance",
-    conversion_recipe=None,
-    statvar_model="test_import.statvars",
-    observation_model="test_import.observations",
-    statvar_column_to_property={
-        "name": "name",
-        "constraint1": "constraintProperty1",
-        "constraint2": "constraintProperty2",
-    },
-    observation_property_to_column={
+OBSERVATIONS = ObservationInput(
+    model="test_import.observations",
+    property_to_column={
         "variable": "variable",
         "date": "date",
         "value": "value",
         "unit": "unit",
         "custom:entityProperty1": "entity1",
         "custom:entityProperty2": "entity2",
+    },
+)
+
+EXPORT_SPEC = ExportSpec(
+    import_name="test_import",
+    provenance_dcid="Provenance1",
+    provenance_model="test_import.provenance",
+    conversion_recipe=None,
+    statvar_model="test_import.statvars",
+    observation_inputs=(OBSERVATIONS,),
+    statvar_column_to_property={
+        "name": "name",
+        "constraint1": "constraintProperty1",
+        "constraint2": "constraintProperty2",
     },
     docs_dir=FIXTURES / "docs",
 )
@@ -123,6 +128,29 @@ from (values
 """
 
 
+# Observations naming a single entity, which cannot share an input file with the
+# observations naming two.
+ABOUT_OBSERVATIONS = ObservationInput(
+    model="test_import.about_observations",
+    property_to_column={
+        "variable": "variable",
+        "date": "date",
+        "value": "value",
+        "observationAbout": "observation_about",
+    },
+    file_stem="about_observations",
+)
+
+ABOUT_OBSERVATIONS_SQL = f"""
+create or replace table test_import.about_observations as
+select variable, date::integer as date, observation_about, value
+from (values
+    ('{ONE_CONSTRAINT_STATVAR}', 2001, 'Entity4', 4),
+    ('{ONE_CONSTRAINT_STATVAR}', 2002, 'Entity4', 5)
+) as observations (variable, date, observation_about, value)
+"""
+
+
 def connect(tmp_path: Path) -> DuckDBPyConnection:
     """A database holding the models the export reads, as a small fixture bundle"""
     connection = duckdb.connect(str(tmp_path / "database.duckdb"))
@@ -130,6 +158,7 @@ def connect(tmp_path: Path) -> DuckDBPyConnection:
     connection.execute(PROVENANCE_SQL)
     connection.execute(STATVARS_SQL)
     connection.execute(OBSERVATIONS_SQL)
+    connection.execute(ABOUT_OBSERVATIONS_SQL)
     return connection
 
 
@@ -240,6 +269,116 @@ def test_export_bundle_registers_the_observations_by_pattern(tmp_path: Path) -> 
         "custom:entityProperty1": "entity1",
         "custom:entityProperty2": "entity2",
     }
+
+
+def run_export_with_about_observations(tmp_path: Path) -> tuple[ExportMetadata, Path]:
+    """Export the fixture bundle with the single-entity observations added"""
+    spec = replace(
+        EXPORT_SPEC,
+        observation_inputs=(OBSERVATIONS, ABOUT_OBSERVATIONS),
+        constant_observation_properties={"observationPeriod": "P1Y"},
+    )
+    out_dir = UPath(tmp_path / "bundle")
+    metadata = export_bundle(
+        spec, connection=connect(tmp_path), out_dir=out_dir, log=LOG
+    )
+    return metadata, Path(str(out_dir))
+
+
+def test_export_bundle_writes_each_observation_input_to_its_own_files(
+    tmp_path: Path,
+) -> None:
+    """Test each observation model is partitioned into files of its own"""
+    metadata, out_dir = run_export_with_about_observations(tmp_path)
+
+    assert sorted(path.name for path in out_dir.glob("*.csv")) == [
+        "about_observations_2001.csv",
+        "about_observations_2002.csv",
+        "observations_2000.csv",
+        "observations_2001.csv",
+    ]
+    assert (out_dir / "about_observations_2001.csv").read_text() == (
+        "variable,date,observation_about,value\n"
+        f"{ONE_CONSTRAINT_STATVAR},2001,Entity4,4\n"
+    )
+    assert metadata == ExportMetadata(
+        observation_count=5, statvar_count=2, observation_file_count=4
+    )
+
+
+def test_export_bundle_registers_each_observation_input_with_its_own_mapping(
+    tmp_path: Path,
+) -> None:
+    """Test each observation model is its own input file, sharing the constants"""
+    _, out_dir = run_export_with_about_observations(tmp_path)
+
+    config = json.loads((out_dir / "config.json").read_text())
+
+    _, observations, about_observations = config["inputFiles"]
+    assert about_observations["pattern"] == "about_observations_*.csv"
+    assert about_observations["provenance"] == observations["provenance"]
+    assert about_observations["columnMappings"] == {
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:observationAbout": "observation_about",
+    }
+    assert about_observations["observationProperties"] == {"observationPeriod": "P1Y"}
+
+
+@pytest.mark.parametrize(
+    "file_stems",
+    [
+        pytest.param(("observations",), id="the_default_stem"),
+        pytest.param(("observations_about",), id="extending_the_default_stem"),
+        pytest.param(("about", "about"), id="a_repeated_stem"),
+        pytest.param(("about", "about_2"), id="extending_another_stem"),
+    ],
+)
+def test_export_spec_refuses_a_file_stem_another_pattern_matches(
+    file_stems: tuple[str, ...],
+) -> None:
+    """Test a spec whose patterns overlap is refused, since one input file would
+    also register the other's observations
+    """
+    with pytest.raises(ValueError, match="would match the files of"):
+        replace(
+            EXPORT_SPEC,
+            observation_inputs=(
+                OBSERVATIONS,
+                *(replace(ABOUT_OBSERVATIONS, file_stem=stem) for stem in file_stems),
+            ),
+        )
+
+
+def test_export_bundle_refuses_a_file_two_observation_patterns_match(
+    tmp_path: Path,
+) -> None:
+    """Test an observation file matched by two inputs' patterns fails the export,
+    since the importer would read it under both column mappings
+    """
+    # A glob in a stem passes the spec's literal overlap check.
+    spec = replace(
+        EXPORT_SPEC,
+        observation_inputs=(
+            OBSERVATIONS,
+            replace(ABOUT_OBSERVATIONS, file_stem="obs*"),
+        ),
+    )
+
+    with pytest.raises(ValueError, match=r"observations_2000\.csv matches"):
+        export_bundle(
+            spec,
+            connection=connect(tmp_path),
+            out_dir=UPath(tmp_path / "bundle"),
+            log=LOG,
+        )
+
+
+def test_export_spec_refuses_no_observation_inputs() -> None:
+    """Test a spec must write at least one observation model"""
+    with pytest.raises(ValueError, match="no observation inputs"):
+        replace(EXPORT_SPEC, observation_inputs=())
 
 
 def test_export_bundle_writes_constant_observation_properties_to_the_config(

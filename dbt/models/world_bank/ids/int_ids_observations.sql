@@ -16,6 +16,7 @@ select
     unified.debtor as financing_recipient,
     unified.value,
     mapped.unit,
+    mapped.entity_property,
     case
         when unified.year > last_reported.year then 'dcid:Estimated'
     end as measurement_method

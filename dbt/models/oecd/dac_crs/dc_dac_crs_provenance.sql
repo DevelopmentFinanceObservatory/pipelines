@@ -11,7 +11,7 @@ extraction as (
         metadata.release_year as source_release_year,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as last_data_refresh_date,
-        {{ next_crs_release_date('metadata.source_release_date') }}
+        {{ next_oecd_release_date('metadata.source_release_date') }}
             as next_source_release_date
     from metadata
 ),

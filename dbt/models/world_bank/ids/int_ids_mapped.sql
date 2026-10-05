@@ -1,6 +1,6 @@
 {#-
     Every IDS dimension is packed into the series code, so the whole mapping is a
-    function of one column with 576 distinct values.
+    function of that one column.
 -#}
 with series as (
     select distinct
@@ -29,7 +29,7 @@ variants as (
 -- it. A series reported both ways measures a total and its parts, so it splits in
 -- two, and only the breakdown takes a ByCreditor segment in its DCID. A series
 -- reported one way is one variable, because there is nothing to contrast it with -
--- that covers both the 25 series with no creditor dimension and the series whose
+-- that covers both the series with no creditor dimension and the series whose
 -- lender their code names, every row of which is attributed to that lender.
 breakdowns as (
     select
@@ -63,14 +63,7 @@ resolved as (
     select  -- noqa: ST06
         series.series_code,
         series.series_name,
-        coalesce(
-            -- RSDL and MDRI are flows reported under a stock measure, so the
-            -- category overrides the measure.
-            case
-                when series.category in ('RSDL', 'MDRI') then 'dcid:FinancialFlow'
-            end,
-            measures.population_type
-        ) as population_type,
+        measures.population_type,
         measures.measured_property,
         measures.stat_type,
         coalesce(
@@ -92,19 +85,11 @@ resolved as (
             end
         ) as denominator_series_code,
         obligation_types.dcid as financial_obligation_type,
-        coalesce(
-            domain_activities.dcid, measure_activities.dcid, category_activities.dcid
-        ) as economic_activity_type,
+        measures.fixed_capital_consumption_basis,
         coalesce(category_flows.dcid, measure_flows.dcid) as financial_flow_type,
         netting_bases.dcid as netting_basis,
         measures.net_of,
-        -- The spreadsheet gives DT.DOD.RSDL.CD and DT.DOD.MDRI.CD a position type as
-        -- well as a flow type, inherited from the DOD segment they are filed under.
-        -- financialPositionType has FinancialPosition for its domain, so a flow
-        -- cannot carry one; the reconciliation and the forgiveness grants are flows.
-        case
-            when series.category not in ('RSDL', 'MDRI') then position_types.dcid
-        end as financial_position_type,
+        position_types.dcid as financial_position_type,
         currencies.dcid as currency_of_denomination,
         {# The sector outranks the category here because it is the more specific
            segment: the US variant of use of IMF credit is the same measure
@@ -122,16 +107,16 @@ resolved as (
         coalesce(category_debtors.dcid, sector_debtors.dcid) as ids_debtor_type,
         variability.dcid as interest_rate_variability,
         breakdowns.creditor_breakdown,
-        breakdowns.has_provider
+        breakdowns.has_provider,
+        measures.entity_property
     from series
     inner join breakdowns on series.series_code = breakdowns.series_code
     left join {{ ref("ids_measure_mapping") }} as measures
         on series.dataset = measures.dataset and series.measure = measures.measure
     -- The unit is the rightmost segment that names one, not the last segment:
-    -- the six Debtor Reporting System series (e.g. BX.GRT.TECH.CD.DT) carry CD
+    -- the Debtor Reporting System series (e.g. BX.GRT.TECH.CD.DT) carry CD
     -- in position 4 (with a trailing DT marker behind it, that means debtor
     -- reporting system).
-    -- Where position 4 is 'DT', it is a denominator.
     left join {{ ref("ids_unit_mapping") }} as suffix_units
         on series.suffix = suffix_units.code and suffix_units.role = 'unit'
     left join {{ ref("ids_unit_mapping") }} as sector_units
@@ -143,26 +128,6 @@ resolved as (
         "dcid:FinancialObligationTypeEnum",
         "wbCode",
         "series.measure"
-    ) }}
-    {# GSR is exports under BX and imports under BM, so it is the one lookup keyed
-       on two segments rather than one. #}
-    {{ ids_code_lookup(
-        "domain_activities",
-        "dcid:EconomicActivityTypeEnum",
-        "wbCode",
-        "series.dataset || '.' || series.measure"
-    ) }}
-    {{ ids_code_lookup(
-        "measure_activities",
-        "dcid:EconomicActivityTypeEnum",
-        "wbCode",
-        "series.measure"
-    ) }}
-    {{ ids_code_lookup(
-        "category_activities",
-        "dcid:EconomicActivityTypeEnum",
-        "wbCode",
-        "series.category"
     ) }}
     {{ ids_code_lookup(
         "measure_flows",
@@ -285,7 +250,7 @@ resolved as (
     "financialFlowType": "resolved.financial_flow_type",
     "financialObligationType": "resolved.financial_obligation_type",
     "financialPositionType": "resolved.financial_position_type",
-    "economicActivityType": "resolved.economic_activity_type",
+    "fixedCapitalConsumptionBasis": "resolved.fixed_capital_consumption_basis",
     "netOf": "resolved.net_of",
     "financingResource": "resolved.financing_resource",
     "financingForm": "resolved.financing_form",
@@ -337,7 +302,6 @@ labels as (
 )
 
 {%- set labelled_columns = [
-    "economic_activity_type",
     "financial_flow_type",
     "currency_of_denomination",
     "financing_resource",
@@ -364,7 +328,7 @@ select
     resolved.measurement_qualifier,
     resolved.unit,
     resolved.financial_obligation_type,
-    resolved.economic_activity_type,
+    resolved.fixed_capital_consumption_basis,
     resolved.financial_flow_type,
     resolved.netting_basis,
     resolved.net_of,
@@ -381,6 +345,7 @@ select
     resolved.interest_rate_variability,
     resolved.creditor_breakdown,
     resolved.has_provider,
+    resolved.entity_property,
     coalesce(
         resolved.denominator_dcid, denominator_statvars.dcid
     ) as measurement_denominator,

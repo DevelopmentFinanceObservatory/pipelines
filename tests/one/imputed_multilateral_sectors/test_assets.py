@@ -1481,7 +1481,7 @@ def test_dc_export_writes_the_source_column_value_under_each_observation_propert
 ) -> None:
     """Test the written observation CSV carries the right source column's value per property
 
-    observation_property_to_column is the only place financingProvider,
+    The observation input's property_to_column is the only place financingProvider,
     financingRecipient, and measurementMethod are wired to
     dc_imputed_multilateral_sectors_observations' own columns; export_bundle
     writes those columns straight to CSV under their own names, so a provider/
@@ -1491,7 +1491,8 @@ def test_dc_export_writes_the_source_column_value_under_each_observation_propert
     """
     _, out_dir = _run_export(tmp_path)
 
-    mapping = IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.observation_property_to_column
+    [observations] = IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.observation_inputs
+    mapping = observations.property_to_column
     written = pd.concat(
         pd.read_csv(csv_file) for csv_file in sorted(out_dir.glob("observations_*.csv"))
     )

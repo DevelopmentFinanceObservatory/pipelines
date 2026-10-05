@@ -36,6 +36,11 @@ models:
           dagster:
             group: dfo_ontology
     oecd:
+      dac1:
+        +schema: oecd_dac1
+        +meta:
+          dagster:
+            group: oecd_dac1
       dac_crs:
         +schema: oecd_dac_crs
         +meta:
@@ -103,6 +108,12 @@ seeds:
           dagster:
             group: one_conversion_tables
     oecd:
+      dac1:
+        +schema: oecd_dac1
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: oecd_dac1
       dac_codelists:
         +schema: oecd_dac_codelists
         +quote_columns: true

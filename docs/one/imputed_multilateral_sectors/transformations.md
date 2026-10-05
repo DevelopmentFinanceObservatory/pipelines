@@ -123,7 +123,7 @@ the two years. `next_source_release_date` is the earlier of CRS's own next sched
 June, September or December, and Members' Total Use's next annual release. Members' Total Use derives from
 the same CRS activity-level microdata that only becomes final at CRS's December release, so it carries no
 April preliminary counterpart the way CRS does, and the pipeline models its own next release as arriving
-every December. `next_crs_release_date` and `next_multisystem_release_date`, in `dbt/macros/`, each compute
+every December. `next_oecd_release_date` and `next_multisystem_release_date`, in `dbt/macros/`, each compute
 their own source's next date from its own last observed release date, and
 `dc_imputed_multilateral_sectors_provenance.sql` takes the earlier (`least()`) of the two.
 
