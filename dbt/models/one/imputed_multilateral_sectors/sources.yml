@@ -1,0 +1,117 @@
+version: 2
+
+sources:
+  - name: one_imputed_multilateral_sectors
+    description: Imputed multilateral spending by sector, computed from oda-data
+    tables:
+      - name: raw_imputed_multilateral_sectors
+        description: >
+          Imputed multilateral spending by purpose, one row per provider, recipient,
+          channel, sector and year, loaded verbatim. Only the columns consumed by
+          stg_imputed_multilateral_sectors are declared. Currency and prices are
+          validated by the asset that writes this table, because the source
+          publishes USD at current prices only.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_imputed_multilateral_sectors_raw_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: required_columns_present
+              arguments:
+                column_list:
+                  - donor_code
+                  - recipient_code
+                  - channel_code
+                  - purpose_code
+                  - year
+                  - value
+                  - allocation_status
+        columns:
+          - name: donor_code
+            data_type: integer
+            description: DAC code of the provider whose core contributions are attributed
+          - name: recipient_code
+            data_type: integer
+            description: >
+              DAC code of the recipient the spending reached. Null when
+              allocation_status is unallocated, or for a fixed_purpose proxy row
+              (a fixed purpose code carries no recipient of its own); staging maps
+              the null to DAC code 9998, "Bilateral, unallocated/unspecified".
+          - name: channel_code
+            data_type: integer
+            description: >
+              DAC code of the multilateral channel the spending passed through,
+              dropped by int_imputed_multilateral_sectors_aggregated.
+          - name: purpose_code
+            data_type: integer
+            description: >
+              DAC sector/purpose code the spending was imputed against. Null when
+              allocation_status is unallocated; staging maps the null to CRS
+              purpose code 998, "Unallocated/unspecified".
+          - name: year
+            data_type: integer
+            description: Year the contribution was made
+          - name: value
+            data_type: double
+            description: Imputed spending, gross disbursement, current USD, in millions
+          - name: allocation_status
+            data_type: varchar
+            description: >
+              How this row's value was allocated: imputed (the channel's own current
+              CRS shares), stale_share (its own shares from an earlier window),
+              proxy (a reviewed proxy channel's shares or a fixed purpose code), or
+              unallocated (no share could be found; the value is published against
+              DAC recipient 9998 and CRS purpose 998 by stg_imputed_multilateral_sectors,
+              and its share of that channel-year's core contribution is reported
+              as a coverage figure in the raw table asset's materialization
+              metadata).
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [imputed, stale_share, proxy, unallocated]
+          - name: share_channel_code
+            data_type: integer
+            description: >
+              DAC code of the channel whose shares produced this row: the row's own
+              channel_code for imputed/stale_share rows, the proxy channel for a
+              parent_fund proxy row, or null for a fixed_purpose proxy row or an
+              unallocated row.
+          - name: share_years
+            data_type: varchar
+            description: >
+              The "YYYY-YYYY" window of years the shares were computed over. Null
+              for a fixed_purpose proxy row or an unallocated row, the same rows
+              with a null share_channel_code.
+      - name: raw_imputed_multilateral_sectors_metadata
+        description: >
+          One row containing metadata about the data currently loaded into the raw
+          table.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_imputed_multilateral_sectors_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw file was downloaded
+            data_tests:
+              - not_null
+          - name: crs_release_date
+            data_type: date
+            description: When the CRS release used to compute the shares published
+            data_tests:
+              - not_null
+          - name: multisystem_release_date
+            data_type: date
+            description: >
+              When the Members' Total Use release used for core contributions
+              published
+            data_tests:
+              - not_null

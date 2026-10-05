@@ -1,0 +1,217 @@
+version: 2
+
+seeds:
+  - name: weo_indicator_mapping
+    description: >
+      WEO indicators in scope, with the properties of the StatVar each measures.
+      Indicators with the same properties share a StatVar.
+    config:
+      column_types:
+        concept_code: string
+        population_type: string
+        measured_property: string
+        stat_type: string
+        measurement_qualifier: string
+        product_tax_basis: string
+        fixed_capital_consumption_basis: string
+        cyclical_adjustment: string
+        currency_conversion_basis: string
+        final_expenditure_type: string
+        denominator_concept_code: string
+        denominator_dcid: string
+        unit: string
+        measurement_method: string
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: weo_indicator_has_at_most_one_denominator
+          arguments:
+            expression: denominator_concept_code is null or denominator_dcid is null
+    columns:
+      - name: concept_code
+        description: WEO indicator code
+        data_tests:
+          - unique
+          - relationships:
+              name: mapped_indicators_are_staged
+              arguments:
+                to: ref('weo_staged_indicators')
+                field: concept_code
+      - name: population_type
+        description: DCID of the population type
+        data_tests:
+          - not_null
+      - name: measured_property
+        description: DCID of the measured property
+        data_tests:
+          - not_null
+      - name: stat_type
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        description: DCID of the measurement qualifier
+        data_tests:
+          - not_null
+      - name: product_tax_basis
+        description: DCID of the productTaxBasis constraint
+      - name: fixed_capital_consumption_basis
+        description: DCID of the fixedCapitalConsumptionBasis constraint
+        data_tests:
+          - not_null
+      - name: cyclical_adjustment
+        description: DCID of the cyclicalAdjustment constraint
+      - name: currency_conversion_basis
+        description: DCID of the currencyConversionBasis constraint
+      - name: final_expenditure_type
+        description: DCID of the finalExpenditureType constraint
+      - name: denominator_concept_code
+        description: Indicator whose StatVar this one is a share of
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('weo_indicator_mapping')
+                field: concept_code
+      - name: denominator_dcid
+        description: DCID of a StatVar outside WEO this one is a share of
+      - name: unit
+        description: DCID of the unit, or empty where it is each country's own currency
+      - name: measurement_method
+        description: DCID of the method on every observation, or empty if it varies by year
+
+  - name: weo_staged_indicators
+    description: >
+      WEO indicators stg_weo stages. They are every indicator
+      weo_indicator_mapping lists, which the WEO import publishes, and NGDP_D,
+      the GDP deflator the ONE conversion tables read.
+    config:
+      column_types:
+        concept_code: string
+    columns:
+      - name: concept_code
+        description: WEO indicator code
+        data_tests:
+          - not_null
+          - unique
+
+  - name: weo_currency_mapping
+    description: >
+      The currency WEO reports each country's domestic-currency series in, as
+      an ISO 4217 code.
+    config:
+      column_types:
+        imf_area_code: string
+        iso4217_code: string
+        primary_domestic_currency: string
+    columns:
+      - name: imf_area_code
+        description: IMF area code of the country
+        data_tests:
+          - not_null
+          - unique
+          - dbt_utils.relationships_where:
+              name: every_weo_currency_country_is_a_weo_area
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "property = 'imfAreaCode'"
+      - name: iso4217_code
+        description: ISO 4217 code of the currency
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_weo_currency_resolves_to_a_currency_unit
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "property = 'iso4217AlphaCode'"
+      - name: primary_domestic_currency
+        description: The currency as WEO names it, for review
+
+  - name: weo_extra_statvars
+    description: StatVars with no WEO series, such as a share's denominator
+    config:
+      column_types:
+        dcid: string
+        name: string
+        population_type: string
+        measured_property: string
+        stat_type: string
+        measurement_qualifier: string
+        measurement_denominator: string
+        constraint_properties: string
+        product_tax_basis: string
+        fixed_capital_consumption_basis: string
+        cyclical_adjustment: string
+        currency_conversion_basis: string
+        final_expenditure_type: string
+    columns:
+      - name: dcid
+        description: DCID of the StatVar, in mint_statvar_dcid's form
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        description: StatVar name
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        description: DCID of the population type
+        data_tests:
+          - not_null
+      - name: measured_property
+        description: DCID of the measured property
+        data_tests:
+          - not_null
+      - name: stat_type
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        description: DCID of the measurement qualifier
+        data_tests:
+          - not_null
+      - name: measurement_denominator
+        description: DCID of the StatVar this one is a share of
+      - name: constraint_properties
+        description: Comma-delimited constraint properties the StatVar sets
+        data_tests:
+          - not_null
+      - name: product_tax_basis
+        description: DCID of the productTaxBasis constraint
+      - name: fixed_capital_consumption_basis
+        description: DCID of the fixedCapitalConsumptionBasis constraint
+        data_tests:
+          - not_null
+      - name: cyclical_adjustment
+        description: DCID of the cyclicalAdjustment constraint
+      - name: currency_conversion_basis
+        description: DCID of the currencyConversionBasis constraint
+      - name: final_expenditure_type
+        description: DCID of the finalExpenditureType constraint
+
+  - name: weo_source
+    description: Source node for the IMF, which Data Commons doesn't define
+    config:
+      column_types:
+        dcid: string
+        name: string
+        url: string
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_weo_source_row
+          arguments:
+            value: 1
+    columns:
+      - name: dcid
+        description: DCID of the source node
+        data_tests:
+          - not_null
+      - name: name
+        description: Name of the source
+        data_tests:
+          - not_null
+      - name: url
+        description: URL of the source's website
+        data_tests:
+          - not_null

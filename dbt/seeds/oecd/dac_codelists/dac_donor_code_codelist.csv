@@ -1,0 +1,214 @@
+codelist,code,label,type,iso3_code,dac_code
+donor_code,1,Austria,DAC member,AUT,AUT
+donor_code,2,Belgium,DAC member,BEL,BEL
+donor_code,3,Denmark,DAC member,DNK,DNK
+donor_code,4,France,DAC member,FRA,FRA
+donor_code,5,Germany,DAC member,DEU,DEU
+donor_code,6,Italy,DAC member,ITA,ITA
+donor_code,7,Netherlands,DAC member,NLD,NLD
+donor_code,8,Norway,DAC member,NOR,NOR
+donor_code,9,Portugal,DAC member,PRT,PRT
+donor_code,10,Sweden,DAC member,SWE,SWE
+donor_code,11,Switzerland,DAC member,CHE,CHE
+donor_code,12,United Kingdom,DAC member,GBR,GBR
+donor_code,18,Finland,DAC member,FIN,FIN
+donor_code,20,Iceland,DAC member,ISL,ISL
+donor_code,21,Ireland,DAC member,IRL,IRL
+donor_code,22,Luxembourg,DAC member,LUX,LUX
+donor_code,26,Monaco,Non-DAC member,MCO,MCO
+donor_code,30,Cyprus,Non-DAC member,CYP,CYP
+donor_code,40,Greece,DAC member,GRC,GRC
+donor_code,45,Malta,Non-DAC member,MLT,MLT
+donor_code,50,Spain,DAC member,ESP,ESP
+donor_code,55,Türkiye,Non-DAC member,TUR,TUR
+donor_code,61,Slovenia,DAC member,SVN,SVN
+donor_code,62,Croatia,Non-DAC member,HRV,HRV
+donor_code,68,Czechia,DAC member,CZE,CZE
+donor_code,69,Slovak Republic,DAC member,SVK,SVK
+donor_code,70,Liechtenstein,Non-DAC member,LIE,LIE
+donor_code,72,Bulgaria,Non-DAC member,BGR,BGR
+donor_code,75,Hungary,DAC member,HUN,HUN
+donor_code,76,Poland,DAC member,POL,POL
+donor_code,77,Romania,DAC member,ROU,ROU
+donor_code,82,Estonia,DAC member,EST,EST
+donor_code,83,Latvia,DAC member,LVA,LVA
+donor_code,84,Lithuania,DAC member,LTU,LTU
+donor_code,87,Russia,Non-DAC member,RUS,RUS
+donor_code,104,Nordic Development Fund,Multilateral donor,,9OTH019
+donor_code,130,Algeria,Non-DAC member,DZA,DZA
+donor_code,133,Libya,Non-DAC member,LBY,LBY
+donor_code,139,Tunisia,Country,TUN,
+donor_code,261,Nigeria,Country,NGA,
+donor_code,301,Canada,DAC member,CAN,CAN
+donor_code,302,United States,DAC member,USA,USA
+donor_code,336,Costa Rica,Country,CRI,
+donor_code,340,Dominican Republic,Country,DOM,
+donor_code,347,Guatemala,Country,GTM,
+donor_code,358,Mexico,Non-DAC member,MEX,MEX
+donor_code,425,Argentina,Country,ARG,
+donor_code,431,Brazil,Country,BRA,
+donor_code,434,Chile,Country,CHL,
+donor_code,437,Colombia,Country,COL,
+donor_code,440,Ecuador,Country,ECU,
+donor_code,454,Peru,Country,PER,
+donor_code,460,Uruguay,Country,URY,
+donor_code,543,Iraq,Non-DAC member,IRQ,IRQ
+donor_code,546,Israel,Non-DAC member,ISR,ISR
+donor_code,551,Palestinian Authority,Country,,
+donor_code,552,Kuwait,Non-DAC member,KWT,KWT
+donor_code,561,Qatar,Non-DAC member,QAT,QAT
+donor_code,566,Saudi Arabia,Non-DAC member,SAU,SAU
+donor_code,576,United Arab Emirates,Non-DAC member,ARE,ARE
+donor_code,611,Azerbaijan,Non-DAC member,AZE,AZE
+donor_code,613,Kazakhstan,Non-DAC member,KAZ,KAZ
+donor_code,701,Japan,DAC member,JPN,JPN
+donor_code,732,Chinese Taipei,Non-DAC member,TWN,TWN
+donor_code,738,Indonesia,Country,IDN,
+donor_code,742,Korea,DAC member,KOR,KOR
+donor_code,764,Thailand,Non-DAC member,THA,THA
+donor_code,765,Timor-Leste,Non-DAC member,TLS,TLS
+donor_code,801,Australia,DAC member,AUS,AUS
+donor_code,807,UNEP,Multilateral donor,,1UN016
+donor_code,811,Global Environment Facility,Multilateral donor,,9OTH011
+donor_code,812,Montreal Protocol,Multilateral donor,,9OTH018
+donor_code,820,New Zealand,DAC member,NZL,NZL
+donor_code,901,International Bank for Reconstruction and Development,Multilateral donor,,5WB001
+donor_code,902,Multilateral Investment Guarantee Agency,Multilateral donor,,5WB004
+donor_code,903,International Finance Corporation,Multilateral donor,,5WBG002
+donor_code,905,International Development Association,Multilateral donor,,5WB002
+donor_code,906,Caribbean Development Bank,Multilateral donor,,5RDB004
+donor_code,907,International Monetary Fund,Multilateral donor,,5IMF01
+donor_code,909,Inter-American Development Bank,Multilateral donor,,5IDB001
+donor_code,910,Central American Bank for Economic Integration,Multilateral donor,,5RDB003
+donor_code,913,African Development Bank,Multilateral donor,,5AFDB001
+donor_code,914,African Development Fund,Multilateral donor,,5AFDB002
+donor_code,915,Asian Development Bank,Multilateral donor,,5ASDB01
+donor_code,918,EU Institutions,DAC member,,4EU001
+donor_code,921,Arab Fund (AFESD),Multilateral donor,,9OTH003
+donor_code,923,UN Peacebuilding Fund,Multilateral donor,,1UN011
+donor_code,926,Council of Europe,Multilateral donor,,
+donor_code,928,World Health Organisation,Multilateral donor,,1UN026
+donor_code,932,Food and Agriculture Organisation,Multilateral donor,,1UN003
+donor_code,940,International Labour Organisation,Multilateral donor,,1UN006
+donor_code,944,International Atomic Energy Agency,Multilateral donor,,1UN005
+donor_code,948,UNECE,Multilateral donor,,1UN015
+donor_code,951,OPEC Fund for International Development,Multilateral donor,,9OTH020
+donor_code,952,OAPEC,Multilateral donor,,
+donor_code,953,Arab Bank for Economic Development in Africa,Multilateral donor,,9OTH002
+donor_code,954,Special Arab Aid Fund for Africa,Multilateral donor,,
+donor_code,956,IMF Trust Fund,Multilateral donor,,
+donor_code,958,IMF (Concessional Trust Funds),Multilateral donor,,5IMF02
+donor_code,959,UNDP,Multilateral donor,,1UN014
+donor_code,960,UNTA,Multilateral donor,,1UN023
+donor_code,962,United Nations Conference on Trade and Development,Multilateral donor,,1UN020
+donor_code,963,UNICEF,Multilateral donor,,1UN019
+donor_code,964,UNRWA,Multilateral donor,,1UN022
+donor_code,966,WFP,Multilateral donor,,1UN024
+donor_code,967,UNHCR,Multilateral donor,,1UN018
+donor_code,971,UNAIDS,Multilateral donor,,1UN013
+donor_code,974,UNFPA,Multilateral donor,,1UN017
+donor_code,976,Islamic Development Bank,Multilateral donor,,5RDB009
+donor_code,978,OSCE,Multilateral donor,,9OTH021
+donor_code,979,Islamic Monetary Fund,Multilateral donor,,
+donor_code,980,Arab Fund for Technical Assistance to African and Arab Countries,Multilateral donor,,
+donor_code,981,Black Sea Trade & Development Bank,Multilateral donor,,5RDB002
+donor_code,982,GODE,Multilateral donor,,
+donor_code,983,Other Arab Agencies,Multilateral donor,,
+donor_code,988,IFAD,Multilateral donor,,1UN004
+donor_code,990,European Bank for Reconstruction and Development,Multilateral donor,,5RDB007
+donor_code,992,UN AGENCIES,Multilateral donor,,
+donor_code,997,Global Partnership for Education,Multilateral donor,,9OTH014
+donor_code,1011,Climate Investment Funds,Multilateral donor,,9OTH006
+donor_code,1012,Adaptation Fund,Multilateral donor,,9OTH001
+donor_code,1013,Council of Europe Development Bank,Multilateral donor,,5RDB005
+donor_code,1014,Private Infrastructure Development Group,Multilateral donor,,9OTH022
+donor_code,1015,Development Bank of Latin America,Multilateral donor,,5RDB006
+donor_code,1016,Green Climate Fund,Multilateral donor,,9OTH015
+donor_code,1017,Credit Guarantee and Investment Facility,Multilateral donor,,9OTH007
+donor_code,1018,Global Energy Efficiency and Renewable Energy Fund,Multilateral donor,,9OTH010
+donor_code,1019,IDB Invest,Multilateral donor,,5IDB003
+donor_code,1020,Central Emergency Response Fund,Multilateral donor,,1UN001
+donor_code,1022,UN inter-agency pooled funds,Multilateral donor,,
+donor_code,1023,World Tourism Organisation,Multilateral donor,,1UN027
+donor_code,1024,Asian Infrastructure Investment Bank,Multilateral donor,,5RDB001
+donor_code,1025,Center of Excellence in Finance,Multilateral donor,,9OTH005
+donor_code,1026,SESRIC,Multilateral donor,,
+donor_code,1036,UN Secretariat,Multilateral donor,,
+donor_code,1037,International Investment Bank,Multilateral donor,,5RDB008
+donor_code,1038,UN Institute for Disarmament Research,Multilateral donor,,1UN010
+donor_code,1039,UN Capital Development Fund,Multilateral donor,,1UN008
+donor_code,1040,UN Office on Drugs and Crime,Multilateral donor,,1UN032
+donor_code,1041,Eurasian Fund for Stabilization and Development,Multilateral donor,,9OTH008
+donor_code,1042,UN Office of Counter-Terrorism,Multilateral donor,,
+donor_code,1043,Interpol,Multilateral donor,,
+donor_code,1044,New Development Bank,Multilateral donor,,5RDB010
+donor_code,1045,North American Development Bank,Multilateral donor,,5RDB011
+donor_code,1046,UN Women,Multilateral donor,,1UN012
+donor_code,1047,COVID-19 Response and Recovery Multi-Partner Trust Fund,Multilateral donor,,1UN002
+donor_code,1048,Joint Sustainable Development Goals Fund,Multilateral donor,,1UN007
+donor_code,1049,International Commission on Missing Persons,Multilateral donor,,9OTH017
+donor_code,1050,WHO-Strategic Preparedness and Response Plan,Multilateral donor,,1UN025
+donor_code,1051,United Nations Office for Disarmament Affairs,Multilateral donor,,
+donor_code,1052,International Centre for Genetic Engineering and Biotechnology,Multilateral donor,,9OTH016
+donor_code,1053,Asian Forest Cooperation Organisation,,,9OTH004
+donor_code,1054,World Organisation for Animal Health,Multilateral donor,,9OTH023
+donor_code,1055,CGIAR,Multilateral donor,,9OTH024
+donor_code,1056,Organisation of American States,Multilateral donor,,
+donor_code,1057,UN Development Coordination Office,Multilateral donor,,1UN030
+donor_code,1058,IMF Resilience and Sustainability Trust,Multilateral donor,,5IMF03
+donor_code,1059,Arab Monetary Fund,Multilateral donor,,
+donor_code,1311,Global Alliance for Vaccines and Immunization,Multilateral donor,,9OTH009
+donor_code,1312,Global Fund,Multilateral donor,,9OTH012
+donor_code,1313,Global Green Growth Institute,Multilateral donor,,9OTH013
+donor_code,1401,WTO - International Trade Centre,Multilateral donor,,1UN029
+donor_code,1403,UN Economic and Social Commission for Western Asia,Multilateral donor,,1UN031
+donor_code,1404,World Trade Organisation,Multilateral donor,,1UN028
+donor_code,1406,United Nations Industrial Development Organization,Multilateral donor,,1UN021
+donor_code,1601,Gates Foundation,Private donor,,9PRIV1601
+donor_code,1602,Dutch Postcode Lottery,Private donor,,9PLG0_NL
+donor_code,1603,Swedish Postcode Lottery,Private donor,,9PLG0_SE
+donor_code,1604,People's Postcode Lottery,Private donor,,9PLG0_GB
+donor_code,1605,MetLife Foundation,Private donor,,9PRIV1605
+donor_code,1606,Mastercard Foundation,Private donor,,9PRIV1606
+donor_code,1608,IKEA Foundation,Private donor,,9PRIV1608
+donor_code,1609,Van Leer Foundation,Private donor,,9PRIV1609
+donor_code,1610,MAVA Foundation,Private donor,,9PRIV1610
+donor_code,1611,Oak Foundation,Private donor,,9PRIV1611
+donor_code,1612,H&M Foundation,Private donor,,9PRIV1612
+donor_code,1613,Laudes Foundation,Private donor,,9PRIV1613
+donor_code,1614,Charity Projects Ltd (Comic Relief),Private donor,,9PRIV1614
+donor_code,1615,Children's Investment Fund Foundation,Private donor,,9PRIV1615
+donor_code,1616,Gatsby Charitable Foundation,Private donor,,9PRIV1616
+donor_code,1617,Conrad N. Hilton Foundation,Private donor,,9PRIV1617
+donor_code,1618,David and Lucile Packard Foundation,Private donor,,9PRIV1618
+donor_code,1619,John D. and Catherine T. MacArthur Foundation,Private donor,,9PRIV1619
+donor_code,1620,Carnegie Corporation of New York,Private donor,,9PRIV1620
+donor_code,1621,Michael & Susan Dell Foundation,Private donor,,9PRIV1621
+donor_code,1622,"Omidyar Network Fund, Inc.",Private donor,,9PRIV1622
+donor_code,1623,Rockefeller Foundation,Private donor,,9PRIV1623
+donor_code,1624,William and Flora Hewlett Foundation,Private donor,,9PRIV1624
+donor_code,1625,Arcus Foundation,Private donor,,9PRIV1625
+donor_code,1626,Gordon and Betty Moore Foundation,Private donor,,9PRIV1626
+donor_code,1627,Ford Foundation,Private donor,,9PRIV1627
+donor_code,1628,Wellcome Trust,Private donor,,9PRIV1628
+donor_code,1629,UBS Optimus Foundation,Private donor,,9PRIV1629
+donor_code,1630,World Diabetes Foundation,Private donor,,9PRIV1630
+donor_code,1631,McKnight Foundation,Private donor,,9PRIV1631
+donor_code,1632,Citi Foundation,Private donor,,9PRIV1632
+donor_code,1633,LEGO Foundation,Private donor,,9PRIV1633
+donor_code,1634,Norwegian Postcode Lottery,Private donor,,9PLG0_NO
+donor_code,1636,Jacobs Foundation,Private donor,,9PRIV1636
+donor_code,1637,Arcadia,Private donor,,9PRIV1637
+donor_code,1638,Margaret A. Cargill Foundation,Private donor,,9PRIV1638
+donor_code,1639,La Caixa Banking Foundation,Private donor,,9PRIV1639
+donor_code,1640,Bloomberg Family Foundation,Private donor,,9PRIV1640
+donor_code,1641,Susan T. Buffett Foundation,Private donor,,9PRIV1641
+donor_code,1642,Howard G. Buffett Foundation,Private donor,,9PRIV1642
+donor_code,1643,Open Society Foundations,Private donor,,9PRIV1643
+donor_code,1644,Fondation Botnar,Private donor,,9PRIV1644
+donor_code,1645,CHANEL Foundation,Private donor,,9PRIV1645
+donor_code,1646,Bezos Earth Fund,Private donor,,9PRIV1646
+donor_code,1647,German Postcode Lottery,Private donor,,9PLG0_DE
+donor_code,1648,Leona M. and Harry B. Helmsley Charitable Trust,Private donor,,9PRIV1648
+donor_code,1649,Novo Nordisk Foundation,Private donor,,9PRIV1649
+donor_code,1650,Good Ventures Foundation,Private donor,,9PRIV1650

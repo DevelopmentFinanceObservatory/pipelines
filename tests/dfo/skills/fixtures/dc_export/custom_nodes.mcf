@@ -1,0 +1,48 @@
+Node: dcid:AgentSkill
+name: "Agent Skill"
+typeOf: dcid:Class
+description: "A packaged set of instructions an agent loads for a task."
+subClassOf: dcid:Intangible
+
+Node: dcid:AgentSkillReference
+name: "Agent Skill Reference"
+typeOf: dcid:Class
+description: "A supporting document an agent skill loads on demand."
+subClassOf: dcid:Intangible
+
+Node: dcid:agentSkillReferences
+name: "agent skill references"
+typeOf: dcid:Property
+description: "The supporting documents a skill loads on demand."
+domainIncludes: dcid:AgentSkill
+rangeIncludes: dcid:AgentSkillReference
+
+Node: dcid:skillAppliesTo
+name: "skill applies to"
+typeOf: dcid:Property
+description: "An ontology property or value whose data the skill explains how to interpret. A skill applies to a StatVar when it links to any of the StatVar's constraint properties or constraint values, or to one of their ancestors, since a link also covers the linked node's descendants in the ontology's hierarchy."
+domainIncludes: dcid:AgentSkill
+rangeIncludes: dcid:Thing
+
+Node: dcid:skillAppliesToProvenance
+name: "skill applies to provenance"
+typeOf: dcid:Property
+description: "The provenance of a dataset whose series the skill explains how to use. A skill applies to every series imported under that provenance."
+domainIncludes: dcid:AgentSkill
+rangeIncludes: dcid:Provenance
+
+Node: dcid:skill/example-skill
+name: "example-skill"
+typeOf: dcid:AgentSkill
+description: "An example skill for tests. Use when a test needs a 'skill'."
+url: "https://github.com/ONEcampaign/dfo-skills/tree/main/skills/example-skill"
+text: "---\nname: example-skill\ndescription: >-\n  An example skill for tests. Use when a test needs a \u0022skill\u0022.\n---\n\n# Example skill\n\nRead references/example-reference.md for the \u0022details\u0022.\n"
+agentSkillReferences: dcid:skill/example-skill/example-reference
+skillAppliesTo: dcid:ExampleNode, dcid:ExampleOtherNode
+skillAppliesToProvenance: dcid:provenance/OECDCreditorReportingSystem, dcid:provenance/IMFWorldEconomicOutlook
+
+Node: dcid:skill/example-skill/example-reference
+name: "references/example-reference.md"
+typeOf: dcid:AgentSkillReference
+text: "# example-reference\n\nWhat this covers: the details an example skill defers.\n"
+

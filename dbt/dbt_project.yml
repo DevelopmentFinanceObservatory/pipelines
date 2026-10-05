@@ -1,0 +1,118 @@
+name: 'dfo_pipelines'
+
+config-version: 2
+version: '0.1'
+
+profile: 'dfo_pipelines'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+analysis-paths: ["analysis"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+    - "target"
+    - "dbt_modules"
+    - "logs"
+
+require-dbt-version: [">=1.0.0", "<2.0.0"]
+
+vars:
+  # The year every conversion-table deflator series is rebased to equal 100 in,
+  # written onto both table provenances as deflatorBaseYear. It follows the base
+  # year of the DAC's published constant prices, which the
+  # assert_conversion_tables_dac_total_deflator_is_100_in_the_base_year test
+  # checks against DAC1 before any rebasing.
+  conversion_tables_deflator_base_year: 2024
+
+models:
+  dfo_pipelines:
+    dfo:
+      ontology:
+        +schema: dfo_ontology
+        +meta:
+          dagster:
+            group: dfo_ontology
+    oecd:
+      dac_crs:
+        +schema: oecd_dac_crs
+        +meta:
+          dagster:
+            group: oecd_dac_crs
+    one:
+      imputed_multilateral_sectors:
+        +schema: one_imputed_multilateral_sectors
+        +meta:
+          dagster:
+            group: one_imputed_multilateral_sectors
+      conversion_tables:
+        +schema: one_conversion_tables
+        +meta:
+          dagster:
+            group: one_conversion_tables
+    imf:
+      weo:
+        +schema: imf_weo
+        +meta:
+          dagster:
+            group: imf_weo
+    world_bank:
+      ids:
+        +schema: world_bank_ids
+        +meta:
+          dagster:
+            group: world_bank_ids
+
+seeds:
+  dfo_pipelines:
+    +full_refresh: true
+    data_commons:
+      mappings:
+        +schema: data_commons_mappings
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: data_commons_mappings
+    dfo:
+      ontology:
+        +schema: dfo_ontology
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: dfo_ontology
+      shared:
+        +schema: dfo_shared
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: dfo_shared
+    imf:
+      weo:
+        +schema: imf_weo
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: imf_weo
+    one:
+      conversion_tables:
+        +schema: one_conversion_tables
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: one_conversion_tables
+    oecd:
+      dac_codelists:
+        +schema: oecd_dac_codelists
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: oecd_dac_codelists
+    world_bank:
+      ids:
+        +schema: world_bank_ids
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: world_bank_ids

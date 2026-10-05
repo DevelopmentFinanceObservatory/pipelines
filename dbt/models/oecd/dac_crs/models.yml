@@ -1,0 +1,628 @@
+version: 2
+
+models:
+  - name: stg_dac_crs
+    description: >
+      CRS microdata at source granularity, limited to the columns consumed downstream
+      and cast to their target types. Donor core contributions to multilateral
+      organisations (bi_multi = 2) are excluded, since they are also reported in
+      Members' Total Use of the Multilateral System and would double count against
+      bilateral flows.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.expression_is_true:
+          name: agency_code_valid_for_donor
+          description: >
+            Agency codes are only unique within a provider, so the codelist is keyed on
+            (donor_code, code).
+          config:
+            severity: warn
+          arguments:
+            expression: >
+              agency_code is null
+              or exists (
+                  select 1 from {{ ref('dac_agency_codelist') }} as codelist
+                  where codelist.code = stg_dac_crs.agency_code
+                    and codelist.donor_code = stg_dac_crs.donor_code
+              )
+    columns:
+      - name: year
+        data_type: integer
+        description: Year the flow was reported against
+        data_tests:
+          - not_null
+      - name: donor_code
+        data_type: string
+        description: DAC code of the reporting provider
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac_donor_code_codelist')
+                field: code
+      - name: agency_code
+        data_type: string
+        description: DAC code of the provider's implementing agency
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dac_agency_codelist')
+                field: code
+      - name: recipient_code
+        data_type: string
+        description: DAC code of the recipient
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac_recipient_code_codelist')
+                field: code
+      - name: category
+        data_type: string
+        description: Flow category, e.g. ODA or OOF
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac_category_codelist')
+                field: code
+      - name: finance_t
+        data_type: string
+        description: Type of finance, e.g. grant or loan
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac_finance_t_codelist')
+                field: code
+      - name: aid_t
+        data_type: string
+        description: Type of aid, e.g. budget support or project intervention.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dac_aid_t_codelist')
+                field: code
+      - name: purpose_code
+        data_type: string
+        description: DAC sector/purpose code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac_purpose_code_codelist')
+                field: code
+      - name: usd_commitment
+        data_type: decimal(38,12)
+        description: Commitment in current USD
+      - name: usd_disbursement
+        data_type: decimal(38,12)
+        description: Gross disbursement in current USD
+      - name: usd_received
+        data_type: decimal(38,12)
+        description: Amount received in current USD
+      - name: usd_grant_equiv
+        data_type: decimal(38,12)
+        description: Grant equivalent in current USD
+  - name: int_dac_crs_resolved
+    description: CRS microdata with the reporting provider and the recipient replaced by their DCIDs
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: year
+        data_type: integer
+        description: Year the flow was reported against
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the reporting provider
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient
+        data_tests:
+          - not_null
+      - name: category
+        data_type: string
+        description: Flow category, e.g. ODA or OOF
+        data_tests:
+          - not_null
+      - name: finance_t
+        data_type: string
+        description: Type of finance, e.g. grant or loan
+        data_tests:
+          - not_null
+      - name: aid_t
+        data_type: string
+        description: Type of aid, e.g. budget support or project intervention
+      - name: purpose_code
+        data_type: string
+        description: DAC sector/purpose code
+        data_tests:
+          - not_null
+      - name: usd_commitment
+        data_type: decimal(38,12)
+        description: Commitment in current USD
+      - name: usd_disbursement
+        data_type: decimal(38,12)
+        description: Gross disbursement in current USD
+      - name: usd_received
+        data_type: decimal(38,12)
+        description: Amount received in current USD
+      - name: usd_grant_equiv
+        data_type: decimal(38,12)
+        description: Grant equivalent in current USD
+  - name: int_dac_crs_unified
+    description: >
+      CRS observations at the target grain, one value per row. Materialized because it
+      is expensive, aggregating over every source row, and has a number of data tests.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - year
+              - donor
+              - recipient
+              - category
+              - finance_t
+              - aid_t
+              - purpose_code
+              - financing_event_type
+              - netting_basis
+              - valuation_basis
+      - dbt_utils.expression_is_true:
+          name: netting_basis_null_only_for_grant_equivalents
+          description: >
+            Grant equivalents discount expected repayments rather than netting them
+            off, so they have no netting basis; every other value has one.
+          arguments:
+            expression: >
+              (netting_basis is null) = (valuation_basis = 'grant_equivalent')
+    columns:
+      - name: year
+        data_type: integer
+        description: Year the flow was reported against
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the reporting provider
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient
+        data_tests:
+          - not_null
+      - name: category
+        data_type: string
+        description: Flow category, e.g. ODA or OOF
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_type_of_flow_code_resolves_to_an_ontology_node
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "list = 'dcid:CRSTypeOfFlowEnum'"
+      - name: finance_t
+        data_type: string
+        description: Type of finance, e.g. grant or loan
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_type_of_finance_code_resolves_to_an_ontology_node
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "list = 'dcid:CRSTypeOfFinanceEnum'"
+      - name: aid_t
+        data_type: string
+        description: Type of aid, e.g. budget support or project intervention
+        data_tests:
+          - dbt_utils.relationships_where:
+              name: every_cooperation_modality_code_resolves_to_an_ontology_node
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "list = 'dcid:CRSCooperationModalityEnum'"
+      - name: purpose_code
+        data_type: string
+        description: DAC sector/purpose code
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_purpose_code_resolves_to_an_ontology_node
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                to_condition: "list = 'dcid:CRSPurposeCodeEnum'"
+      - name: financing_event_type
+        data_type: string
+        description: Which type of financing event the value reports
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [commitment, disbursement]
+      - name: netting_basis
+        data_type: string
+        description: Whether repayments have been netted off the value.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [gross, net]
+      - name: valuation_basis
+        data_type: string
+        description: How the flow is valued, at face value or as a grant equivalent
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [face_value, grant_equivalent]
+      - name: value
+        data_type: decimal(38,12)
+        description: Sum of the source amounts for this combination of dimensions
+        data_tests:
+          - not_null
+  - name: int_dac_crs_mapped
+    description: >
+      The unified grain mapped onto the DC vocabulary, with minted StatVar's DCIDs.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: statvar_dcid
+        data_type: string
+        description: DCID of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: Human-readable name of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population the StatVar measures
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the property the StatVar measures
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type of the StatVar, measuredValue throughout CRS
+        data_tests:
+          - not_null
+          - relationships:
+              name: every_stat_type_has_a_dcid_segment_mapping
+              description: >
+                A stat type with no mapping would mint a DCID missing its segment,
+                colliding with the measuredValue variant of the same measure.
+              arguments:
+                to: ref('stat_type_mapping')
+                field: stat_type
+      - name: constraint_properties
+        data_type: string
+        description: >
+          Comma-delimited property names that constrain the StatVar. A dimension that
+          does not apply to a measure is left out, so this is shorter for some rows.
+      - name: type_of_flow
+        data_type: string
+        description: DCID of the flow category
+        data_tests:
+          - not_null
+      - name: type_of_finance
+        data_type: string
+        description: DCID of the type of finance
+        data_tests:
+          - not_null
+      - name: cooperation_modality
+        data_type: string
+        description: >
+          DCID of the aid modality. Null where the source reports none, which is most
+          rows.
+      - name: purpose_code
+        data_type: string
+        description: DCID of the sector
+        data_tests:
+          - not_null
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type
+      - name: netting_basis
+        data_type: string
+        description: >
+          DCID of the netting basis. Null for commitments.
+      - name: measurement_qualifier
+        data_type: string
+        description: >
+          DCID qualifying how the value is measured. Every published amount is at
+          current prices, so this is nominal throughout.
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the financing provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the financing recipient
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the currency the amount is denominated in, always USD
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the flow was reported against
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: The observed amount
+        data_tests:
+          - not_null
+  - name: dc_dac_crs_statvars
+    description: >
+      The StatVar nodes the observations reference, one row per variable, taken from the
+      model that mints the DCID rather than rebuilt. Materialized because it dedupes
+      variables from observations, and data tests would each repeat that.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        data_type: string
+        description: DCID of the population measured
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the property measured
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type, measuredValue throughout CRS
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+      - name: type_of_flow
+        data_type: string
+        description: DCID of the flow category
+      - name: type_of_finance
+        data_type: string
+        description: DCID of the type of finance
+      - name: cooperation_modality
+        data_type: string
+        description: DCID of the aid modality, null where the source reports none
+      - name: purpose_code
+        data_type: string
+        description: DCID of the sector
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, null for commitments
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID qualifying how the value is measured, nominal throughout
+        data_tests:
+          - not_null
+      - name: observation_properties
+        data_type: string
+        description: >
+          Comma-delimited properties an observation carries rather than the variable, so
+          one variable covers every provider and recipient pair rather than one per pair.
+  - name: dc_dac_crs_observations
+    description: >
+      One row per observation, naming the StatVar it measures. Materialized because the
+      export reads it once per year partition.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_observation_per_variable_entities_and_date
+          description: >
+            Data Commons keys an observation on its variable, entity and date, so a
+            duplicate would be rejected on ingest.
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_dac_crs_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the financing provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the financing recipient
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(18,2)
+        description: >
+          The observed amount, in whole units of the currency the unit names. The CRS
+          reports in millions, so this is the source figure scaled up.
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the currency, always USD
+        data_tests:
+          - not_null
+  - name: dc_dac_crs_provenance
+    description: >
+      Provenance node for CRS data. Observation dates are read
+      from the observations model.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_provenance_row
+          description: >
+            The node describes one import, and the extraction metadata it joins
+            holds one row. A second row here means that join fanned out.
+          arguments:
+            value: 1
+    columns:
+      - name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What the CRS is and what it covers
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the OECD source node, which exists in Data Commons already
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the landing page for the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: URL of the source data file
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: URL of the terms the source data is published under
+        data_tests:
+          - not_null
+      - name: license_type
+        data_type: string
+        description: DCID of the licence type node the source data is published under.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('license_types')
+                field: dcid
+      - name: source_release_frequency
+        data_type: string
+        description: >
+          How often the source publishes, as an ISO 8601 duration. OECD publishes
+          four times a year - a December major release and three revisions - at
+          uneven gaps the single-unit duration format cannot express, so this is
+          their mean. next_source_release_date carries the exact month.
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: >
+          Date the raw file was downloaded, as an ISO 8601 date in UTC, read from
+          the extraction metadata.
+        data_tests:
+          - not_null
+      - name: next_source_release_date
+        data_type: string
+        description: >
+          Month of expected next publish, as ISO 8601 year and month. OECD
+          publishes in April, June, September and December; this is the first of
+          those after the release we hold, so it stays put - and falls into the
+          past - while a release is overdue.
+        data_tests:
+          - not_null
+      - name: next_data_refresh_date
+        data_type: string
+        description: >
+          When the data is next expected to be refreshed, as ISO 8601 year and month.
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year the observations cover, read from them, as an ISO 8601 year
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year the observations cover, read from them, as an ISO 8601 year
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation the OECD terms require, naming the release the data came from
+          and the date it was taken.
+        data_tests:
+          - not_null

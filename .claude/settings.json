@@ -1,0 +1,21 @@
+{
+  "extraKnownMarketplaces": {
+    "dagster": {
+      "source": {
+        "source": "github",
+        "repo": "dagster-io/skills"
+      }
+    },
+    "one-data": {
+      "source": {
+        "source": "github",
+        "repo": "ONEcampaign/one-data-claude-marketplace"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "dagster-expert@dagster": true,
+    "one-data-coding@one-data": true
+  }
+}

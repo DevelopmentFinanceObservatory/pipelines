@@ -1,0 +1,16 @@
+recipe,currency,area,role,reason
+dcid:ConversionRecipeDAC,CHF,dcid:country/CHE,reference,Switzerland issues the franc
+dcid:ConversionRecipeDAC,EUR,dcid:EuropeanUnionInstitutions,reference,"EU Institutions report in euros (ECU before 1999) in every year they report, and their large totals round least"
+dcid:ConversionRecipeDAC,EUR,dcid:country/BGR,not_checked,"DAC1 reports Bulgaria in Bulgarian lev through 2025, while the IMF map gives the euro Bulgaria adopted in 2026"
+dcid:ConversionRecipeDAC,USD,dcid:country/USA,reference,The United States issues the dollar
+dcid:ConversionRecipeIMF,AUD,dcid:country/AUS,reference,Australia issues the dollar
+dcid:ConversionRecipeIMF,AUD,dcid:country/NRU,not_checked,"WEO's GDP ratio for Nauru differs from Australia's by 2.9% in Nauru's last actual year, 2020"
+dcid:ConversionRecipeIMF,AUD,dcid:country/TUV,not_checked,"WEO publishes Tuvalu's GDP of under 0.1 billion to the nearest thousand, so its GDP ratio carries rounding near 1e-5 and differs from Australia's by 8e-6 in 2024"
+dcid:ConversionRecipeIMF,CHF,dcid:country/CHE,reference,Switzerland issues the franc
+dcid:ConversionRecipeIMF,EUR,dcid:country/DEU,reference,"Germany has used the euro since 1999, and WEO publishes no euro-area GDP in euros"
+dcid:ConversionRecipeIMF,EUR,dcid:country/AND,not_checked,"WEO's GDP ratio for Andorra differs from Germany's by 0.17% in Andorra's last actual year, 2025"
+dcid:ConversionRecipeIMF,ILS,dcid:country/ISR,reference,Israel issues the shekel
+dcid:ConversionRecipeIMF,USD,dcid:country/USA,reference,The United States issues the dollar
+dcid:ConversionRecipeIMF,XAF,dcid:country/CMR,reference,"Cameroon, the largest CEMAC economy, as no country issues the CFA franc"
+dcid:ConversionRecipeIMF,XCD,dcid:country/LCA,reference,"Saint Lucia, as no country issues the Eastern Caribbean dollar"
+dcid:ConversionRecipeIMF,XOF,dcid:country/CIV,reference,"Côte d'Ivoire, the largest WAEMU economy, as no country issues the CFA franc"

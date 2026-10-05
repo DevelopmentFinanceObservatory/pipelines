@@ -1,0 +1,99 @@
+version: 2
+
+sources:
+  - name: oecd_dac_crs
+    description: OECD DAC CRS data
+    tables:
+      - name: raw_dac_crs
+        description: >
+          Bulk CRS microdata as downloaded from the OECD, loaded verbatim. Only the
+          columns consumed by stg_dac_crs are declared; the bulk file carries ~100.
+        config:
+          meta:
+            dagster:
+              asset_key: ["oecd_dac_crs_raw_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: crs_required_columns_present
+              arguments:
+                column_list:
+                  - year
+                  - donor_code
+                  - agency_code
+                  - recipient_code
+                  - category
+                  - finance_t
+                  - aid_t
+                  - purpose_code
+                  - usd_commitment
+                  - usd_disbursement
+                  - usd_received
+                  - usd_grant_equiv
+                  - bi_multi
+        columns:
+          - name: year
+            data_type: integer
+            description: Year the flow was reported against
+          - name: donor_code
+            data_type: integer
+            description: DAC code of the reporting provider
+          - name: agency_code
+            data_type: integer
+            description: DAC code of the provider's implementing agency
+          - name: recipient_code
+            data_type: integer
+            description: DAC code of the recipient
+          - name: category
+            data_type: integer
+            description: Flow category, e.g. ODA or OOF
+          - name: finance_t
+            data_type: integer
+            description: Type of finance, e.g. grant or loan
+          - name: aid_t
+            data_type: varchar
+            description: Type of aid, e.g. budget support or project intervention
+          - name: purpose_code
+            data_type: integer
+            description: DAC sector/purpose code
+          - name: usd_commitment
+            data_type: double
+            description: Commitment in current USD
+          - name: usd_disbursement
+            data_type: double
+            description: Gross disbursement in current USD
+          - name: usd_received
+            data_type: double
+            description: Amount received in current USD
+          - name: usd_grant_equiv
+            data_type: double
+            description: Grant equivalent in current USD
+          - name: bi_multi
+            data_type: integer
+            description: >
+              OECD bilateral/multilateral flag. Value 2 marks a donor's core
+              contribution to a multilateral organisation, reported as a CRS row
+              since the OECD's April 2026 release and excluded by stg_dac_crs.
+      - name: raw_dac_crs_metadata
+        description: >
+          One row containing metadata about the data currently loaded into the raw
+          table.
+        config:
+          meta:
+            dagster:
+              asset_key: ["oecd_dac_crs_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw file was downloaded
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When OECD published the data in the raw file.
+            data_tests:
+              - not_null

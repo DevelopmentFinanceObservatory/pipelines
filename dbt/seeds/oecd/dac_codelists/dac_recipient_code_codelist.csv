@@ -1,0 +1,210 @@
+codelist,code,label,type,iso3_code,dac_code
+recipient_code,30,Cyprus,Country,CYP,CYP
+recipient_code,35,Gibraltar,Country,GIB,GIB
+recipient_code,45,Malta,Country,MLT,MLT
+recipient_code,55,Türkiye,Country,TUR,TUR
+recipient_code,57,Kosovo,Country,XKX,XKV
+recipient_code,61,Slovenia,Country,SVN,SVN
+recipient_code,62,Croatia,Country,HRV,HRV
+recipient_code,63,Serbia,Country,SRB,SRB
+recipient_code,64,Bosnia and Herzegovina,Country,BIH,BIH
+recipient_code,65,Montenegro,Country,MNE,MNE
+recipient_code,66,North Macedonia,Country,MKD,MKD
+recipient_code,71,Albania,Country,ALB,ALB
+recipient_code,85,Ukraine,Country,UKR,UKR
+recipient_code,86,Belarus,Country,BLR,BLR
+recipient_code,88,States Ex-Yugoslavia unspecified,Country,,SFRY_X
+recipient_code,89,"Europe, regional",Country,,E_X
+recipient_code,93,Moldova,Country,MDA,MDA
+recipient_code,105,MADCT Unspecified,Country,,MADCT_X
+recipient_code,130,Algeria,Country,DZA,DZA
+recipient_code,133,Libya,Country,LBY,LBY
+recipient_code,136,Morocco,Country,MAR,MAR
+recipient_code,139,Tunisia,Country,TUN,TUN
+recipient_code,142,Egypt,Country,EGY,EGY
+recipient_code,189,"North of Sahara, regional",Country,,F4_X
+recipient_code,218,South Africa,Country,ZAF,ZAF
+recipient_code,225,Angola,Country,AGO,AGO
+recipient_code,227,Botswana,Country,BWA,BWA
+recipient_code,228,Burundi,Country,BDI,BDI
+recipient_code,229,Cameroon,Country,CMR,CMR
+recipient_code,230,Cabo Verde,Country,CPV,CPV
+recipient_code,231,Central African Republic,Country,CAF,CAF
+recipient_code,232,Chad,Country,TCD,TCD
+recipient_code,233,Comoros,Country,COM,COM
+recipient_code,234,Congo,Country,COG,COG
+recipient_code,235,Democratic Republic of the Congo,Country,COD,COD
+recipient_code,236,Benin,Country,BEN,BEN
+recipient_code,238,Ethiopia,Country,ETH,ETH
+recipient_code,239,Gabon,Country,GAB,GAB
+recipient_code,240,Gambia,Country,GMB,GMB
+recipient_code,241,Ghana,Country,GHA,GHA
+recipient_code,243,Guinea,Country,GIN,GIN
+recipient_code,244,Guinea-Bissau,Country,GNB,GNB
+recipient_code,245,Equatorial Guinea,Country,GNQ,GNQ
+recipient_code,247,Côte d'Ivoire,Country,CIV,CIV
+recipient_code,248,Kenya,Country,KEN,KEN
+recipient_code,249,Lesotho,Country,LSO,LSO
+recipient_code,251,Liberia,Country,LBR,LBR
+recipient_code,252,Madagascar,Country,MDG,MDG
+recipient_code,253,Malawi,Country,MWI,MWI
+recipient_code,255,Mali,Country,MLI,MLI
+recipient_code,256,Mauritania,Country,MRT,MRT
+recipient_code,257,Mauritius,Country,MUS,MUS
+recipient_code,258,Mayotte,Country,MYT,MYT
+recipient_code,259,Mozambique,Country,MOZ,MOZ
+recipient_code,260,Niger,Country,NER,NER
+recipient_code,261,Nigeria,Country,NGA,NGA
+recipient_code,265,Zimbabwe,Country,ZWE,ZWE
+recipient_code,266,Rwanda,Country,RWA,RWA
+recipient_code,268,Sao Tome and Principe,Country,STP,STP
+recipient_code,269,Senegal,Country,SEN,SEN
+recipient_code,270,Seychelles,Country,SYC,SYC
+recipient_code,271,Eritrea,Country,ERI,ERI
+recipient_code,272,Sierra Leone,Country,SLE,SLE
+recipient_code,273,Somalia,Country,SOM,SOM
+recipient_code,274,Djibouti,Country,DJI,DJI
+recipient_code,275,Namibia,Country,NAM,NAM
+recipient_code,276,Saint Helena,Country,SHN,SHN
+recipient_code,278,Sudan,Country,SDN,SDN
+recipient_code,279,South Sudan,Country,SSD,SSD
+recipient_code,280,Eswatini,Country,SWZ,SWZ
+recipient_code,282,Tanzania,Country,TZA,TZA
+recipient_code,283,Togo,Country,TGO,TGO
+recipient_code,285,Uganda,Country,UGA,UGA
+recipient_code,287,Burkina Faso,Country,BFA,BFA
+recipient_code,288,Zambia,Country,ZMB,ZMB
+recipient_code,289,"South of Sahara, regional",Country,,F6_X
+recipient_code,298,"Africa, regional",Country,,F_X
+recipient_code,328,Bahamas,Country,BHS,BHS
+recipient_code,329,Barbados,Country,BRB,BRB
+recipient_code,331,Bermuda,Country,BMU,BMU
+recipient_code,336,Costa Rica,Country,CRI,CRI
+recipient_code,338,Cuba,Country,CUB,CUB
+recipient_code,340,Dominican Republic,Country,DOM,DOM
+recipient_code,342,El Salvador,Country,SLV,SLV
+recipient_code,347,Guatemala,Country,GTM,GTM
+recipient_code,349,Haiti,Country,HTI,HTI
+recipient_code,351,Honduras,Country,HND,HND
+recipient_code,352,Belize,Country,BLZ,BLZ
+recipient_code,354,Jamaica,Country,JAM,JAM
+recipient_code,358,Mexico,Country,MEX,MEX
+recipient_code,361,Netherlands Antilles,Country,SXM,SXM
+recipient_code,364,Nicaragua,Country,NIC,NIC
+recipient_code,366,Panama,Country,PAN,PAN
+recipient_code,373,Aruba,Country,ABW,ABW
+recipient_code,375,Trinidad and Tobago,Country,TTO,TTO
+recipient_code,376,Anguilla,Country,AIA,AIA
+recipient_code,377,Antigua and Barbuda,Country,ATG,ATG
+recipient_code,378,Dominica,Country,DMA,DMA
+recipient_code,381,Grenada,Country,GRD,GRD
+recipient_code,382,Saint Kitts and Nevis,Country,KNA,KNA
+recipient_code,383,Saint Lucia,Country,LCA,LCA
+recipient_code,384,Saint Vincent and the Grenadines,Country,VCT,VCT
+recipient_code,385,Montserrat,Country,MSR,MSR
+recipient_code,386,Cayman Islands,Country,CYM,CYM
+recipient_code,387,Turks and Caicos Islands,Country,TCA,TCA
+recipient_code,388,British Virgin Islands,Country,VGB,VGB
+recipient_code,389,"Caribbean & Central America, regional",Country,,A5_X
+recipient_code,425,Argentina,Country,ARG,ARG
+recipient_code,428,Bolivia,Country,BOL,BOL
+recipient_code,431,Brazil,Country,BRA,BRA
+recipient_code,434,Chile,Country,CHL,CHL
+recipient_code,437,Colombia,Country,COL,COL
+recipient_code,440,Ecuador,Country,ECU,ECU
+recipient_code,443,Falkland Islands (Malvinas),Country,FLK,FLK
+recipient_code,446,Guyana,Country,GUY,GUY
+recipient_code,451,Paraguay,Country,PRY,PRY
+recipient_code,454,Peru,Country,PER,PER
+recipient_code,457,Suriname,Country,SUR,SUR
+recipient_code,460,Uruguay,Country,URY,URY
+recipient_code,463,Venezuela,Country,VEN,VEN
+recipient_code,489,"South America, regional",Country,,A7_X
+recipient_code,498,"America, regional",Country,,A_X
+recipient_code,530,Bahrain,Country,BHR,BHR
+recipient_code,540,Iran,Country,IRN,IRN
+recipient_code,543,Iraq,Country,IRQ,IRQ
+recipient_code,546,Israel,Country,ISR,ISR
+recipient_code,549,Jordan,Country,JOR,JOR
+recipient_code,550,West Bank and Gaza Strip,Country,PSE,PSE
+recipient_code,552,Kuwait,Country,KWT,KWT
+recipient_code,555,Lebanon,Country,LBN,LBN
+recipient_code,558,Oman,Country,OMN,OMN
+recipient_code,561,Qatar,Country,QAT,QAT
+recipient_code,566,Saudi Arabia,Country,SAU,SAU
+recipient_code,573,Syrian Arab Republic,Country,SYR,SYR
+recipient_code,576,United Arab Emirates,Country,ARE,ARE
+recipient_code,580,Yemen,Country,YEM,YEM
+recipient_code,589,"Middle East, regional",Country,,F97_X
+recipient_code,610,Armenia,Country,ARM,ARM
+recipient_code,611,Azerbaijan,Country,AZE,AZE
+recipient_code,612,Georgia,Country,GEO,GEO
+recipient_code,613,Kazakhstan,Country,KAZ,KAZ
+recipient_code,614,Kyrgyzstan,Country,KGZ,KGZ
+recipient_code,615,Tajikistan,Country,TJK,TJK
+recipient_code,616,Turkmenistan,Country,TKM,TKM
+recipient_code,617,Uzbekistan,Country,UZB,UZB
+recipient_code,619,"Central Asia, regional",Country,,S4_X
+recipient_code,625,Afghanistan,Country,AFG,AFG
+recipient_code,630,Bhutan,Country,BTN,BTN
+recipient_code,635,Myanmar,Country,MMR,MMR
+recipient_code,640,Sri Lanka,Country,LKA,LKA
+recipient_code,645,India,Country,IND,IND
+recipient_code,655,Maldives,Country,MDV,MDV
+recipient_code,660,Nepal,Country,NPL,NPL
+recipient_code,665,Pakistan,Country,PAK,PAK
+recipient_code,666,Bangladesh,Country,BGD,BGD
+recipient_code,679,"South Asia, regional",Country,,S7_X
+recipient_code,689,"South & Central Asia, regional",Country,,S4_S7_X
+recipient_code,725,Brunei Darussalam,Country,BRN,BRN
+recipient_code,728,Cambodia,Country,KHM,KHM
+recipient_code,730,China (People's Republic of),Country,CHN,CHN
+recipient_code,732,Chinese Taipei,Country,TWN,TWN
+recipient_code,735,Hong Kong (China),Country,HKG,HKG
+recipient_code,738,Indonesia,Country,IDN,IDN
+recipient_code,740,Democratic People's Republic of Korea,Country,PRK,PRK
+recipient_code,742,Korea,Country,KOR,KOR
+recipient_code,745,Lao People's Democratic Republic,Country,LAO,LAO
+recipient_code,748,Macau (China),Country,MAC,MAC
+recipient_code,751,Malaysia,Country,MYS,MYS
+recipient_code,753,Mongolia,Country,MNG,MNG
+recipient_code,755,Philippines,Country,PHL,PHL
+recipient_code,761,Singapore,Country,SGP,SGP
+recipient_code,764,Thailand,Country,THA,THA
+recipient_code,765,Timor-Leste,Country,TLS,TLS
+recipient_code,769,Viet Nam,Country,VNM,VNM
+recipient_code,789,"Far East Asia, regional",Country,,S97_X
+recipient_code,798,"Asia, regional",Country,,S_X
+recipient_code,831,Cook Islands,Country,COK,COK
+recipient_code,832,Fiji,Country,FJI,FJI
+recipient_code,836,Kiribati,Country,KIR,KIR
+recipient_code,840,French Polynesia,Country,PYF,PYF
+recipient_code,845,Nauru,Country,NRU,NRU
+recipient_code,850,New Caledonia,Country,NCL,NCL
+recipient_code,854,Vanuatu,Country,VUT,VUT
+recipient_code,856,Niue,Country,NIU,NIU
+recipient_code,858,Northern Mariana Islands,Country,MNP,MNP
+recipient_code,859,Marshall Islands,Country,MHL,MHL
+recipient_code,860,Micronesia,Country,FSM,FSM
+recipient_code,861,Palau,Country,PLW,PLW
+recipient_code,862,Papua New Guinea,Country,PNG,PNG
+recipient_code,866,Solomon Islands,Country,SLB,SLB
+recipient_code,868,Tokelau,Country,TKL,TKL
+recipient_code,870,Tonga,Country,TON,TON
+recipient_code,872,Tuvalu,Country,TUV,TUV
+recipient_code,876,Wallis and Futuna,Country,WLF,WLF
+recipient_code,880,Samoa,Country,WSM,WSM
+recipient_code,889,"Oceania, regional",Country,,O_X
+recipient_code,998,"Developing countries, unspecified",n.a.,,DPGC_X
+recipient_code,999,Global,n.a.,,
+recipient_code,1027,"Eastern Africa, regional",Country,,F3_X
+recipient_code,1028,"Middle Africa, regional",Country,,F5_X
+recipient_code,1029,"Southern Africa, regional",Country,,F7_X
+recipient_code,1030,"Western Africa, regional",Country,,F8_X
+recipient_code,1031,"Caribbean, regional",Country,,A4_X
+recipient_code,1032,"Central America, regional",Country,,A3_X
+recipient_code,1033,"Melanesia, regional",Country,,O7_X
+recipient_code,1034,"Micronesia, regional",Country,,O8_X
+recipient_code,1035,"Polynesia, regional",Country,,O9_X
+recipient_code,9998,"Bilateral, unspecified",n.a.,,DPGC_X
+recipient_code,237,East African Community,n.a.,,EAC

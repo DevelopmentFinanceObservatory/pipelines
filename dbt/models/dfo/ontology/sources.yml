@@ -1,0 +1,50 @@
+version: 2
+
+sources:
+  - name: dfo_ontology
+    description: DFO ontology compiled from the concept store
+    tables:
+      - name: raw_code_mapping
+        description: >
+          The code mapping the ontology compiler emits, loaded verbatim. One row per
+          code per code system, naming the node the code resolves to.
+        config:
+          meta:
+            dagster:
+              asset_key: ["dfo_ontology_raw_code_mapping_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: ontology_required_columns_present
+              arguments:
+                column_list:
+                  - list
+                  - code
+                  - dcid
+                  - label
+                  - property
+        columns:
+          - name: list
+            data_type: varchar
+            description: DCID of the ontology class or enum the code belongs to
+            data_tests:
+              - not_null
+          - name: code
+            data_type: varchar
+            description: Classification code as published by the source
+            data_tests:
+              - not_null
+          - name: dcid
+            data_type: varchar
+            description: DCID of the ontology node this code resolves to
+            data_tests:
+              - not_null
+          - name: label
+            data_type: varchar
+            description: Node name as published by the ontology
+            data_tests:
+              - not_null
+          - name: property
+            data_type: varchar
+            description: The node property that contains the classification code
+            data_tests:
+              - not_null

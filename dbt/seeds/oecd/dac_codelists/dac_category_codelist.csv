@@ -1,0 +1,12 @@
+codelist,code,label,description,category,parent_code
+category,10,ODA,Official Development Assistance,,
+category,20,OOF,Other Official Flows,,
+category,21,Non-export credit OOF,"Other Official Flows, excl. export credits",,
+category,22,Officially supported export credits,Officially supported export credits. Covers both official direct export credits and private export credits under official guarantee or insurance,,
+category,30,Private Development Finance,"Financing by civil society organisations (NGOs, philantropic foundations, etc.)",,
+category,35,Private Market,Private long-term (i.e. over one-year maturity) capital transactions made by residents of DAC countries,,
+category,36,Private Foreign Direct Investment,Private Foreign Direct Investment,,
+category,37,Other Private flows at market terms,Private long-term (i.e. over one-year maturity) capital transactions made by residents of DAC countries,,
+category,40,Non flow,"e.g. GNI, ODA%GNI, Population etc",,
+category,50,Other flows,e.g. non-ODA component of peacebuilding operations,,
+category,60,PSI,Private sector instruments,,

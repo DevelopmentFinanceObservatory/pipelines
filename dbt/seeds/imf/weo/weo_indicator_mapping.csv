@@ -1,0 +1,10 @@
+concept_code,population_type,measured_property,stat_type,measurement_qualifier,product_tax_basis,fixed_capital_consumption_basis,cyclical_adjustment,currency_conversion_basis,final_expenditure_type,denominator_concept_code,denominator_dcid,unit,measurement_method
+NGAP_NPGDP,dcid:EconomicProduction,dcid:outputGap,dcid:measuredValue,dcid:RealValue,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,,,,dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_CyclicallyAdjusted_RealValue,dcid:Percent,dcid:Modelled
+NGDP,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,,,,,,
+NGDPD,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,,,,,dcid:CurrencyUSD,
+NGDPDPC,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,,,,dcid:Count_Person,dcid:CurrencyUSD,
+NGDPPC,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,,,,dcid:Count_Person,,
+NGSD_NGDP,dcid:EconomicUnit,dcid:saving,dcid:measuredValue,dcid:Nominal,,dcid:GrossOfFixedCapitalConsumption,,,,NGDP,,dcid:Percent,
+NID_NGDP,dcid:FinalExpenditure,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:GrossOfFixedCapitalConsumption,,,dcid:CapitalFormation,NGDP,,dcid:Percent,
+PPPGDP,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,dcid:PurchasingPowerParityRate,,,,dcid:PPPInternationalDollar,
+PPPPC,dcid:EconomicProduction,dcid:valueAdded,dcid:measuredValue,dcid:Nominal,dcid:IncludingProductTaxes,dcid:GrossOfFixedCapitalConsumption,,dcid:PurchasingPowerParityRate,,,dcid:Count_Person,dcid:PPPInternationalDollar,

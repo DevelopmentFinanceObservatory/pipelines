@@ -1,0 +1,64 @@
+version: 2
+
+seeds:
+  - name: currency_rate_reference
+    description: >
+      Which area's implied rate is a currency's rate in each conversion table,
+      and which member areas the agreement check leaves out. A currency one
+      area uses needs no row, because that area is its reference. A currency several
+      areas use needs exactly one reference row, or
+      the table's rate references model leaves its reference null and the
+      build fails. A reference row also gives the currency of an area the IMF
+      currency map has no country for, such as EU Institutions.
+    config:
+      column_types:
+        recipe: string
+        currency: string
+        area: string
+        role: string
+        reason: string
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_recipe_currency_and_area
+          arguments:
+            combination_of_columns:
+              - recipe
+              - currency
+              - area
+      - dbt_utils.unique_combination_of_columns:
+          name: one_reference_per_recipe_and_currency
+          arguments:
+            combination_of_columns:
+              - recipe
+              - currency
+          config:
+            where: "role = 'reference'"
+    columns:
+      - name: recipe
+        description: DCID of the ConversionRecipe member whose table the row configures
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['dcid:ConversionRecipeDAC', 'dcid:ConversionRecipeIMF']
+      - name: currency
+        description: ISO 4217 code of the currency
+        data_tests:
+          - not_null
+      - name: area
+        description: DCID of the country or organisation the row names
+        data_tests:
+          - not_null
+      - name: role
+        description: >
+          reference when the area's rate is the currency's rate, and
+          not_checked when the agreement check leaves the area out
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [reference, not_checked]
+      - name: reason
+        description: Why this area is the reference, or why it is not checked
+        data_tests:
+          - not_null

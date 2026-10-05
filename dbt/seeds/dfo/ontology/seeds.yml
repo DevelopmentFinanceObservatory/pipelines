@@ -1,0 +1,84 @@
+version: 2
+
+seeds:
+  - name: interim_code_mapping
+    description: >
+      Hand-curated mappings in the same shape as the raw_code_mapping source, for nodes a
+      pipeline needs that the DFO ontology does not define yet. A row lives here only
+      until the ontology adopts its node, at which point the export carries it and the
+      row is deleted.
+    config:
+      column_types:
+        list: string
+        code: string
+        dcid: string
+        label: string
+        property: string
+    columns:
+      - name: list
+        description: DCID of the ontology class or enum the code belongs to
+        data_tests:
+          - not_null
+      - name: code
+        description: Classification code as published by the source
+        data_tests:
+          - not_null
+      - name: dcid
+        description: DCID of the node this code resolves to, existing or to be minted
+        data_tests:
+          - not_null
+      - name: label
+        description: Name for the node, in the style the ontology publishes
+        data_tests:
+          - not_null
+      - name: property
+        description: The node property that contains the classification code
+        data_tests:
+          - not_null
+
+  - name: ids_code_mapping
+    description: >
+      Hand-curated mappings in the same shape as the raw_code_mapping source, for
+      codes the DFO ontology leaves to the pipeline: it defines the nodes they
+      name but does not attach the codes to them. Unlike interim_code_mapping a
+      row lives here for good, and while the export still carries the same
+      mapping the row waits dormant in the seed rather than duplicating it.
+    config:
+      column_types:
+        list: string
+        code: string
+        dcid: string
+        label: string
+        property: string
+    columns:
+      - name: list
+        description: DCID of the ontology class or enum the code belongs to
+        data_tests:
+          - not_null
+      - name: code
+        description: Classification code as published by the source
+        data_tests:
+          - not_null
+      - name: dcid
+        description: DCID of the node this code resolves to, existing or to be minted
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_ids_currency_is_an_ontology_currency
+              description: >
+                The ontology publishes its currencies under their ISO codes, so a
+                World Bank currency code must name one of those nodes. Skips MULC and
+                OTHC, whose nodes the ontology defines without a code.
+              arguments:
+                to: source('dfo_ontology', 'raw_code_mapping')
+                field: dcid
+                from_condition: "list = 'dcid:CurrencyUnit' and code not in ('MULC', 'OTHC')"
+                to_condition: "list = 'dcid:CurrencyUnit'"
+      - name: label
+        description: Name for the node, in the style the ontology publishes
+        data_tests:
+          - not_null
+      - name: property
+        description: The node property that contains the classification code
+        data_tests:
+          - not_null

@@ -1,0 +1,444 @@
+---
+unit_tests:
+  - name: stg_ids_maps_each_source_column_to_its_output_column
+    model: stg_ids
+    description: >
+      Every source column reaches the output column it stands for, trimmed and
+      cast. Padding is included because production source data pads Country Code
+      on every row, and Counterpart-Area Name and Series Code on some. Two
+      source rows, so that rows are shown to be handled independently rather
+      than only the first surviving, and a zero value, so that "no value" stays
+      distinct from "zero".
+    given:
+      - input: source('world_bank_ids', 'raw_ids')
+        rows:
+          - "Country Code": "AFG       "
+            "Country Name": "Afghanistan"
+            "Counterpart-Area Name": "Austria                       "
+            "Counterpart-Area Code": "001"
+            "Series Name": "Debt stock, bilateral"
+            "Series Code": "DT.DOD.BLAT.CD                "
+            "2023": "1.5"
+            "2024": "-2.25"
+          - "Country Code": "ZMB       "
+            "Country Name": "Zambia"
+            "Counterpart-Area Name": "Belgium"
+            "Counterpart-Area Code": "002"
+            "Series Name": "Debt service, bilateral"
+            "Series Code": "DT.TDS.BLAT.CD"
+            "2023": "10"
+            "2024": "0"
+    expect:
+      rows:
+        - country_code: AFG
+          country_name: Afghanistan
+          counterpart_name: Austria
+          counterpart_code: "001"
+          series_name: Debt stock, bilateral
+          series_code: DT.DOD.BLAT.CD
+          year: 2023
+          value: 1.5
+        - country_code: AFG
+          country_name: Afghanistan
+          counterpart_name: Austria
+          counterpart_code: "001"
+          series_name: Debt stock, bilateral
+          series_code: DT.DOD.BLAT.CD
+          year: 2024
+          value: -2.25
+        - country_code: ZMB
+          country_name: Zambia
+          counterpart_name: Belgium
+          counterpart_code: "002"
+          series_name: Debt service, bilateral
+          series_code: DT.TDS.BLAT.CD
+          year: 2023
+          value: 10
+        - country_code: ZMB
+          country_name: Zambia
+          counterpart_name: Belgium
+          counterpart_code: "002"
+          series_name: Debt service, bilateral
+          series_code: DT.TDS.BLAT.CD
+          year: 2024
+          value: 0
+
+  - name: stg_ids_drops_cells_with_no_value
+    model: stg_ids
+    description: >
+      A year cell with no value produces no row. This is the only assertion of
+      that behaviour: DuckDB's UNPIVOT excludes NULLs by default, so there is no
+      filter in the model to read it off. This is what would fail if someone
+      added INCLUDE NULLS.
+    given:
+      - input: source('world_bank_ids', 'raw_ids')
+        rows:
+          - "Country Code": "ZMB"
+            "Country Name": "Zambia"
+            "Counterpart-Area Name": "World"
+            "Counterpart-Area Code": "WLD"
+            "Series Name": "Debt stock, bilateral"
+            "Series Code": "DT.DOD.BLAT.CD"
+            "2023": "3.5"
+            "2024": null
+    expect:
+      rows:
+        - country_code: ZMB
+          year: 2023
+          value: 3.5
+
+  - name: stg_ids_drops_the_series_out_of_scope
+    model: stg_ids
+    description: >
+      Of a series out of scope and one in scope, only the one in scope is staged.
+      The excluded series code is padded, as production source data pads Series
+      Code on some rows, so this also fails if the filter runs before the trim.
+    given:
+      - input: source('world_bank_ids', 'raw_ids')
+        rows:
+          - "Country Code": "ZMB"
+            "Country Name": "Zambia"
+            "Counterpart-Area Name": "World"
+            "Counterpart-Area Code": "WLD"
+            "Series Name": "Population, total"
+            "Series Code": "SP.POP.TOTL                   "
+            "2023": "20000000"
+            "2024": null
+          - "Country Code": "ZMB"
+            "Country Name": "Zambia"
+            "Counterpart-Area Name": "World"
+            "Counterpart-Area Code": "WLD"
+            "Series Name": "Debt stock, bilateral"
+            "Series Code": "DT.DOD.BLAT.CD"
+            "2023": "3.5"
+            "2024": null
+    expect:
+      rows:
+        - series_code: DT.DOD.BLAT.CD
+          year: 2023
+          value: 3.5
+
+  - name: pruned_keeps_zeros_within_lending
+    model: int_ids_pruned
+    description: >
+      One of each case. Dropped: a creditor's zero before its first nonzero year
+      (2020), a creditor series zero in every year (002), and a zero average with
+      no commitments that year (INR 2023, and the WLD total). Kept: zeros inside
+      and after a creditor's run of lending, a world-total zero, and a zero
+      average in a year with commitments (INR 2022, a 0% loan).
+    given:
+      - input: ref('stg_ids')
+        rows:
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2020, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2021, value: 5}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2022, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2023, value: 3}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2024, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "002", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2023, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "WLD", counterpart_name: x, series_code: DT.DOD.BLAT.CD, series_name: x, year: 2023, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.COM.OFFT.CD, series_name: x, year: 2021, value: 20}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.COM.OFFT.CD, series_name: x, year: 2022, value: 10}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.COM.OFFT.CD, series_name: x, year: 2023, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2021, value: 3.5}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2022, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2023, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "WLD", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2023, value: 0}
+    expect:
+      rows:
+        - {counterpart_code: "071", series_code: DT.DOD.BLAT.CD, year: 2021, value: 5}
+        - {counterpart_code: "071", series_code: DT.DOD.BLAT.CD, year: 2022, value: 0}
+        - {counterpart_code: "071", series_code: DT.DOD.BLAT.CD, year: 2023, value: 3}
+        - {counterpart_code: "071", series_code: DT.DOD.BLAT.CD, year: 2024, value: 0}
+        - {counterpart_code: "WLD", series_code: DT.DOD.BLAT.CD, year: 2023, value: 0}
+        - {counterpart_code: "071", series_code: DT.COM.OFFT.CD, year: 2021, value: 20}
+        - {counterpart_code: "071", series_code: DT.COM.OFFT.CD, year: 2022, value: 10}
+        - {counterpart_code: "071", series_code: DT.COM.OFFT.CD, year: 2023, value: 0}
+        - {counterpart_code: "071", series_code: DT.INR.OFFT, year: 2021, value: 3.5}
+        - {counterpart_code: "071", series_code: DT.INR.OFFT, year: 2022, value: 0}
+
+  - name: resolved_resolves_each_code_space_through_its_own_property
+    model: int_ids_resolved
+    description: >
+      An entity that is both a debtor and a creditor holds one code in each space, so the
+      two lookups must read different properties. Türkiye is TUR as a debtor and 055 as a
+      creditor, both resolving to the same node. The decoy rows carry each code under the
+      other property, which is what a single shared property would look like: if either
+      lookup read the other's rows it would resolve to the wrong node.
+    given:
+      - input: ref('int_ids_pruned')
+        rows:
+          - {country_code: TUR, counterpart_code: "055", series_code: DT.DOD.BLAT.CD, year: 2023, value: 10}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", property: wbEconomyCode, code: TUR, dcid: "dcid:country/TUR"}
+          - {list: "dcid:Country", property: wbCounterpartCode, code: "055", dcid: "dcid:country/TUR"}
+          - {list: "dcid:Country", property: wbCounterpartCode, code: TUR, dcid: "dcid:DecoyReadByCreditorLookup"}
+          - {list: "dcid:Country", property: wbEconomyCode, code: "055", dcid: "dcid:DecoyReadByDebtorLookup"}
+    expect:
+      rows:
+        - {debtor: "dcid:country/TUR", creditor: "dcid:country/TUR", series_code: DT.DOD.BLAT.CD, year: 2023, value: 10}
+
+  - name: resolved_normalises_a_lender_named_by_the_series_code
+    model: int_ids_resolved
+    description: >
+      The two halves of the lender normalisation, and three controls. MIBR names the
+      IBRD in the series code rather than the counterpart column, so where the source
+      also itemises that lender the WLD row restates it and is dropped; where the
+      source published nothing else for the cell the WLD row is the only record, so it
+      survives carrying the lender its code names. BLAT names no lender, so its WLD
+      row is a genuine total and keeps a null creditor.
+
+      RDBC is the second control: it names a class of lender rather than an
+      institution, and it does hold a code_mapping row - under FinancingResourceEnum,
+      not Organization. Only the list scope on the lookup keeps it out of the creditor,
+      so without that control the scope can be dropped and every test still passes.
+
+      An unresolved counterpart is the third: the segment lender backs up the WLD
+      total alone, so a new counterpart code that maps to nothing must stay null
+      rather than take the lender its series names - otherwise it would slip past
+      the unresolved-entity guard as a wrong provider.
+
+      Both halves are here because the data test that guards this at scale counts
+      rows, and a count cannot show which row survived or what creditor it ended up
+      with.
+    given:
+      - input: ref('int_ids_pruned')
+        rows:
+          # a cell the source itemises: the WLD row restates the IBRD row
+          - {country_code: AGO, counterpart_code: WLD, series_code: DT.DOD.MIBR.CD, series_name: "PPG, IBRD", year: 2022, value: 30}
+          - {country_code: AGO, counterpart_code: "901", series_code: DT.DOD.MIBR.CD, series_name: "PPG, IBRD", year: 2022, value: 30}
+          # a cell the source reports only against WLD, as all of NIFC and some of IDAG are
+          - {country_code: ZMB, counterpart_code: WLD, series_code: DT.DOD.MIBR.CD, series_name: "PPG, IBRD", year: 2022, value: 40}
+          # a series naming no lender: its WLD row is a real total over creditors
+          - {country_code: ZMB, counterpart_code: WLD, series_code: DT.DOD.BLAT.CD, series_name: Bilateral, year: 2022, value: 50}
+          # a series naming a class of lender: its WLD row is a total too
+          - {country_code: ZMB, counterpart_code: WLD, series_code: DT.DOD.RDBC.CD, series_name: "PPG, regional development banks, concessional", year: 2022, value: 60}
+          # a counterpart code the source has not mapped, on a series naming its own lender
+          - {country_code: ZMB, counterpart_code: "999", series_code: DT.DOD.MIBR.CD, series_name: "PPG, IBRD", year: 2022, value: 70}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", property: wbEconomyCode, code: AGO, dcid: "dcid:country/AGO"}
+          - {list: "dcid:Country", property: wbEconomyCode, code: ZMB, dcid: "dcid:country/ZMB"}
+          - {list: "dcid:Organization", property: wbCounterpartCode, code: "901", dcid: "dcid:IBRD"}
+          - {list: "dcid:Organization", property: wbCode, code: MIBR, dcid: "dcid:IBRD"}
+          # the segment code a class-lender series carries, as the seed holds it
+          - {list: "dcid:FinancingResourceEnum", property: wbCode, code: RDBC, dcid: "dcid:DebtInstrument"}
+    expect:
+      rows:
+        # the itemised row survives; its WLD twin is gone
+        - {debtor: "dcid:country/AGO", creditor: "dcid:IBRD", counterpart_code: "901", series_code: DT.DOD.MIBR.CD, year: 2022, value: 30}
+        # the unmatched WLD row survives, backfilled from the segment
+        - {debtor: "dcid:country/ZMB", creditor: "dcid:IBRD", counterpart_code: WLD, series_code: DT.DOD.MIBR.CD, year: 2022, value: 40}
+        # the control keeps its null creditor
+        - {debtor: "dcid:country/ZMB", creditor: null, counterpart_code: WLD, series_code: DT.DOD.BLAT.CD, year: 2022, value: 50}
+        # so does the class-lender control, because the lookup is scoped to Organization
+        - {debtor: "dcid:country/ZMB", creditor: null, counterpart_code: WLD, series_code: DT.DOD.RDBC.CD, year: 2022, value: 60}
+        # the unresolved counterpart stays null rather than taking the segment's lender
+        - {debtor: "dcid:country/ZMB", creditor: null, counterpart_code: "999", series_code: DT.DOD.MIBR.CD, year: 2022, value: 70}
+
+  - name: unified_splits_the_series_code_at_every_segment_count
+    model: int_ids_unified
+    description: >
+      The three published code shapes - three, four and five segments - so that
+      the positions beyond a code's length are shown to be null rather than
+      empty strings. This is the only assertion of that: DuckDB returning NULL
+      for an out-of-range list index is what makes the short codes work, and
+      nothing in the model's SQL states it.
+    given:
+      - input: ref('int_ids_resolved')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: SP.POP.TOTL, year: 2023, value: 10}
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.DOD.BLAT.CD, year: 2023, value: 20}
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.AMT.BLAT.CB.CD, year: 2023, value: 30}
+    expect:
+      rows:
+        - {series_code: SP.POP.TOTL, series_code_pos_1: SP, series_code_pos_2: POP, series_code_pos_3: TOTL, series_code_pos_4: null, series_code_pos_5: null}
+        - {series_code: DT.DOD.BLAT.CD, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: BLAT, series_code_pos_4: CD, series_code_pos_5: null}
+        - {series_code: DT.AMT.BLAT.CB.CD, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
+
+  - name: unified_keeps_the_wld_row_with_a_null_creditor
+    model: int_ids_unified
+    description: >
+      The WLD all-creditors total is carried through rather than filtered out,
+      and arrives with a null creditor. Paired with an itemised creditor row on
+      the same debtor, series and year, because those are the two rows a
+      consumer must not sum together and this model is where they first sit side
+      by side without counterpart_code to tell them apart.
+    given:
+      - input: ref('int_ids_resolved')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, counterpart_code: WLD, series_code: DT.DOD.BLAT.CD, year: 2023, value: 30}
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", counterpart_code: "001", series_code: DT.DOD.BLAT.CD, year: 2023, value: 10}
+    expect:
+      rows:
+        - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.BLAT.CD, year: 2023, value: 30}
+        - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.DOD.BLAT.CD, year: 2023, value: 10}
+
+  - name: mapped_resolves_each_segment_to_the_property_it_stands_for
+    model: int_ids_mapped
+    description: >
+      A five-segment code, where each position feeds a different property: the
+      measure gives the population and the flow type, the category the creditor
+      class, the sector the debtor class, and the unit segment the unit and the
+      qualifier. One series reported only across all creditors, so exactly one
+      variable comes out of it.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.AMT.BLAT.CB.CD, series_name: "Debt service, bilateral", year: 2023, value: 10, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - series_code: DT.AMT.BLAT.CB.CD
+          population_type: dcid:FinancialFlow
+          financial_flow_type: dcid:PrincipalRepayment
+          ids_creditor_type: dcid:IDSCreditorTypeBLAT
+          ids_debtor_type: dcid:IDSDebtorTypeCB
+          unit: dcid:CurrencyUSD
+          measurement_qualifier: dcid:Nominal
+          creditor_breakdown: null
+          statvar_dcid: dcid:Amount_FinancialFlow_PrincipalRepayment_IDSCreditorTypeBLAT_IDSDebtorTypeCB_Nominal
+
+  - name: mapped_applies_the_segment_precedence_rules
+    model: int_ids_mapped
+    description: >
+      The two places where reading the code left to right gives the wrong answer,
+      one series each. RSDL is a flow filed under a stock measure, so the category
+      outranks the measure and the position type it would have inherited is dropped.
+      And the six Debtor
+      Reporting System series carry the unit in position 4 with a trailing DT marker
+      behind it, so the unit is the rightmost segment that names one rather than the
+      last segment.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.RSDL.CD, series_name: Residual, year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: RSDL, series_code_pos_4: CD, series_code_pos_5: null}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: BX.GRT.TECH.CD.DT, series_name: "Technical cooperation grants", year: 2023, value: 4, series_code_pos_1: BX, series_code_pos_2: GRT, series_code_pos_3: TECH, series_code_pos_4: CD, series_code_pos_5: DT}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - {series_code: DT.DOD.RSDL.CD, population_type: dcid:FinancialFlow, financial_flow_type: null, financial_position_type: null, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD}
+        - {series_code: BX.GRT.TECH.CD.DT, population_type: dcid:FinancialObligation, financial_flow_type: null, financial_position_type: null, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD}
+
+  - name: mapped_reads_a_denominator_from_position_four_only
+    model: int_ids_mapped
+    description: >
+      A DT in position 4 denominates by total external debt, while a DT in the last
+      position is the Debtor Reporting System marker and contributes nothing. Both
+      are in the previous test's fixture too, but here the denominator is resolved
+      against the variable it names, which is the self-reference this model makes.
+      DT.DOD.DECT.CD is supplied so there is something to resolve to.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: FI.RES.TOTL.DT.ZS, series_name: "Total reserves", year: 2023, value: 1, series_code_pos_1: FI, series_code_pos_2: RES, series_code_pos_3: TOTL, series_code_pos_4: DT, series_code_pos_5: ZS}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DECT.CD, series_name: "Total external debt", year: 2023, value: 2, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DECT, series_code_pos_4: CD, series_code_pos_5: null}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - series_code: FI.RES.TOTL.DT.ZS
+          unit: dcid:Percent
+          measurement_denominator: dcid:Amount_FinancialPosition_AmountOutstanding_Nominal
+          statvar_dcid: dcid:Amount_EconomicActivity_InternationalReserves_AsAFractionOf_Amount_FinancialPosition_AmountOutstanding_Nominal
+        - series_code: DT.DOD.DECT.CD
+          unit: dcid:CurrencyUSD
+          measurement_denominator: null
+          statvar_dcid: dcid:Amount_FinancialPosition_AmountOutstanding_Nominal
+
+  - name: mapped_distinguishes_use_of_imf_credit_from_its_sdr_component_by_instrument
+    model: int_ids_mapped
+    description: >
+      DT.DOD.DIMF.CD is use of IMF credit including SDR allocations and
+      DT.DOD.DIMF.US.CD is the same measure excluding them, so their properties are
+      otherwise identical and only the instrument keeps them apart: the DIMF
+      category names a debt instrument, and the US segment the variant carries
+      narrows it to a loan. Without that they would mint one DCID and the World
+      Bank's own identity, DIMF = DIMF.US + DSDR, would be unrepresentable.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DIMF.CD, series_name: "Use of IMF credit and SDR allocations", year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DIMF, series_code_pos_4: CD, series_code_pos_5: null}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DIMF.US.CD, series_name: "Use of IMF credit", year: 2023, value: 2, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DIMF, series_code_pos_4: US, series_code_pos_5: CD}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - {series_code: DT.DOD.DIMF.CD, financing_resource: dcid:DebtInstrument, statvar_dcid: dcid:Amount_FinancialPosition_AmountOutstanding_DebtInstrument_Nominal}
+        - {series_code: DT.DOD.DIMF.US.CD, financing_resource: dcid:Loan, statvar_dcid: dcid:Amount_FinancialPosition_AmountOutstanding_Loan_Nominal}
+
+  - name: mapped_splits_a_series_reported_both_ways_into_two_variables
+    model: int_ids_mapped
+    description: >
+      A series reported both across all creditors and itemised by creditor measures
+      a total and its parts, so it yields two variables rather than one holding
+      both. A series reported only across all creditors yields the total alone,
+      which is the shape of the 25 series that have no creditor dimension.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 2, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: FI.RES.TOTL.DT.ZS, series_name: Reserves, year: 2023, value: 3, series_code_pos_1: FI, series_code_pos_2: RES, series_code_pos_3: TOTL, series_code_pos_4: DT, series_code_pos_5: ZS}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: null, statvar_name: "Principal repayments on external debt owed by the central bank to bilateral creditors (current US$)"}
+        - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: "dcid:ByCreditor", statvar_name: "Principal repayments on external debt owed by the central bank to bilateral creditors, by creditor (current US$)"}
+        - {series_code: FI.RES.TOTL.DT.ZS, creditor_breakdown: null, statvar_name: "International reserves (% of total external debt)"}
+
+  - name: observations_send_a_total_and_its_parts_to_different_variables
+    model: dc_ids_observations
+    description: >
+      The same series, debtor and year reported both across all creditors and
+      against one creditor. The total carries no provider and must land on the total
+      variable; the itemised row must land on the one constrained to a creditor
+      breakdown. Paired deliberately: on one variable these two would be a duplicate
+      observation key, and summing them would double count.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 30}
+          - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 10}
+      - input: ref('int_ids_mapped')
+        rows:
+          - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: null, has_provider: false, statvar_dcid: "dcid:Total", unit: dcid:CurrencyUSD}
+          - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: "dcid:ByCreditor", has_provider: true, statvar_dcid: "dcid:ByCreditorTotal", unit: dcid:CurrencyUSD}
+    expect:
+      rows:
+        - {variable: "dcid:Total", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD}
+        - {variable: "dcid:ByCreditorTotal", date: 2023, financing_provider: "dcid:country/AUT", financing_recipient: "dcid:country/ZMB", value: 10, unit: dcid:CurrencyUSD}
+
+  - name: merged_variables_keep_every_source
+    model: dc_ids_statvars
+    description: >
+      Four series describe two variables: the lender sits on the observation, so
+      the same measure reported by two lenders mints one DCID and one name, and
+      the rows group here. The group keeps every source code and World Bank name.
+      The single-source control proves a variable with one source keeps just its
+      own.
+    given:
+      - input: ref('int_ids_mapped')
+        rows:
+          - {series_code: DT.NFL.IMFC.CD, series_name: "Net financial flows, IMF concessional (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+          - {series_code: DT.NFL.MIDA.CD, series_name: "Net financial flows, IDA (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+          - {series_code: DT.DIS.DIMF.CD, series_name: "IMF purchases (DIS, current US$)", statvar_name: "Disbursements on external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Disbursement_DebtInstrument_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "financialFlowType,financingResource", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: null, net_of: null, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: null, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+    expect:
+      rows:
+        # the merged pair: one row, both codes and names kept
+        - {dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", name: "Net flows on concessional external debt (debt instrument) (current US$)", description: "Net financial flows, IMF concessional (NFL, current US$); Net financial flows, IDA (NFL, current US$)", source_indicator_code: '"DT.NFL.IMFC.CD","DT.NFL.MIDA.CD"', observation_properties: "financingProvider,financingRecipient"}
+        # the control: one source, one name
+        - {dcid: "dcid:Amount_FinancialFlow_Disbursement_DebtInstrument_Nominal", name: "Disbursements on external debt (debt instrument) (current US$)", description: "IMF purchases (DIS, current US$)", source_indicator_code: '"DT.DIS.DIMF.CD"', observation_properties: "financingProvider,financingRecipient"}

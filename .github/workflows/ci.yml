@@ -1,0 +1,150 @@
+name: CI
+
+on: push
+
+jobs:
+  lint:
+    # Mints a dfo-reader token, which prod keeps only in main-limited
+    # environments, so this runs in ONEcampaign only. The identical tree
+    # ran it here before it was synced.
+    if: github.repository_owner == 'ONEcampaign'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Cache uv
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      # Temporary: dfo-ontology is a private repository, so uv cannot resolve the
+      # git dependency with the token a workflow is given. The lockfile pins it in
+      # ONEcampaign, so the token is read-only on that repository whichever
+      # organisation runs this. Rewriting the URL rather than depending over ssh
+      # keeps the dependency installable locally as it is declared, and narrowing
+      # it to ONEcampaign keeps the token off every other fetch. Remove these two
+      # steps once the repository is public.
+      - name: Mint a read-only token for dfo-ontology
+        id: reader
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.READER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.READER_APP_PRIVATE_KEY }}
+          owner: ONEcampaign
+          repositories: dfo-ontology
+          permission-contents: read
+
+      - name: Authenticate to private repositories
+        run: >
+          git config --global
+          url."https://x-access-token:${{ steps.reader.outputs.token }}@github.com/ONEcampaign/".insteadOf
+          "https://github.com/ONEcampaign/"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install dbt dependencies
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dbt deps --project-dir dbt/ --profiles-dir dbt/
+
+      - name: Run ruff check
+        run: uv run ruff check .
+
+      - name: Run ruff format check
+        run: uv run ruff format --check .
+
+      - name: Run ty
+        run: uv run ty check
+
+      - name: Run sqlfluff lint
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run sqlfluff lint dbt/models --dialect duckdb
+
+
+  test:
+    # Mints a dfo-reader token, which prod keeps only in main-limited
+    # environments, so this runs in ONEcampaign only. The identical tree
+    # ran it here before it was synced.
+    if: github.repository_owner == 'ONEcampaign'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Cache uv
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      # Temporary: dfo-ontology is a private repository, so uv cannot resolve the
+      # git dependency with the token a workflow is given. The lockfile pins it in
+      # ONEcampaign, so the token is read-only on that repository whichever
+      # organisation runs this. Rewriting the URL rather than depending over ssh
+      # keeps the dependency installable locally as it is declared, and narrowing
+      # it to ONEcampaign keeps the token off every other fetch. Remove these two
+      # steps once the repository is public.
+      - name: Mint a read-only token for dfo-ontology
+        id: reader
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.READER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.READER_APP_PRIVATE_KEY }}
+          owner: ONEcampaign
+          repositories: dfo-ontology
+          permission-contents: read
+
+      - name: Authenticate to private repositories
+        run: >
+          git config --global
+          url."https://x-access-token:${{ steps.reader.outputs.token }}@github.com/ONEcampaign/".insteadOf
+          "https://github.com/ONEcampaign/"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install dbt dependencies
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dbt deps --project-dir dbt/ --profiles-dir dbt/
+
+      - name: Check Dagster definitions load
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dg check defs
+
+      - name: Load test data
+        run: uv run duckdb /tmp/ci.duckdb < scripts/load_ci_fixtures.sql
+
+      - name: Check dbt models build
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
+
+      - name: Run tests
+        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        # Coverage reports to ONEcampaign's Codecov project only.
+        if: github.repository_owner == 'ONEcampaign'
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./coverage.xml

@@ -1,0 +1,164 @@
+[project]
+name = "dfo_pipelines"
+version = "0.1.0"
+description = "Data pipelines for the Development Finance Observatory."
+
+authors = [
+  { name = "Tilly Woodfield", email = "tilly.woodfield@one.org" }
+]
+
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+
+dependencies = [
+    "dagster==1.13.10",
+    "dagster-duckdb>=0.29.10",
+    "dagster-dbt>=0.29.10",
+    "dbt-duckdb>=1.10.1",
+    "httpx>=0.28.0",
+    "oda-reader>=1.11.2",
+    "openpyxl>=3.1.0",
+    "pyarrow>=23.0.0",
+    "universal-pathlib>=0.3.10",
+    "pandas>=3.0.5",
+    "imf-reader>=2.2.0",
+    "dcp-tools>=1.0.0a5",
+    "dfo-ontology",
+    "oda-data==2.8.1",
+    "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "dagster-dg-cli",
+    "dagster-webserver",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ty>=0.0.63",
+    "ruff>=0.8.0",
+    "pre-commit>=3.0.0",
+    "sqlfluff>=4.2.2",
+    "duckdb>=1.5.5",
+    "duckdb-cli>=1.5.5",
+    "sqlfluff-templater-dbt>=4.2.2",
+    "numpy>=2.5.1",
+]
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "dfo_pipelines"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-include = ["*.ipynb"]
+
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    ".pytest_cache",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
+
+select = [
+    "E", "W", "F",      # pycodestyle, pyflakes
+    "I",                 # isort
+    "UP",                # pyupgrade
+    "B",                 # bugbear
+    "C4",                # comprehensions
+    "RUF",               # ruff-specific
+]
+
+ignore = [
+    "E501",     # Line length (formatter handles)
+    "F841",     # Unused local — common during exploration
+]
+
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+
+# Notebooks: exploration style — allow REPL-like patterns.
+"**/*.ipynb" = ["F401", "F811", "E402"]
+
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["src/dfo_pipelines", "tests"]
+
+
+[tool.ty.analysis]
+# Replace pandas / numpy type information with `Any`. Eliminates the cascade
+# of false positives from those libraries' incomplete or absent stubs without
+# disabling type checking on your own code.
+# https://docs.astral.sh/ty/reference/configuration/
+replace-imports-with-any = [
+    "pandas",
+    "pandas.**",
+    "numpy",
+    "numpy.**",
+]
+
+[tool.ty.rules]
+# These warn-by-default rules fire frequently on dynamic dataframe / dict
+# patterns common in exploratory code. Demoted to ignore.
+possibly-missing-attribute = "ignore"
+possibly-unresolved-reference = "ignore"
+
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src/dfo_pipelines --cov-report=term --cov-report=xml"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+precision = 2
+
+[tool.uv.sources]
+dfo-ontology = { git = "https://github.com/ONEcampaign/dfo-ontology", rev = "v0.2.0" }

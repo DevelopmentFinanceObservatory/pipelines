@@ -1,0 +1,530 @@
+version: 2
+
+models:
+  - name: stg_weo
+    description: >
+      WEO observations for the indicators weo_staged_indicators lists, one row
+      per area, indicator and year.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_area_indicator_year
+          arguments:
+            combination_of_columns:
+              - ref_area_code
+              - concept_code
+              - time_period
+    columns:
+      - name: concept_code
+        data_type: string
+        description: WEO indicator code
+        data_tests:
+          - not_null
+          - relationships:
+              name: only_listed_indicators_are_staged
+              arguments:
+                to: ref('weo_staged_indicators')
+                field: concept_code
+      - name: concept_label
+        data_type: string
+        description: WEO indicator name
+        data_tests:
+          - not_null
+      - name: ref_area_code
+        data_type: string
+        description: IMF area code, for a country or a group of countries
+        data_tests:
+          - not_null
+      - name: time_period
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: obs_value
+        data_type: double
+        description: Value, in units of scale_code
+        data_tests:
+          - not_null
+      - name: scale_code
+        data_type: bigint
+        description: Multiplier applied to obs_value
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 1000000, 1000000000]
+                quote: false
+      - name: unit_code
+        data_type: string
+        description: IMF unit code. Null on the PPP series, which the IMF leaves unset.
+      - name: unit_label
+        data_type: string
+        description: IMF unit name. Null on the PPP series, as unit_code is.
+      - name: last_actual_year
+        data_type: integer
+        description: >
+          Last year of reported data. Null on the country groups and the PPP
+          series.
+
+  - name: int_weo_resolved
+    description: >
+      WEO observations with the area replaced by the DCID of its node. Country
+      groups are dropped until the ontology has nodes for them.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          name: every_staged_country_row_is_resolved
+          description: >
+            Fails if a join drops or duplicates rows.
+          arguments:
+            compare_model: ref('stg_weo')
+            compare_row_condition: "ref_area_code not in {{ weo_excluded_areas() }}"
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_country_indicator_year
+          description: Fails if two area codes resolve to the same node.
+          arguments:
+            combination_of_columns:
+              - observation_about
+              - concept_code
+              - time_period
+    columns:
+      - name: concept_code
+        data_type: string
+        description: WEO indicator code
+        data_tests:
+          - not_null
+      - name: observation_about
+        data_type: string
+        description: DCID of the country the observation is about
+        data_tests:
+          - not_null
+      - name: time_period
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: obs_value
+        data_type: double
+        description: Value, in units of scale_code
+        data_tests:
+          - not_null
+      - name: scale_code
+        data_type: bigint
+        description: Multiplier applied to obs_value
+        data_tests:
+          - not_null
+      - name: unit_code
+        data_type: string
+        description: IMF unit code. Null on the PPP series, which the IMF leaves unset.
+      - name: last_actual_year
+        data_type: integer
+        description: Last year of reported data. Null on the PPP series.
+
+  - name: int_weo_unified
+    description: >
+      WEO observations in whole units, each flagged as reported or estimated.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.equal_rowcount:
+          name: unified_keeps_every_resolved_row
+          arguments:
+            compare_model: ref('int_weo_resolved')
+      - dbt_utils.unique_combination_of_columns:
+          name: one_unified_row_per_country_indicator_year
+          arguments:
+            combination_of_columns:
+              - observation_about
+              - concept_code
+              - time_period
+    columns:
+      - name: observation_about
+        data_type: string
+        description: DCID of the country the observation is about
+        data_tests:
+          - not_null
+      - name: concept_code
+        data_type: string
+        description: WEO indicator code
+        data_tests:
+          - not_null
+      - name: time_period
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: unit_code
+        data_type: string
+        description: IMF unit code. Null on the PPP series, which the IMF leaves unset.
+      - name: value
+        data_type: double
+        description: Value in whole units, e.g. US dollars rather than billions
+        data_tests:
+          - not_null
+      - name: is_estimate
+        data_type: boolean
+        description: Whether the year is after the last year of reported data
+        data_tests:
+          - not_null
+
+  - name: int_weo_dollar_countries
+    description: Countries whose own currency is the US dollar
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the country
+        data_tests:
+          - not_null
+          - unique
+
+  - name: int_weo_dollar_twins
+    description: >
+      Domestic-currency indicators and the US-dollar indicator that measures the
+      same thing
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: domestic_code
+        data_type: string
+        description: WEO code of the domestic-currency indicator
+        data_tests:
+          - not_null
+          - unique
+      - name: dollar_code
+        data_type: string
+        description: WEO code of its US-dollar twin
+        data_tests:
+          - not_null
+
+  - name: int_weo_mapped
+    description: WEO observations with their StatVar, unit and measurement method
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          name: mapped_keeps_every_mapped_unified_row_but_dollar_countries_domestic_copies
+          arguments:
+            compare_model: ref('int_weo_unified')
+            compare_row_condition: >
+              concept_code in (
+                  select concept_code from {{ ref('weo_indicator_mapping') }}
+              )
+              and (
+                  concept_code not in (
+                      select domestic_code from {{ ref('int_weo_dollar_twins') }}
+                  )
+                  or observation_about not in (
+                      select dcid from {{ ref('int_weo_dollar_countries') }}
+                  )
+              )
+      - dbt_utils.unique_combination_of_columns:
+          name: one_mapped_row_per_statvar_country_year_and_unit
+          arguments:
+            combination_of_columns:
+              - statvar_dcid
+              - observation_about
+              - time_period
+              - unit
+    columns:
+      - name: statvar_dcid
+        data_type: string
+        description: Minted dcid of the StatVar the observation measures
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: WEO indicator label without its currency
+        data_tests:
+          - not_null
+      - name: concept_code
+        data_type: string
+        description: WEO code of the indicator
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population type
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the measured property
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID of the measurement qualifier
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited constraint properties the StatVar sets
+      - name: product_tax_basis
+        data_type: string
+        description: DCID of the productTaxBasis constraint
+      - name: fixed_capital_consumption_basis
+        data_type: string
+        description: DCID of the fixedCapitalConsumptionBasis constraint
+        data_tests:
+          - not_null
+      - name: cyclical_adjustment
+        data_type: string
+        description: DCID of the cyclicalAdjustment constraint
+      - name: currency_conversion_basis
+        data_type: string
+        description: DCID of the currencyConversionBasis constraint
+      - name: final_expenditure_type
+        data_type: string
+        description: DCID of the finalExpenditureType constraint
+      - name: measurement_denominator
+        data_type: string
+        description: DCID of the StatVar this one is a share of
+      - name: observation_about
+        data_type: string
+        description: DCID of the country the observation is about
+        data_tests:
+          - not_null
+      - name: time_period
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: value
+        data_type: double
+        description: Value in whole units
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: DCID of the measurement method. Null on reported years.
+
+  - name: dc_weo_statvars
+    description: StatVar nodes, for the observations and weo_extra_statvars
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Name of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        data_type: string
+        description: DCID of the population type
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the measured property
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID of the measurement qualifier
+        data_tests:
+          - not_null
+      - name: measurement_denominator
+        data_type: string
+        description: DCID of the StatVar this one is a share of
+        data_tests:
+          - relationships:
+              name: every_weo_denominator_names_a_variable_this_import_defines
+              description: Skips Count_Person, an existing Data Commons variable.
+              arguments:
+                to: ref('dc_weo_statvars')
+                field: dcid
+              config:
+                where: "measurement_denominator <> 'dcid:Count_Person'"
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited constraint properties the StatVar sets
+        data_tests:
+          - not_null
+      - name: product_tax_basis
+        data_type: string
+        description: DCID of the productTaxBasis constraint
+      - name: fixed_capital_consumption_basis
+        data_type: string
+        description: DCID of the fixedCapitalConsumptionBasis constraint
+        data_tests:
+          - not_null
+      - name: cyclical_adjustment
+        data_type: string
+        description: DCID of the cyclicalAdjustment constraint
+      - name: currency_conversion_basis
+        data_type: string
+        description: DCID of the currencyConversionBasis constraint
+      - name: final_expenditure_type
+        data_type: string
+        description: DCID of the finalExpenditureType constraint
+      - name: source_indicator_code
+        data_type: string
+        description: WEO indicator codes of the StatVar, as quoted MCF values
+
+  - name: dc_weo_observations
+    description: WEO observations as Data Commons publishes them
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_weo_observation_per_variable_country_date_and_unit
+          arguments:
+            combination_of_columns:
+              - variable
+              - observation_about
+              - date
+              - unit
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_weo_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: observation_about
+        data_type: string
+        description: DCID of the country
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,6)
+        description: Value in whole units
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: DCID of the measurement method, where one applies
+
+  - name: dc_weo_provenance
+    description: Provenance node for the WEO data
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_weo_provenance_row
+          arguments:
+            value: 1
+    columns:
+      - name: name
+        data_type: string
+        description: Name of the provenance
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the IMF source node
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the landing page for the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: URL of the data the raw file is downloaded from
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: URL of the terms the data is published under
+        data_tests:
+          - not_null
+      - name: license_type
+        data_type: string
+        description: DCID of the licence the data is published under
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('license_types')
+                field: dcid
+      - name: source_release_frequency
+        data_type: string
+        description: How often the IMF publishes, as an ISO 8601 duration
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: Date the raw data was downloaded, as YYYY-MM-DD
+        data_tests:
+          - not_null
+      - name: next_source_release_date
+        data_type: string
+        description: Month of the next expected release, as YYYY-MM
+        data_tests:
+          - not_null
+      - name: next_data_refresh_date
+        data_type: string
+        description: Same as next_source_release_date
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year the import carries an observation for
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year the import carries an observation for
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What WEO is and what it covers
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: Attribution in the form the licence asks for
+        data_tests:
+          - not_null

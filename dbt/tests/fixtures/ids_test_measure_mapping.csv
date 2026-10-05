@@ -1,0 +1,5 @@
+dataset,measure,population_type,measured_property,stat_type,unit,net_of
+DT,AMT,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,,
+DT,DOD,dcid:FinancialPosition,dcid:amount,dcid:measuredValue,,
+BX,GRT,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,,
+FI,RES,dcid:EconomicActivity,dcid:amount,dcid:measuredValue,,

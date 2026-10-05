@@ -1,0 +1,360 @@
+unit_tests:
+  - name: stg_dac_1_keeps_total_net_oda_in_three_price_bases
+    model: stg_conversion_tables_dac_1
+    description: >
+      Only aid type 1010 and flow 1140 in amount types A, D and N are staged,
+      and a row DAC1 publishes with no value is dropped.
+    given:
+      - input: source('oecd_dac_1', 'raw_dac_1')
+        rows:
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: A, TIME: 2024, Value: 10.0}
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: D, TIME: 2024, Value: 8.0}
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: N, TIME: 2024, Value: 9.0}
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: Q, TIME: 2024, Value: 1.0}
+          - {donor_code: 5, AIDTYPE: 1015, FLOWS: 1140, AMOUNTTYPE: A, TIME: 2024, Value: 1.0}
+          - {donor_code: 5, AIDTYPE: 1010, FLOWS: 1120, AMOUNTTYPE: A, TIME: 2024, Value: 1.0}
+          - {donor_code: 20001, AIDTYPE: 1010, FLOWS: 1140, AMOUNTTYPE: N, TIME: 2024, Value: null}
+    expect:
+      rows:
+        - {donor_code: "5", year: 2024, amount_type: A, value: 10.0}
+        - {donor_code: "5", year: 2024, amount_type: D, value: 8.0}
+        - {donor_code: "5", year: 2024, amount_type: N, value: 9.0}
+
+  - name: dac_1_resolved_names_the_dac_total_and_drops_other_group_totals
+    model: int_conversion_tables_dac_1_resolved
+    description: >
+      Donor 20001 becomes DACCountriesTotal, a donor resolves through its DAC
+      code to a country or organisation node, and every other group total (a
+      code of 20000 or above) is dropped. A CurrencyUnit row sharing a DAC
+      code is not a donor.
+    given:
+      - input: ref('stg_conversion_tables_dac_1')
+        rows:
+          - {donor_code: "20001", year: 2024, amount_type: A, value: 1.0}
+          - {donor_code: "918", year: 2024, amount_type: A, value: 2.0}
+          - {donor_code: "302", year: 2024, amount_type: A, value: 3.0}
+          - {donor_code: "20000", year: 2024, amount_type: A, value: 4.0}
+          - {donor_code: "20003", year: 2024, amount_type: A, value: 5.0}
+          - {donor_code: "21600", year: 2024, amount_type: A, value: 6.0}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Organization", code: "918", dcid: "dcid:EuropeanUnionInstitutions", property: dacCode}
+          - {list: "dcid:Country", code: "302", dcid: "dcid:country/USA", property: dacCode}
+          - {list: "dcid:CurrencyUnit", code: "302", dcid: "dcid:CurrencyUSD", property: dacCode}
+    expect:
+      rows:
+        - {entity: "dcid:DACCountriesTotal", value: 1.0}
+        - {entity: "dcid:EuropeanUnionInstitutions", value: 2.0}
+        - {entity: "dcid:country/USA", value: 3.0}
+
+  - name: weo_series_flags_the_rate_by_the_gdp_series_alone
+    model: int_conversion_tables_weo_series
+    description: >
+      A projected deflator makes the deflator a projection but leaves the
+      rate, computed from the two GDP series, reported.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2025, value: 300.0, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2025, value: 2.0, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP_D, time_period: 2025, value: 150.0, is_estimate: true}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPPC, time_period: 2025, value: 9.0, is_estimate: true}
+    expect:
+      rows:
+        - {country: "dcid:country/KEN", year: 2025, gdp_national_currency: 300.0, gdp_usd: 2.0, gdp_deflator: 150.0, rate_is_estimate: false, deflator_is_estimate: true}
+
+  - name: dac_rate_members_give_each_donor_its_currency
+    model: int_conversion_tables_dac_rate_members
+    description: >
+      A country donor takes the currency the IMF map gives it, EU Institutions
+      take the one the DAC reference row names, and a donor with neither (DAC
+      Countries, Total) has no rate. The IMF reference row for the euro does
+      not apply. Each rate is national currency over US dollars.
+    given:
+      - input: ref('int_conversion_tables_dac_1_series')
+        rows:
+          - {entity: "dcid:country/DEU", year: 2024, current_usd: 10.0, constant_usd: 10.0, national_currency: 9.0}
+          - {entity: "dcid:EuropeanUnionInstitutions", year: 2024, current_usd: 20.0, constant_usd: 20.0, national_currency: 18.0}
+          - {entity: "dcid:DACCountriesTotal", year: 2024, current_usd: 100.0, constant_usd: 100.0, national_currency: null}
+          - {entity: "dcid:MonacoLikeDonor", year: 2024, current_usd: 1.0, constant_usd: 1.0, national_currency: 1.0}
+      - input: ref('weo_currency_mapping')
+        rows:
+          - {imf_area_code: DEU, iso4217_code: EUR}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: DEU, dcid: "dcid:country/DEU", property: imfAreaCode}
+          - {list: "dcid:CurrencyUnit", code: EUR, dcid: "dcid:CurrencyEUR", property: iso4217AlphaCode}
+      - input: ref('currency_rate_reference')
+        rows:
+          - {recipe: "dcid:ConversionRecipeDAC", currency: EUR, area: "dcid:EuropeanUnionInstitutions", role: reference}
+          - {recipe: "dcid:ConversionRecipeIMF", currency: EUR, area: "dcid:MonacoLikeDonor", role: reference}
+    expect:
+      rows:
+        - {area: "dcid:country/DEU", currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2024, rate: 0.9, is_estimate: false}
+        - {area: "dcid:EuropeanUnionInstitutions", currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2024, rate: 0.9, is_estimate: false}
+
+  - name: imf_rate_members_give_each_country_its_currency
+    model: int_conversion_tables_imf_rate_members
+    description: >
+      A WEO country takes the currency the IMF map gives it, its rate is
+      national-currency GDP over US-dollar GDP, and the rate keeps WEO's
+      projection flag.
+    given:
+      - input: ref('int_conversion_tables_weo_series')
+        rows:
+          - {country: "dcid:country/KEN", year: 2026, gdp_national_currency: 280.0, gdp_usd: 2.0, gdp_deflator: 1.0, rate_is_estimate: true, deflator_is_estimate: true}
+          - {country: "dcid:country/KEN", year: 2027, gdp_national_currency: null, gdp_usd: 2.0, gdp_deflator: 1.0, rate_is_estimate: true, deflator_is_estimate: true}
+      - input: ref('weo_currency_mapping')
+        rows:
+          - {imf_area_code: KEN, iso4217_code: KES}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
+    expect:
+      rows:
+        - {area: "dcid:country/KEN", currency: KES, currency_unit: "dcid:CurrencyKES", year: 2026, rate: 140.0, is_estimate: true}
+
+  - name: rate_references_need_a_named_member_for_a_shared_currency
+    model: int_conversion_tables_imf_rate_references
+    description: >
+      A currency one area uses takes that area. A shared currency takes the
+      area its reference row names. A shared currency with no row, or with a
+      row naming an area that does not use it, gets no reference, which fails
+      the not_null test on reference_area. A DAC reference row does not apply
+      to the IMF table.
+    given:
+      - input: ref('int_conversion_tables_imf_rate_members')
+        rows:
+          - {currency: KES, area: "dcid:country/KEN", year: 2024}
+          - {currency: KES, area: "dcid:country/KEN", year: 2025}
+          - {currency: EUR, area: "dcid:country/DEU", year: 2024}
+          - {currency: EUR, area: "dcid:country/FRA", year: 2024}
+          - {currency: XOF, area: "dcid:country/SEN", year: 2024}
+          - {currency: XOF, area: "dcid:country/MLI", year: 2024}
+          - {currency: XAF, area: "dcid:country/GAB", year: 2024}
+          - {currency: XAF, area: "dcid:country/TCD", year: 2024}
+      - input: ref('currency_rate_reference')
+        rows:
+          - {recipe: "dcid:ConversionRecipeIMF", currency: EUR, area: "dcid:country/DEU", role: reference}
+          - {recipe: "dcid:ConversionRecipeIMF", currency: EUR, area: "dcid:country/AND", role: not_checked}
+          - {recipe: "dcid:ConversionRecipeIMF", currency: XAF, area: "dcid:country/CMR", role: reference}
+          - {recipe: "dcid:ConversionRecipeDAC", currency: XOF, area: "dcid:country/SEN", role: reference}
+    expect:
+      rows:
+        - {currency: KES, member_count: 1, reference_area: "dcid:country/KEN"}
+        - {currency: EUR, member_count: 2, reference_area: "dcid:country/DEU"}
+        - {currency: XOF, member_count: 2, reference_area: null}
+        - {currency: XAF, member_count: 2, reference_area: null}
+
+  - name: rates_come_from_the_reference_area
+    model: int_conversion_tables_imf_rates
+    given:
+      - input: ref('int_conversion_tables_imf_rate_members')
+        rows:
+          - {currency: EUR, currency_unit: "dcid:CurrencyEUR", area: "dcid:country/DEU", year: 2024, rate: 0.92, is_estimate: false}
+          - {currency: EUR, currency_unit: "dcid:CurrencyEUR", area: "dcid:country/AND", year: 2024, rate: 0.95, is_estimate: false}
+      - input: ref('int_conversion_tables_imf_rate_references')
+        rows:
+          - {currency: EUR, reference_area: "dcid:country/DEU"}
+    expect:
+      rows:
+        - {currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2024, rate: 0.92, is_estimate: false}
+
+  - name: agreement_compares_each_member_in_its_last_actual_year
+    model: int_conversion_tables_imf_rate_agreement
+    description: >
+      France is compared in 2024, its last actual year. Its 2025 projection
+      and its 1998 value, from before it used the euro, are left out, as are
+      the reference itself and a not_checked member. A DAC not_checked row
+      does not exempt an IMF member.
+    given:
+      - input: ref('int_conversion_tables_imf_rate_members')
+        rows:
+          - {currency: EUR, area: "dcid:country/DEU", year: 2024, rate: 0.8, is_estimate: false}
+          - {currency: EUR, area: "dcid:country/FRA", year: 1998, rate: 0.5, is_estimate: false}
+          - {currency: EUR, area: "dcid:country/FRA", year: 2024, rate: 0.8008, is_estimate: false}
+          - {currency: EUR, area: "dcid:country/FRA", year: 2025, rate: 0.9, is_estimate: true}
+          - {currency: EUR, area: "dcid:country/AND", year: 2024, rate: 0.7, is_estimate: false}
+      - input: ref('int_conversion_tables_imf_rate_references')
+        rows:
+          - {currency: EUR, reference_area: "dcid:country/DEU"}
+      - input: ref('int_conversion_tables_imf_rates')
+        rows:
+          - {currency: EUR, year: 2024, rate: 0.8}
+          - {currency: EUR, year: 2025, rate: 0.85}
+      - input: ref('currency_rate_reference')
+        rows:
+          - {recipe: "dcid:ConversionRecipeIMF", currency: EUR, area: "dcid:country/DEU", role: reference}
+          - {recipe: "dcid:ConversionRecipeIMF", currency: EUR, area: "dcid:country/AND", role: not_checked}
+          - {recipe: "dcid:ConversionRecipeDAC", currency: EUR, area: "dcid:country/FRA", role: not_checked}
+    expect:
+      rows:
+        - {area: "dcid:country/FRA", last_actual_year: 2024, member_rate: 0.8008, reference_rate: 0.8, tolerance: 0.000001}
+
+  - name: agreement_holds_dac_members_to_a_relative_1e_6
+    model: int_conversion_tables_dac_rate_agreement
+    description: >
+      The rates differ from the reference's 1.0 by exactly 2^-20 (9.5e-7, inside
+      1e-6) and 2^-19 (1.9e-6, outside), which binary doubles hold without error.
+      The model reports both deviations and the tolerance; the blocking test
+      fails the second member.
+    given:
+      - input: ref('int_conversion_tables_dac_rate_members')
+        rows:
+          - {currency: EUR, area: "dcid:EuropeanUnionInstitutions", year: 2024, rate: 1.0, is_estimate: false}
+          - {currency: EUR, area: "dcid:country/LUX", year: 2024, rate: 1.00000095367431640625, is_estimate: false}
+          - {currency: EUR, area: "dcid:country/MLT", year: 2024, rate: 1.0000019073486328125, is_estimate: false}
+      - input: ref('int_conversion_tables_dac_rate_references')
+        rows:
+          - {currency: EUR, reference_area: "dcid:EuropeanUnionInstitutions"}
+      - input: ref('int_conversion_tables_dac_rates')
+        rows:
+          - {currency: EUR, year: 2024, rate: 1.0}
+      - input: ref('currency_rate_reference')
+        rows:
+          - {recipe: "dcid:ConversionRecipeDAC", currency: EUR, area: "dcid:EuropeanUnionInstitutions", role: reference}
+    expect:
+      rows:
+        - {area: "dcid:country/LUX", last_actual_year: 2024, relative_deviation: 9.5367431640625e-07, tolerance: 0.000001}
+        - {area: "dcid:country/MLT", last_actual_year: 2024, relative_deviation: 1.9073486328125e-06, tolerance: 0.000001}
+
+  - name: dac_deflators_unrebased_are_in_us_dollar_terms
+    model: int_conversion_tables_dac_deflators_unrebased
+    description: >
+      100 x current / constant ODA, and a donor-year with no current-dollar
+      amount has no deflator.
+    given:
+      - input: ref('int_conversion_tables_dac_1_series')
+        rows:
+          - {entity: "dcid:DACCountriesTotal", year: 2023, current_usd: 90.0, constant_usd: 100.0, national_currency: null}
+          - {entity: "dcid:country/TLS", year: 2010, current_usd: null, constant_usd: 5.0, national_currency: null}
+    expect:
+      rows:
+        - {entity: "dcid:DACCountriesTotal", year: 2023, deflator: 90.0, is_estimate: false}
+
+  - name: imf_deflators_unrebased_are_in_us_dollar_terms
+    model: int_conversion_tables_imf_deflators_unrebased
+    description: >
+      NGDP_D x NGDPD / NGDP, flagged as a projection when any of the three is.
+    given:
+      - input: ref('int_conversion_tables_weo_series')
+        rows:
+          - {country: "dcid:country/KEN", year: 2026, gdp_national_currency: 300.0, gdp_usd: 2.0, gdp_deflator: 150.0, rate_is_estimate: false, deflator_is_estimate: true}
+    expect:
+      rows:
+        - {entity: "dcid:country/KEN", year: 2026, deflator: 1.0, is_estimate: true}
+
+  - name: deflators_are_rebased_per_entity_to_the_base_year
+    model: int_conversion_tables_dac_deflators
+    description: >
+      Each entity's series is divided by its own base-year value, so each
+      equals 100 there whatever base its source used. An entity with no
+      base-year value is dropped.
+    overrides:
+      vars:
+        conversion_tables_deflator_base_year: 2024
+    given:
+      - input: ref('int_conversion_tables_dac_deflators_unrebased')
+        rows:
+          - {entity: "dcid:country/GBR", year: 2023, deflator: 90.0, is_estimate: false}
+          - {entity: "dcid:country/GBR", year: 2024, deflator: 100.0, is_estimate: false}
+          - {entity: "dcid:DACCountriesTotal", year: 2023, deflator: 2.0, is_estimate: false}
+          - {entity: "dcid:DACCountriesTotal", year: 2024, deflator: 4.0, is_estimate: false}
+          - {entity: "dcid:country/TLS", year: 2012, deflator: 100.0, is_estimate: false}
+    expect:
+      rows:
+        - {entity: "dcid:country/GBR", year: 2023, deflator: 90.0}
+        - {entity: "dcid:country/GBR", year: 2024, deflator: 100.0}
+        - {entity: "dcid:DACCountriesTotal", year: 2023, deflator: 50.0}
+        - {entity: "dcid:DACCountriesTotal", year: 2024, deflator: 100.0}
+
+  - name: a_projected_base_year_makes_every_rebased_year_an_estimate
+    model: int_conversion_tables_imf_deflators
+    description: >
+      A rebased value is the year's deflator over the base year's, so it is an
+      estimate when either one is. A reported year divided by a projected base
+      year is an estimate.
+    overrides:
+      vars:
+        conversion_tables_deflator_base_year: 2026
+    given:
+      - input: ref('int_conversion_tables_imf_deflators_unrebased')
+        rows:
+          - {entity: "dcid:country/KEN", year: 2024, deflator: 2.0, is_estimate: false}
+          - {entity: "dcid:country/KEN", year: 2026, deflator: 4.0, is_estimate: true}
+          - {entity: "dcid:country/GBR", year: 2024, deflator: 90.0, is_estimate: false}
+          - {entity: "dcid:country/GBR", year: 2026, deflator: 100.0, is_estimate: false}
+    expect:
+      rows:
+        - {entity: "dcid:country/KEN", year: 2024, deflator: 50.0, is_estimate: true}
+        - {entity: "dcid:country/KEN", year: 2026, deflator: 100.0, is_estimate: true}
+        - {entity: "dcid:country/GBR", year: 2024, deflator: 90.0, is_estimate: false}
+        - {entity: "dcid:country/GBR", year: 2026, deflator: 100.0, is_estimate: false}
+
+  - name: statvars_mint_the_dcids_the_api_reads
+    model: int_conversion_tables_statvars
+    description: >
+      The four DCIDs are the identity the dfo-apis conversion recipes name as
+      literals, so a change to mint_statvar_dcid, a measured property, a
+      population type or a recipe member that remints them fails here.
+    given:
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+    expect:
+      rows:
+        - {recipe: "dcid:ConversionRecipeDAC", series: exchange_rate, statvar_dcid: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeDAC"}
+        - {recipe: "dcid:ConversionRecipeDAC", series: deflator, statvar_dcid: "dcid:Deflator_EconomicProduction_ConversionRecipeDAC"}
+        - {recipe: "dcid:ConversionRecipeIMF", series: exchange_rate, statvar_dcid: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeIMF"}
+        - {recipe: "dcid:ConversionRecipeIMF", series: deflator, statvar_dcid: "dcid:Deflator_EconomicProduction_ConversionRecipeIMF"}
+
+  - name: dac_observations_fill_per_currency
+    model: int_conversion_tables_dac_observations
+    description: >
+      The DAC table keeps DAC1's euro and takes the IMF table's shilling. The
+      fill is per currency, so the IMF euro of 2026, a year DAC1 lacks, stays
+      out. A filled projection carries IMFProjection and reported rows carry
+      nothing.
+    given:
+      - input: ref('int_conversion_tables_dac_rates')
+        rows:
+          - {currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2024, rate: 0.9246, is_estimate: false}
+      - input: ref('int_conversion_tables_imf_rates')
+        rows:
+          - {currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2024, rate: 0.9241, is_estimate: false}
+          - {currency: EUR, currency_unit: "dcid:CurrencyEUR", year: 2026, rate: 0.9, is_estimate: true}
+          - {currency: KES, currency_unit: "dcid:CurrencyKES", year: 2026, rate: 130.0, is_estimate: true}
+      - input: ref('int_conversion_tables_dac_deflators')
+        rows:
+          - {entity: "dcid:DACCountriesTotal", year: 2024, deflator: 100.0, is_estimate: false}
+      - input: ref('int_conversion_tables_statvars')
+        rows: &conversion_table_statvars
+          - {recipe: "dcid:ConversionRecipeDAC", series: exchange_rate, statvar_dcid: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeDAC", unit: "dcid:CurrencyPerUSDollar"}
+          - {recipe: "dcid:ConversionRecipeDAC", series: deflator, statvar_dcid: "dcid:Deflator_EconomicProduction_ConversionRecipeDAC", unit: "dcid:IndexPoint"}
+          - {recipe: "dcid:ConversionRecipeIMF", series: exchange_rate, statvar_dcid: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeIMF", unit: "dcid:CurrencyPerUSDollar"}
+          - {recipe: "dcid:ConversionRecipeIMF", series: deflator, statvar_dcid: "dcid:Deflator_EconomicProduction_ConversionRecipeIMF", unit: "dcid:IndexPoint"}
+    expect:
+      rows:
+        - {variable: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeDAC", date: 2024, observation_about: "dcid:CurrencyEUR", value: 0.9246, unit: "dcid:CurrencyPerUSDollar", measurement_method: null}
+        - {variable: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeDAC", date: 2026, observation_about: "dcid:CurrencyKES", value: 130.0, unit: "dcid:CurrencyPerUSDollar", measurement_method: "dcid:IMFProjection"}
+        - {variable: "dcid:Deflator_EconomicProduction_ConversionRecipeDAC", date: 2024, observation_about: "dcid:DACCountriesTotal", value: 100.0, unit: "dcid:IndexPoint", measurement_method: null}
+
+  - name: imf_observations_take_the_imf_statvars
+    model: int_conversion_tables_imf_observations
+    description: >
+      Each rate and deflator takes the IMF table's StatVar, and a projection
+      carries IMFProjection.
+    given:
+      - input: ref('int_conversion_tables_imf_rates')
+        rows:
+          - {currency: KES, currency_unit: "dcid:CurrencyKES", year: 2026, rate: 130.0, is_estimate: true}
+      - input: ref('int_conversion_tables_imf_deflators')
+        rows:
+          - {entity: "dcid:country/KEN", year: 2024, deflator: 100.0, is_estimate: false}
+      - input: ref('int_conversion_tables_statvars')
+        rows: *conversion_table_statvars
+    expect:
+      rows:
+        - {variable: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeIMF", date: 2026, observation_about: "dcid:CurrencyKES", value: 130.0, unit: "dcid:CurrencyPerUSDollar", measurement_method: "dcid:IMFProjection"}
+        - {variable: "dcid:Deflator_EconomicProduction_ConversionRecipeIMF", date: 2024, observation_about: "dcid:country/KEN", value: 100.0, unit: "dcid:IndexPoint", measurement_method: null}

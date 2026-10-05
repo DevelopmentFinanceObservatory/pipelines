@@ -1,0 +1,90 @@
+version: 2
+
+sources:
+  - name: imf_weo
+    description: IMF World Economic Outlook data
+    tables:
+      - name: raw_weo
+        description: >
+          WEO data as imf-reader returns it. Only the columns consumed by stg_weo are declared.
+        config:
+          meta:
+            dagster:
+              asset_key: ["imf_weo_raw_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: weo_required_columns_present
+              arguments:
+                column_list:
+                  - CONCEPT_CODE
+                  - CONCEPT_LABEL
+                  - REF_AREA_CODE
+                  - FREQ_CODE
+                  - TIME_PERIOD
+                  - OBS_VALUE
+                  - SCALE_CODE
+                  - UNIT_CODE
+                  - UNIT_LABEL
+                  - LASTACTUALDATE
+        columns:
+          - name: CONCEPT_CODE
+            data_type: varchar
+            description: WEO indicator code, e.g. NGDPD for GDP in current US dollars
+          - name: CONCEPT_LABEL
+            data_type: varchar
+            description: WEO indicator name
+          - name: REF_AREA_CODE
+            data_type: varchar
+            description: >
+              IMF area code. ISO3-like for countries, G-prefixed for groups, e.g.
+              G001 for the world.
+          - name: FREQ_CODE
+            data_type: varchar
+            description: Observation frequency code
+            data_tests:
+              - accepted_values:
+                  name: weo_data_is_annual
+                  arguments:
+                    values: ['A']
+          - name: TIME_PERIOD
+            data_type: bigint
+            description: Year the value refers to
+          - name: OBS_VALUE
+            data_type: double
+            description: Value, in units of SCALE_CODE
+          - name: SCALE_CODE
+            data_type: bigint
+            description: Multiplier applied to OBS_VALUE, e.g. 1000000000 for billions
+          - name: UNIT_CODE
+            data_type: varchar
+            description: IMF unit code
+          - name: UNIT_LABEL
+            data_type: varchar
+            description: IMF unit name
+          - name: LASTACTUALDATE
+            data_type: bigint
+            description: >
+              Last year of reported data for the area and indicator, in the same
+              year convention as TIME_PERIOD. Later years are IMF estimates.
+      - name: raw_weo_metadata
+        description: When the data in raw_weo was downloaded and released
+        config:
+          meta:
+            dagster:
+              asset_key: ["imf_weo_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_weo_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw file was downloaded
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When the IMF published the WEO release in the raw file
+            data_tests:
+              - not_null
