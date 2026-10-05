@@ -1,4 +1,4 @@
-{% macro is_dac_1_donor(donor_code) -%}
+{% macro is_dac1_donor(donor_code) -%}
     {#-
         Whether a DAC1 donor code names a donor the conversion tables keep. DAC1
         numbers every country and organisation below 20000 and every group total

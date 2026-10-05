@@ -6,11 +6,12 @@ reflects the World Bank's latest release.
 
 ## Exclude series outside the debt statistics
 
-Non-debt statistics are excluded, including population, balance of payments,
-investment and reserves. GNI and exports are kept, because the debt ratios are shares
-of them. Debt forgiveness grants, the stock-flow reconciliation residual, the annual
-changes in debt stocks and interest arrears, and the present value of debt are also
-excluded.
+Non-debt statistics are excluded, including population, balance of payments, investment
+and reserves. GNI is kept, because some debt ratios are shares of it. Exports of goods,
+services and primary income, and the three debt ratios that are shares of it, are
+excluded until the ontology can describe them. Debt forgiveness grants, the stock-flow
+reconciliation residual, the annual changes in debt stocks and interest arrears, and the
+present value of debt are also excluded.
 
 ## Omit zeros where no lending took place
 
@@ -30,8 +31,10 @@ in its code, such as debt owed to the IBRD, that lender becomes the creditor.
 
 Every figure is reported against the year, the debtor and the creditor, and the
 dimensions the World Bank encodes in each series code, such as type of flow, maturity
-and creditor type. Ratios record what they are a share of: GNI, exports or total
-external debt stocks. Every amount is reported in US dollars at current prices.
+and creditor type. GNI is the exception: it describes the debtor economy, so it is
+reported against the year and the economy alone. Ratios record what they are a share of:
+GNI or total external debt stocks. Every amount is reported in US dollars at current
+prices.
 
 ## Mark projections as estimated
 

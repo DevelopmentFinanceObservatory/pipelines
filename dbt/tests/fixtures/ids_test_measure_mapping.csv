@@ -1,5 +1,5 @@
-dataset,measure,population_type,measured_property,stat_type,unit,net_of
-DT,AMT,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,,
-DT,DOD,dcid:FinancialPosition,dcid:amount,dcid:measuredValue,,
-BX,GRT,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,,
-FI,RES,dcid:EconomicActivity,dcid:amount,dcid:measuredValue,,
+dataset,measure,population_type,measured_property,stat_type,unit,net_of,fixed_capital_consumption_basis,entity_property
+DT,AMT,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,,,,financingRecipient
+DT,DOD,dcid:FinancialPosition,dcid:amount,dcid:measuredValue,,,,financingRecipient
+BX,GRT,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,,,,financingRecipient
+NY,GNP,dcid:EconomicUnit,dcid:primaryIncome,dcid:measuredValue,,,dcid:GrossOfFixedCapitalConsumption,observationAbout

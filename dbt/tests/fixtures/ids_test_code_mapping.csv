@@ -7,4 +7,3 @@ dcid:FinancingResourceEnum,DIMF,dcid:DebtInstrument,debt instrument,wbCode
 dcid:FinancingResourceEnum,TECH,dcid:UnrequitedTransfer,unrequited transfer,wbCode
 dcid:FinancingResourceEnum,US,dcid:Loan,loan,wbCode
 dcid:FinancialObligationTypeEnum,GRT,dcid:Commitment,commitment,wbCode
-dcid:EconomicActivityTypeEnum,RES,dcid:InternationalReserves,international reserves,wbCode

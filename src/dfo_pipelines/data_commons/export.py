@@ -18,6 +18,8 @@ import logging
 import tempfile
 from dataclasses import dataclass, field
 from enum import StrEnum
+from fnmatch import fnmatchcase
+from itertools import permutations
 from pathlib import Path
 from typing import Any
 
@@ -33,11 +35,9 @@ from dfo_pipelines.data_commons.mcf import escape_markdown
 # is a convention of the Data Commons layer rather than a pipeline's choice.
 PARTITION_COLUMN = "date"
 
-# The pattern registers every partition file as a single input file in `config.json`,
-# and is derived from the stem so the files written and the pattern naming them
-# cannot fall out of step.
+# Stem of an observation model's files unless its input names another; the files'
+# `config.json` pattern derives from it.
 OBSERVATION_FILE_STEM = "observations"
-OBSERVATION_FILE_PATTERN = f"{OBSERVATION_FILE_STEM}_*.csv"
 
 # The pipeline documentation kept in the repository, one directory per dataset.
 DOCS_ROOT = Path(__file__).resolve().parents[3] / "docs"
@@ -65,6 +65,24 @@ class ConversionRecipe(StrEnum):
 
 
 @dataclass(frozen=True, kw_only=True)
+class ObservationInput:
+    """An observation model the export writes, registered as one input file.
+
+    Attributes:
+        model: Schema-qualified name of the model holding one row per
+            observation, written out as one file per distinct value of
+            `PARTITION_COLUMN`.
+        property_to_column: Maps a Data Commons observation property to the
+            model column carrying it.
+        file_stem: Stem of the files the model is written to.
+    """
+
+    model: str
+    property_to_column: dict[str, str]
+    file_stem: str = OBSERVATION_FILE_STEM
+
+
+@dataclass(frozen=True, kw_only=True)
 class ExportSpec:
     """What a pipeline supplies to export its Data Commons models as a bundle.
 
@@ -81,16 +99,14 @@ class ExportSpec:
             Required, so a new export cannot omit its recipe by accident.
         statvar_model: Schema-qualified name of the model holding one row per
             StatVar, whose columns are the variable's properties.
-        observation_model: Schema-qualified name of the model holding one row per
-            observation, written out as one file per distinct value of
-            `PARTITION_COLUMN`.
+        observation_inputs: The observation models the export writes, each to
+            files of its own, since every observation in an input file shares
+            one column mapping.
         source_model: Schema-qualified name of a model holding exactly one row,
             whose columns are the properties of a Source node the import defines.
             Omitted when the provenance's source already exists in Data Commons.
         statvar_column_to_property: Maps a StatVar model column to the ontology
             property whose value it carries.
-        observation_property_to_column: Maps a Data Commons observation property to
-            the model column carrying it.
         docs_dir: Directory holding the pipeline's `DOCUMENTATION_FILES`.
         statvar_ignore_columns: StatVar model columns to leave out of the bundle —
             a column carried for a test or for pipeline bookkeeping rather than
@@ -112,7 +128,8 @@ class ExportSpec:
     Raises:
         ValueError: If `provenance_column_to_property` maps a column onto
             `conversionRecipe` or a property the export writes from
-            `DOCUMENTATION_FILES`.
+            `DOCUMENTATION_FILES`, if there is no observation input, or if one
+            input's file pattern would match another's files.
     """
 
     import_name: str
@@ -120,10 +137,9 @@ class ExportSpec:
     provenance_model: str
     conversion_recipe: ConversionRecipe | None
     statvar_model: str
-    observation_model: str
+    observation_inputs: tuple[ObservationInput, ...]
     source_model: str | None = None
     statvar_column_to_property: dict[str, str]
-    observation_property_to_column: dict[str, str]
     docs_dir: Path
     statvar_ignore_columns: tuple[str, ...] = ()
     statvar_csv_options: dict[str, Any] | None = None
@@ -139,6 +155,15 @@ class ExportSpec:
                 f"{clashes}, which the export writes from conversion_recipe and "
                 "the documentation files"
             )
+        if not self.observation_inputs:
+            raise ValueError(f"{self.import_name}: no observation inputs")
+        stems = [observations.file_stem for observations in self.observation_inputs]
+        for stem, other in permutations(stems, 2):
+            if other == stem or other.startswith(f"{stem}_"):
+                raise ValueError(
+                    f"{self.import_name}: the file pattern {_file_pattern(stem)!r} "
+                    f"would match the files of {other!r}"
+                )
 
     @property
     def minted_provenance_dcid(self) -> str:
@@ -184,9 +209,14 @@ def _provenance_property_value(column: str, value: Any) -> str:
     )
 
 
-def _observation_file_name(partition: Any) -> str:
-    """Name of the file holding one partition's observations"""
-    return f"{OBSERVATION_FILE_STEM}_{partition}.csv"
+def _file_pattern(stem: str) -> str:
+    """Pattern registering every partition file of one observation model"""
+    return f"{stem}_*.csv"
+
+
+def _observation_file_name(stem: str, partition: Any) -> str:
+    """Name of the file holding one partition of one observation model"""
+    return f"{stem}_{partition}.csv"
 
 
 def export_bundle(
@@ -215,8 +245,9 @@ def export_bundle(
     Raises:
         ValueError: If the provenance or source model does not hold exactly one
             row, the provenance model lacks a column
-            `spec.provenance_column_to_property` maps, or it holds a value in one
-            that `_provenance_property_value` refuses.
+            `spec.provenance_column_to_property` maps, it holds a value in one
+            that `_provenance_property_value` refuses, or a written observation
+            file matches other than exactly one observation input's pattern.
         FileNotFoundError: If `spec.docs_dir` is missing a documentation file.
     """
     log.info("Generating Data Commons export...")
@@ -277,38 +308,57 @@ def export_bundle(
         )
 
     log.info("Registering the observation files")
-    manager.add_input_file(
-        pattern=OBSERVATION_FILE_PATTERN,
-        provenance=spec.provenance_dcid,
-        column_mappings=spec.observation_property_to_column,
-        observation_properties=spec.constant_observation_properties,
-    )
+    for observations in spec.observation_inputs:
+        manager.add_input_file(
+            pattern=_file_pattern(observations.file_stem),
+            provenance=spec.provenance_dcid,
+            column_mappings=observations.property_to_column,
+            observation_properties=spec.constant_observation_properties,
+        )
 
     log.info("Writing MCF files")
     manager.export_all(str(out_dir), validate_data=True)
 
     log.info("Writing observations")
-    partitions = connection.sql(
-        f"""
-            select {PARTITION_COLUMN}, count(*)
-            from {spec.observation_model}
-            group by {PARTITION_COLUMN}
-            order by {PARTITION_COLUMN}
-            """
-    ).fetchall()
-    for partition, partition_count in partitions:
-        observations_file = _observation_file_name(partition)
-        connection.sql(
-            f"select * from {spec.observation_model} where {PARTITION_COLUMN} = ?"
-            " order by all",
-            params=[partition],
-        ).write_csv(str(out_dir / observations_file), header=True)
-        log.debug(f"Wrote {partition_count} observations to {observations_file}")
-    observation_count = sum(count for _, count in partitions)
+    observation_count = 0
+    observation_file_count = 0
+    written_files = []
+    for observations in spec.observation_inputs:
+        partitions = connection.sql(
+            f"""
+                select {PARTITION_COLUMN}, count(*)
+                from {observations.model}
+                group by {PARTITION_COLUMN}
+                order by {PARTITION_COLUMN}
+                """
+        ).fetchall()
+        for partition, partition_count in partitions:
+            observations_file = _observation_file_name(
+                observations.file_stem, partition
+            )
+            connection.sql(
+                f"select * from {observations.model} where {PARTITION_COLUMN} = ?"
+                " order by all",
+                params=[partition],
+            ).write_csv(str(out_dir / observations_file), header=True)
+            log.debug(f"Wrote {partition_count} observations to {observations_file}")
+            written_files.append(observations_file)
+        observation_count += sum(count for _, count in partitions)
+        observation_file_count += len(partitions)
+
+    # Each file must be imported once, under its own input's column mapping.
+    patterns = [_file_pattern(inputs.file_stem) for inputs in spec.observation_inputs]
+    for file_name in written_files:
+        matches = [pattern for pattern in patterns if fnmatchcase(file_name, pattern)]
+        if len(matches) != 1:
+            raise ValueError(
+                f"{spec.import_name}: {file_name} matches {matches}, "
+                "not exactly one observation pattern"
+            )
     log.info(f"Exported to {out_dir}")
 
     return ExportMetadata(
         observation_count=observation_count,
         statvar_count=statvar_count,
-        observation_file_count=len(partitions),
+        observation_file_count=observation_file_count,
     )

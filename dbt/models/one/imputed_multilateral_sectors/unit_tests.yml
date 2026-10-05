@@ -271,7 +271,7 @@ unit_tests:
       release earlier that same year still expects its next release this
       December - before that April - so it is the date that wins here. This
       proves next_multisystem_release_date's output actually reaches
-      least(), not just next_crs_release_date's.
+      least(), not just next_oecd_release_date's.
     given:
       - input: ref('dc_imputed_multilateral_sectors_observations')
         rows:

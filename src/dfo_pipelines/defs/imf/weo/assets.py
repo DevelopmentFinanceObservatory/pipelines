@@ -13,6 +13,7 @@ from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
     ConversionRecipe,
     ExportSpec,
+    ObservationInput,
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
@@ -189,7 +190,19 @@ IMF_WEO_EXPORT_SPEC = ExportSpec(
     provenance_model="imf_weo.dc_weo_provenance",
     conversion_recipe=ConversionRecipe.IMF,
     statvar_model="imf_weo.dc_weo_statvars",
-    observation_model="imf_weo.dc_weo_observations",
+    observation_inputs=(
+        ObservationInput(
+            model="imf_weo.dc_weo_observations",
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                "measurementMethod": "measurement_method",
+                "observationAbout": "observation_about",
+            },
+        ),
+    ),
     source_model="imf_weo.weo_source",
     statvar_column_to_property={
         "name": "name",
@@ -199,14 +212,6 @@ IMF_WEO_EXPORT_SPEC = ExportSpec(
         "cyclical_adjustment": "cyclicalAdjustment",
         "currency_conversion_basis": "currencyConversionBasis",
         "final_expenditure_type": "finalExpenditureType",
-    },
-    observation_property_to_column={
-        "variable": "variable",
-        "date": "date",
-        "value": "value",
-        "unit": "unit",
-        "measurementMethod": "measurement_method",
-        "observationAbout": "observation_about",
     },
     docs_dir=DOCS_ROOT / "imf" / "weo",
     constant_observation_properties={"observationPeriod": "P1Y"},

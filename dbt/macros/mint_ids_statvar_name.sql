@@ -31,10 +31,8 @@
         ' ',
         -- Measure: what is counted, e.g. `Disbursements on`, `Outstanding`.
         case
-            when {{ population_type }} = 'dcid:EconomicActivity'
-                then
-                    upper(left({{ labels.economic_activity_type }}, 1))
-                    || substr({{ labels.economic_activity_type }}, 2)
+            when {{ measured_property }} = 'dcid:primaryIncome'
+                then 'Gross national income'
             when {{ stat_type }} = 'dcid:meanValue'
                 then 'Average ' || case {{ measured_property }}
                     when 'dcid:interestRate' then 'interest rate'
@@ -78,7 +76,7 @@
         end,
         -- Terms, then the instrument, e.g. `long-term concessional external debt`.
         case
-            when {{ population_type }} <> 'dcid:EconomicActivity'
+            when {{ population_type }} <> 'dcid:EconomicUnit'
                 then
                     concat_ws(
                         ' ',
@@ -114,7 +112,6 @@
         when {{ denominator }} = 'dcid:Count_Person' then ' per person'
         else ' of ' || case {{ denominator }}
             when 'NY.GNP.MKTP.CD' then 'GNI'
-            when 'BX.GSR.TOTL.CD' then 'exports of goods, services and primary income'
             when 'DT.DOD.DECT.CD' then 'total external debt'
             when 'DT.DOD.DPPG.CD' then 'public or publicly guaranteed external debt'
         end
