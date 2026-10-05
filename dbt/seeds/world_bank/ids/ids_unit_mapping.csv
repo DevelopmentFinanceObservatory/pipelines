@@ -1,8 +1,5 @@
 code,role,unit,measurement_qualifier,denominator_series_code,denominator_dcid
 CD,unit,dcid:CurrencyUSD,dcid:Nominal,,
 ZS,unit,dcid:Percent,,,
-MO,unit,dcid:Month,,BM.GSR.TOTL.CD,
-EX,denominator,,,BX.GSR.TOTL.CD,
 GN,denominator,,,NY.GNP.MKTP.CD,
-DT,denominator,,,DT.DOD.DECT.CD,
 PC,denominator,,,,dcid:Count_Person

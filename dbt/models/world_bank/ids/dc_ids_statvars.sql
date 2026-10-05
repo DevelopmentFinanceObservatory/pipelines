@@ -18,7 +18,7 @@ select  -- noqa: ST06
     measurement_denominator,
     constraint_properties,
     financial_obligation_type,
-    economic_activity_type,
+    fixed_capital_consumption_basis,
     financial_flow_type,
     netting_basis,
     net_of,
@@ -39,8 +39,10 @@ select  -- noqa: ST06
     '"' || string_agg(series_code, '","' order by series_code) || '"'
         as source_indicator_code,
     -- A variable whose observations carry no provider is measured for the debtor
-    -- alone, so it declares one entity; the rest name both parties.
+    -- alone, so it declares one entity; the rest name both parties. A measure of
+    -- the debtor economy itself is about it, so it declares none.
     case
+        when entity_property = 'observationAbout' then null
         when has_provider then 'financingProvider,financingRecipient'
         else 'financingRecipient'
     end as observation_properties

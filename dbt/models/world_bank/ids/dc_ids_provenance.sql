@@ -42,7 +42,7 @@ observation_range as (
     select
         cast(min(observations.date) as varchar) as earliest_observation_date,
         cast(max(observations.date) as varchar) as latest_observation_date
-    from {{ ref("dc_ids_observations") }} as observations
+    from {{ ref("int_ids_observations") }} as observations
 )
 
 select

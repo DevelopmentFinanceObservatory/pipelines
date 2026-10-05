@@ -265,7 +265,7 @@ def test_dc_export_marks_only_projected_rows_with_a_measurement_method(
     _, out_dir = _run_export(tmp_path, table)
 
     spec: ExportSpec = TABLES[table][0]
-    mapping = spec.observation_property_to_column
+    mapping = spec.observation_inputs[0].property_to_column
     written = pd.concat(
         pd.read_csv(csv_file) for csv_file in sorted(out_dir.glob("observations_*.csv"))
     ).set_index(mapping["observationAbout"])

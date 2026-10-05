@@ -43,8 +43,10 @@ IDS_DBT_MODEL_NAMES = (
     "int_ids_resolved",
     "int_ids_unified",
     "int_ids_mapped",
+    "int_ids_observations",
     "dc_ids_statvars",
-    "dc_ids_observations",
+    "dc_ids_debt_observations",
+    "dc_ids_economy_observations",
     "dc_ids_provenance",
 )
 

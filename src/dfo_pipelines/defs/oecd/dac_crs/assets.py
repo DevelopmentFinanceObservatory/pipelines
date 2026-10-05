@@ -16,6 +16,7 @@ from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
     ConversionRecipe,
     ExportSpec,
+    ObservationInput,
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
@@ -211,7 +212,19 @@ CRS_EXPORT_SPEC = ExportSpec(
     provenance_model="oecd_dac_crs.dc_dac_crs_provenance",
     conversion_recipe=ConversionRecipe.DAC,
     statvar_model="oecd_dac_crs.dc_dac_crs_statvars",
-    observation_model="oecd_dac_crs.dc_dac_crs_observations",
+    observation_inputs=(
+        ObservationInput(
+            model="oecd_dac_crs.dc_dac_crs_observations",
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                "custom:financingProvider": "financing_provider",
+                "custom:financingRecipient": "financing_recipient",
+            },
+        ),
+    ),
     statvar_column_to_property={
         "name": "name",
         "netting_basis": "nettingBasis",
@@ -221,14 +234,6 @@ CRS_EXPORT_SPEC = ExportSpec(
         "type_of_finance": "crsTypeOfFinance",
         "cooperation_modality": "crsCooperationModality",
         "purpose_code": "crsPurpose",
-    },
-    observation_property_to_column={
-        "variable": "variable",
-        "date": "date",
-        "value": "value",
-        "unit": "unit",
-        "custom:financingProvider": "financing_provider",
-        "custom:financingRecipient": "financing_recipient",
     },
     docs_dir=DOCS_ROOT / "oecd" / "dac_crs",
     constant_observation_properties={"observationPeriod": "P1Y"},

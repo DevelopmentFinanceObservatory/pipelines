@@ -603,13 +603,13 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
     )
 
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 4
+    assert row_count(duckdb, "world_bank_ids.raw_ids") == 5
     assert isinstance(result, dg.MaterializeResult)
     assert (
         meta(result, "dagster/table_name", dg.TextMetadataValue).value
         == "world_bank_ids.raw_ids"
     )
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 4
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 5
 
     [check] = result.check_results
     assert check.check_name == "table_not_empty"
@@ -634,7 +634,7 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
         "2024": "VARCHAR",
         "2025": "VARCHAR",
     }
-    assert [row[0] for row in codes] == ["071", "WLD", "WLD", "WLD"]
+    assert [row[0] for row in codes] == ["071", "WLD", "WLD", "WLD", "WLD"]
 
 
 def test_ids_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
@@ -663,7 +663,7 @@ def test_ids_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
     )
 
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 4
+    assert row_count(duckdb, "world_bank_ids.raw_ids") == 5
 
     world_bank_ids_raw_table(
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data-0.parquet")
@@ -754,6 +754,7 @@ TOTAL_STATVAR = (
     "dcid:Amount_FinancialPosition_AmountOutstanding_LongTermMaturity_WithIMFCredit"
 )
 BREAKDOWN_STATVAR = "dcid:Amount_FinancialPosition_AmountOutstanding_ByCreditor"
+GNI_STATVAR = "dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal"
 
 PROVENANCE_SQL = """
 create or replace table world_bank_ids.dc_ids_provenance as
@@ -815,12 +816,13 @@ select * from (values
         null,
         -- every remaining dimension at once, so each column-to-property binding
         -- the export performs is asserted below rather than a sample of them
-        'financialObligationType,economicActivityType,financialFlowType,nettingBasis,netOf,'
+        'financialObligationType,fixedCapitalConsumptionBasis,'
+        'financialFlowType,nettingBasis,netOf,'
         'financialPositionType,currencyOfDenomination,financingResource,financingForm,'
         'idsConcessionality,idsCreditorType,guaranteeStatus,idsDebtorType,'
         'interestRateVariability',
         'dcid:Commitment',
-        'dcid:GrossNationalIncome',
+        'dcid:GrossOfFixedCapitalConsumption',
         'dcid:Disbursement',
         'dcid:Net',
         'dcid:PrincipalRepayment',
@@ -838,6 +840,36 @@ select * from (values
         true,
         '"DT.DOD.BLAT.CD"',
         'financingProvider,financingRecipient'
+    ),
+    (
+        '{GNI_STATVAR}',
+        'Gross national income (current US$)',
+        'GNI (current US$)',
+        'dcid:EconomicUnit',
+        'dcid:primaryIncome',
+        'dcid:measuredValue',
+        'dcid:Nominal',
+        null,
+        'fixedCapitalConsumptionBasis',
+        null,
+        'dcid:GrossOfFixedCapitalConsumption',
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        '"NY.GNP.MKTP.CD"',
+        null
     )
 ) as statvars (
     dcid,
@@ -850,7 +882,7 @@ select * from (values
     measurement_denominator,
     constraint_properties,
     financial_obligation_type,
-    economic_activity_type,
+    fixed_capital_consumption_basis,
     financial_flow_type,
     netting_basis,
     net_of,
@@ -872,7 +904,7 @@ select * from (values
 """
 
 OBSERVATIONS_SQL = f"""
-create or replace table world_bank_ids.dc_ids_observations as
+create or replace table world_bank_ids.dc_ids_debt_observations as
 select
     variable,
     date::integer as date,
@@ -890,6 +922,20 @@ from (values
 )
 """
 
+ECONOMY_OBSERVATIONS_SQL = f"""
+create or replace table world_bank_ids.dc_ids_economy_observations as
+select
+    variable,
+    date::integer as date,
+    observation_about,
+    value::decimal(18, 5) as value,
+    unit,
+    measurement_method
+from (values
+    ('{GNI_STATVAR}', 2023, 'country/AFG', 20.5, 'dcid:CurrencyUSD', null)
+) as observations (variable, date, observation_about, value, unit, measurement_method)
+"""
+
 
 def create_dc_models(duckdb: DuckDBResource) -> None:
     """Create the DC schema models the export reads, holding a small fixture bundle"""
@@ -898,6 +944,7 @@ def create_dc_models(duckdb: DuckDBResource) -> None:
         connection.execute(PROVENANCE_SQL)
         connection.execute(STATVARS_SQL)
         connection.execute(OBSERVATIONS_SQL)
+        connection.execute(ECONOMY_OBSERVATIONS_SQL)
 
 
 def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
@@ -930,15 +977,16 @@ def test_ids_dc_export_writes_a_bundle_to_a_date_partitioned_path(
     assert sorted(path.name for path in out_dir.iterdir()) == [
         "config.json",
         "custom_nodes.mcf",
+        "economy_observations_2023.csv",
         "observations_2023.csv",
         "observations_2024.csv",
         "provenance.mcf",
     ]
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
+        "observation_count": dg.IntMetadataValue(4),
+        "statvar_count": dg.IntMetadataValue(3),
+        "observation_file_count": dg.IntMetadataValue(3),
     }
 
 
@@ -952,8 +1000,9 @@ def test_ids_dc_export_registers_the_observation_columns(tmp_path: Path) -> None
     assert [input_file["pattern"] for input_file in config["inputFiles"]] == [
         "*.mcf",
         "observations_*.csv",
+        "economy_observations_*.csv",
     ]
-    mcf, observations = config["inputFiles"]
+    mcf, observations, economy_observations = config["inputFiles"]
     assert (
         mcf["provenance"]
         == observations["provenance"]
@@ -969,6 +1018,15 @@ def test_ids_dc_export_registers_the_observation_columns(tmp_path: Path) -> None
         "custom:financingRecipient": "financing_recipient",
     }
     assert observations["observationProperties"] == {"observationPeriod": "P1Y"}
+    assert economy_observations["provenance"] == mcf["provenance"]
+    assert economy_observations["columnMappings"] == {
+        "dcid:variableMeasured": "variable",
+        "dcid:observationDate": "date",
+        "dcid:value": "value",
+        "dcid:unit": "unit",
+        "dcid:measurementMethod": "measurement_method",
+        "dcid:observationAbout": "observation_about",
+    }
 
     header = (
         "variable,date,financing_provider,financing_recipient,value,unit,"
@@ -1030,7 +1088,7 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         "populationType: dcid:FinancialPosition\n"
         "measuredProperty: dcid:amount\n"
         "constraintProperties: "
-        "dcid:financialObligationType, dcid:economicActivityType, "
+        "dcid:financialObligationType, dcid:fixedCapitalConsumptionBasis, "
         "dcid:financialFlowType, dcid:nettingBasis, dcid:netOf, "
         "dcid:financialPositionType, dcid:currencyOfDenomination, "
         "dcid:financingResource, dcid:financingForm, dcid:idsConcessionality, "
@@ -1038,7 +1096,7 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         "dcid:interestRateVariability\n"
         "observationProperties: dcid:financingProvider, dcid:financingRecipient\n"
         "financialObligationType: dcid:Commitment\n"
-        "economicActivityType: dcid:GrossNationalIncome\n"
+        "fixedCapitalConsumptionBasis: dcid:GrossOfFixedCapitalConsumption\n"
         "financialFlowType: dcid:Disbursement\n"
         "nettingBasis: dcid:Net\n"
         "netOf: dcid:PrincipalRepayment\n"
@@ -1052,6 +1110,19 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         "idsDebtorType: dcid:IDSDebtorTypeGG\n"
         "interestRateVariability: dcid:VariableInterestRate\n"
         'sourceIndicatorCode: "DT.DOD.BLAT.CD"'
+    )
+    assert nodes[GNI_STATVAR] == (
+        f"Node: {GNI_STATVAR}\n"
+        'name: "Gross national income (current US$)"\n'
+        "typeOf: dcid:StatisticalVariable\n"
+        'description: "GNI (current US$)"\n'
+        "statType: dcid:measuredValue\n"
+        "populationType: dcid:EconomicUnit\n"
+        "measuredProperty: dcid:primaryIncome\n"
+        "constraintProperties: dcid:fixedCapitalConsumptionBasis\n"
+        "measurementQualifier: dcid:Nominal\n"
+        "fixedCapitalConsumptionBasis: dcid:GrossOfFixedCapitalConsumption\n"
+        'sourceIndicatorCode: "NY.GNP.MKTP.CD"'
     )
 
 

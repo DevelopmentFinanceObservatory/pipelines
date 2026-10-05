@@ -20,6 +20,7 @@ from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
     ConversionRecipe,
     ExportSpec,
+    ObservationInput,
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
@@ -487,8 +488,27 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
     statvar_model=(
         "one_imputed_multilateral_sectors.dc_imputed_multilateral_sectors_statvars"
     ),
-    observation_model=(
-        "one_imputed_multilateral_sectors.dc_imputed_multilateral_sectors_observations"
+    observation_inputs=(
+        ObservationInput(
+            model=(
+                "one_imputed_multilateral_sectors."
+                "dc_imputed_multilateral_sectors_observations"
+            ),
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                # measurementMethod is one of add_input_file's recognised
+                # column_mappings keys. Left out, the model's measurement_method
+                # column would be written into the CSV but never registered in
+                # config.json. dcp-tools rejects a key it does not recognise with
+                # extra_forbidden, so a misspelt key fails the export.
+                "measurementMethod": "measurement_method",
+                "custom:financingProvider": "financing_provider",
+                "custom:financingRecipient": "financing_recipient",
+            },
+        ),
     ),
     statvar_column_to_property={
         "name": "name",
@@ -497,20 +517,6 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
         "type_of_flow": "crsTypeOfFlow",
         "aid_type": "dac2aAidType",
         "purpose_code": "crsPurpose",
-    },
-    observation_property_to_column={
-        "variable": "variable",
-        "date": "date",
-        "value": "value",
-        "unit": "unit",
-        # measurementMethod is one of add_input_file's recognised column_mappings
-        # keys. Left out, dc_imputed_multilateral_sectors_observations' own
-        # measurement_method column would be written into the CSV but never
-        # registered in config.json. dcp-tools rejects a key it does not recognise
-        # with extra_forbidden, so a misspelt key fails the export.
-        "measurementMethod": "measurement_method",
-        "custom:financingProvider": "financing_provider",
-        "custom:financingRecipient": "financing_recipient",
     },
     docs_dir=DOCS_ROOT / "one" / "imputed_multilateral_sectors",
     constant_observation_properties={"observationPeriod": "P1Y"},
