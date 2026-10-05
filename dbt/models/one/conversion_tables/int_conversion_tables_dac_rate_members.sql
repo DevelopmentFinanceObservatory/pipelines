@@ -43,19 +43,19 @@ seeded_currencies as (
 
 members as (
     select
-        dac_1.entity as area,
-        dac_1.year,
+        dac1.entity as area,
+        dac1.year,
         coalesce(country_currencies.currency, seeded_currencies.currency)
             as currency,
-        dac_1.national_currency / dac_1.current_usd as rate
-    from {{ ref("int_conversion_tables_dac_1_series") }} as dac_1
+        dac1.national_currency / dac1.current_usd as rate
+    from {{ ref("int_conversion_tables_dac1_series") }} as dac1
     left join country_currencies
-        on dac_1.entity = country_currencies.country
+        on dac1.entity = country_currencies.country
     left join seeded_currencies
-        on dac_1.entity = seeded_currencies.area
+        on dac1.entity = seeded_currencies.area
     where
-        dac_1.national_currency is not null
-        and dac_1.current_usd <> 0
+        dac1.national_currency is not null
+        and dac1.current_usd <> 0
 )
 
 select

@@ -15,7 +15,7 @@
         holding its value DCID.
 
         A ratio variable is otherwise indistinguishable from the level variable it
-        divides - interest payments and interest payments as a share of exports carry
+        divides - interest payments and interest payments as a share of GNI carry
         the same population, measure and constraints - so a denominator contributes a
         trailing `AsAFractionOf` segment, as Data Commons names such variables. A
         pipeline measuring no ratio passes no denominator and mints the same DCID it

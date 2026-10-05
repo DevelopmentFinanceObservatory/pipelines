@@ -1,10 +1,11 @@
-{% macro next_crs_release_date(release_date) -%}
+{% macro next_oecd_release_date(release_date) -%}
     {#-
-        OECD publishes CRS in April, June, September and December. This is the
-        first of those months after the given release, rolling into April of
-        the following year once December has been published. If a release is
-        late, this holds at the month it targets rather than skipping ahead
-        once that month has passed with nothing published.
+        The OECD publishes the CRS and DAC1 in April, June, September and
+        December. This is the first of those months after the given release,
+        rolling into April of the following year once December has been
+        published. If a release is late, this holds at the month it targets
+        rather than skipping ahead once that month has passed with nothing
+        published.
     -#}
     case
         when extract(month from {{ release_date }}) < 4

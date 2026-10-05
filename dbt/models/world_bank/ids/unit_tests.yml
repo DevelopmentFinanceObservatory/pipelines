@@ -302,20 +302,35 @@ unit_tests:
           creditor_breakdown: null
           statvar_dcid: dcid:Amount_FinancialFlow_PrincipalRepayment_IDSCreditorTypeBLAT_IDSDebtorTypeCB_Nominal
 
-  - name: mapped_applies_the_segment_precedence_rules
+  - name: mapped_publishes_gni_as_primary_income_about_the_economy
     model: int_ids_mapped
     description: >
-      The two places where reading the code left to right gives the wrong answer,
-      one series each. RSDL is a flow filed under a stock measure, so the category
-      outranks the measure and the position type it would have inherited is dropped.
-      And the six Debtor
-      Reporting System series carry the unit in position 4 with a trailing DT marker
-      behind it, so the unit is the rightmost segment that names one rather than the
-      last segment.
+      GNI is the debtor economy's primary income, gross of fixed capital
+      consumption, observed about the economy rather than as a flow. A share of
+      GNI takes it as denominator.
     given:
       - input: ref('int_ids_unified')
         rows:
-          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.RSDL.CD, series_name: Residual, year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: RSDL, series_code_pos_4: CD, series_code_pos_5: null}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: NY.GNP.MKTP.CD, series_name: "GNI (current US$)", year: 2023, value: 26271802177.3, series_code_pos_1: NY, series_code_pos_2: GNP, series_code_pos_3: MKTP, series_code_pos_4: CD, series_code_pos_5: null}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DECT.GN.ZS, series_name: "External debt stocks (% of GNI)", year: 2023, value: 80.1, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DECT, series_code_pos_4: GN, series_code_pos_5: ZS}
+      - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
+      - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
+      - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
+      - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
+    expect:
+      rows:
+        - {series_code: NY.GNP.MKTP.CD, population_type: dcid:EconomicUnit, measured_property: dcid:primaryIncome, fixed_capital_consumption_basis: dcid:GrossOfFixedCapitalConsumption, entity_property: observationAbout, statvar_dcid: dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal, measurement_denominator: null, statvar_name: "Gross national income (current US$)"}
+        - {series_code: DT.DOD.DECT.GN.ZS, population_type: dcid:FinancialPosition, measured_property: dcid:amount, fixed_capital_consumption_basis: null, entity_property: financingRecipient, statvar_dcid: dcid:Amount_FinancialPosition_AmountOutstanding_AsAFractionOf_PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal, measurement_denominator: dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal, statvar_name: "Outstanding external debt (% of GNI)"}
+
+  - name: mapped_takes_the_unit_from_the_rightmost_segment_naming_one
+    model: int_ids_mapped
+    description: >
+      The Debtor Reporting System series carry the unit in position 4 with a
+      trailing DT marker behind it, so the unit is the rightmost segment that names
+      one rather than the last segment.
+    given:
+      - input: ref('int_ids_unified')
+        rows:
           - {debtor: "dcid:country/ZMB", creditor: null, series_code: BX.GRT.TECH.CD.DT, series_name: "Technical cooperation grants", year: 2023, value: 4, series_code_pos_1: BX, series_code_pos_2: GRT, series_code_pos_3: TECH, series_code_pos_4: CD, series_code_pos_5: DT}
       - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
       - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
@@ -323,21 +338,19 @@ unit_tests:
       - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
     expect:
       rows:
-        - {series_code: DT.DOD.RSDL.CD, population_type: dcid:FinancialFlow, financial_flow_type: null, financial_position_type: null, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD}
         - {series_code: BX.GRT.TECH.CD.DT, population_type: dcid:FinancialObligation, financial_flow_type: null, financial_position_type: null, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD}
 
-  - name: mapped_reads_a_denominator_from_position_four_only
+  - name: mapped_names_a_denominator_series_by_the_variable_it_mints
     model: int_ids_mapped
     description: >
-      A DT in position 4 denominates by total external debt, while a DT in the last
-      position is the Debtor Reporting System marker and contributes nothing. Both
-      are in the previous test's fixture too, but here the denominator is resolved
-      against the variable it names, which is the self-reference this model makes.
-      DT.DOD.DECT.CD is supplied so there is something to resolve to.
+      A ratio whose denominator is another series in the import names that series'
+      variable, resolved against the same mapping. A share of total external debt
+      denominates by DT.DOD.DECT.CD, so DT.DOD.DECT.CD is supplied for it to
+      resolve to.
     given:
       - input: ref('int_ids_unified')
         rows:
-          - {debtor: "dcid:country/ZMB", creditor: null, series_code: FI.RES.TOTL.DT.ZS, series_name: "Total reserves", year: 2023, value: 1, series_code_pos_1: FI, series_code_pos_2: RES, series_code_pos_3: TOTL, series_code_pos_4: DT, series_code_pos_5: ZS}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.ALLC.ZS, series_name: "Share of total external debt", year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: ALLC, series_code_pos_4: ZS, series_code_pos_5: null}
           - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DECT.CD, series_name: "Total external debt", year: 2023, value: 2, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DECT, series_code_pos_4: CD, series_code_pos_5: null}
       - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
       - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
@@ -345,14 +358,8 @@ unit_tests:
       - {input: ref('stat_type_mapping'), format: csv, fixture: ids_test_stat_type_mapping}
     expect:
       rows:
-        - series_code: FI.RES.TOTL.DT.ZS
-          unit: dcid:Percent
-          measurement_denominator: dcid:Amount_FinancialPosition_AmountOutstanding_Nominal
-          statvar_dcid: dcid:Amount_EconomicActivity_InternationalReserves_AsAFractionOf_Amount_FinancialPosition_AmountOutstanding_Nominal
-        - series_code: DT.DOD.DECT.CD
-          unit: dcid:CurrencyUSD
-          measurement_denominator: null
-          statvar_dcid: dcid:Amount_FinancialPosition_AmountOutstanding_Nominal
+        - {series_code: DT.DOD.ALLC.ZS, unit: dcid:Percent, measurement_denominator: dcid:Amount_FinancialPosition_AmountOutstanding_Nominal}
+        - {series_code: DT.DOD.DECT.CD, unit: dcid:CurrencyUSD, measurement_denominator: null}
 
   - name: mapped_distinguishes_use_of_imf_credit_from_its_sdr_component_by_instrument
     model: int_ids_mapped
@@ -383,13 +390,13 @@ unit_tests:
       A series reported both across all creditors and itemised by creditor measures
       a total and its parts, so it yields two variables rather than one holding
       both. A series reported only across all creditors yields the total alone,
-      which is the shape of the 25 series that have no creditor dimension.
+      which is the shape of a series with no creditor dimension.
     given:
       - input: ref('int_ids_unified')
         rows:
           - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 1, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
           - {debtor: "dcid:country/ZMB", creditor: "dcid:country/AUT", series_code: DT.AMT.BLAT.CB.CD, series_name: Bilateral, year: 2023, value: 2, series_code_pos_1: DT, series_code_pos_2: AMT, series_code_pos_3: BLAT, series_code_pos_4: CB, series_code_pos_5: CD}
-          - {debtor: "dcid:country/ZMB", creditor: null, series_code: FI.RES.TOTL.DT.ZS, series_name: Reserves, year: 2023, value: 3, series_code_pos_1: FI, series_code_pos_2: RES, series_code_pos_3: TOTL, series_code_pos_4: DT, series_code_pos_5: ZS}
+          - {debtor: "dcid:country/ZMB", creditor: null, series_code: DT.DOD.DECT.PC.CD, series_name: "External debt stocks per capita", year: 2023, value: 3, series_code_pos_1: DT, series_code_pos_2: DOD, series_code_pos_3: DECT, series_code_pos_4: PC, series_code_pos_5: CD}
       - {input: ref('code_mapping'), format: csv, fixture: ids_test_code_mapping}
       - {input: ref('ids_measure_mapping'), format: csv, fixture: ids_test_measure_mapping}
       - {input: ref('ids_unit_mapping'), format: csv, fixture: ids_test_unit_mapping}
@@ -398,10 +405,10 @@ unit_tests:
       rows:
         - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: null, statvar_name: "Principal repayments on external debt owed by the central bank to bilateral creditors (current US$)"}
         - {series_code: DT.AMT.BLAT.CB.CD, creditor_breakdown: "dcid:ByCreditor", statvar_name: "Principal repayments on external debt owed by the central bank to bilateral creditors, by creditor (current US$)"}
-        - {series_code: FI.RES.TOTL.DT.ZS, creditor_breakdown: null, statvar_name: "International reserves (% of total external debt)"}
+        - {series_code: DT.DOD.DECT.PC.CD, creditor_breakdown: null, statvar_name: "Outstanding external debt (current US$ per person)"}
 
   - name: observations_send_a_total_and_its_parts_to_different_variables
-    model: dc_ids_observations
+    model: int_ids_observations
     description: >
       The same series, debtor and year reported both across all creditors and
       against one creditor. The total carries no provider and must land on the total
@@ -422,6 +429,30 @@ unit_tests:
         - {variable: "dcid:Total", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD}
         - {variable: "dcid:ByCreditorTotal", date: 2023, financing_provider: "dcid:country/AUT", financing_recipient: "dcid:country/ZMB", value: 10, unit: dcid:CurrencyUSD}
 
+  - name: debt_observations_leave_gni_to_the_economy_observations
+    model: dc_ids_debt_observations
+    description: A measure of the debtor economy is left to the economy observations.
+    given:
+      - input: ref('int_ids_observations')
+        rows:
+          - {variable: "dcid:Debt", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: financingRecipient}
+          - {variable: "dcid:GNI", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 26271802177.3, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: observationAbout}
+    expect:
+      rows:
+        - {variable: "dcid:Debt", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD, measurement_method: null}
+
+  - name: economy_observations_keep_gni_about_the_economy
+    model: dc_ids_economy_observations
+    description: A debt measure is left to the debt observations.
+    given:
+      - input: ref('int_ids_observations')
+        rows:
+          - {variable: "dcid:Debt", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: financingRecipient}
+          - {variable: "dcid:GNI", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 26271802177.3, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: observationAbout}
+    expect:
+      rows:
+        - {variable: "dcid:GNI", date: 2023, observation_about: "dcid:country/ZMB", value: 26271802177.3, unit: dcid:CurrencyUSD, measurement_method: null}
+
   - name: merged_variables_keep_every_source
     model: dc_ids_statvars
     description: >
@@ -433,9 +464,9 @@ unit_tests:
     given:
       - input: ref('int_ids_mapped')
         rows:
-          - {series_code: DT.NFL.IMFC.CD, series_name: "Net financial flows, IMF concessional (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
-          - {series_code: DT.NFL.MIDA.CD, series_name: "Net financial flows, IDA (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
-          - {series_code: DT.DIS.DIMF.CD, series_name: "IMF purchases (DIS, current US$)", statvar_name: "Disbursements on external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Disbursement_DebtInstrument_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "financialFlowType,financingResource", financial_obligation_type: null, economic_activity_type: null, financial_flow_type: dcid:Disbursement, netting_basis: null, net_of: null, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: null, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+          - {series_code: DT.NFL.IMFC.CD, series_name: "Net financial flows, IMF concessional (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+          - {series_code: DT.NFL.MIDA.CD, series_name: "Net financial flows, IDA (NFL, current US$)", statvar_name: "Net flows on concessional external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_PrincipalRepayment_DebtInstrument_IDSConcessional_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "nettingBasis,financialFlowType,netOf,financingResource,idsConcessionality", financial_obligation_type: null, financial_flow_type: dcid:Disbursement, netting_basis: dcid:Net, net_of: dcid:PrincipalRepayment, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: dcid:IDSConcessional, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
+          - {series_code: DT.DIS.DIMF.CD, series_name: "IMF purchases (DIS, current US$)", statvar_name: "Disbursements on external debt (debt instrument) (current US$)", statvar_dcid: "dcid:Amount_FinancialFlow_Disbursement_DebtInstrument_Nominal", population_type: dcid:FinancialFlow, measured_property: dcid:amount, stat_type: dcid:measuredValue, measurement_qualifier: dcid:Nominal, unit: dcid:CurrencyUSD, measurement_denominator: null, constraint_properties: "financialFlowType,financingResource", financial_obligation_type: null, financial_flow_type: dcid:Disbursement, netting_basis: null, net_of: null, financial_position_type: null, currency_of_denomination: null, financing_resource: dcid:DebtInstrument, financing_form: null, ids_concessionality: null, ids_creditor_type: null, guarantee_status: null, maturity_band: null, includes_imf_credit: null, ids_debtor_type: null, interest_rate_variability: null, creditor_breakdown: null, has_provider: true}
     expect:
       rows:
         # the merged pair: one row, both codes and names kept

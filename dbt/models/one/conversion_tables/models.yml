@@ -1,56 +1,12 @@
 version: 2
 
 models:
-  - name: stg_conversion_tables_dac_1
+  - name: int_conversion_tables_dac1_resolved
     description: >
-      DAC1 total net ODA (aid type 1010, flow 1140) by donor and year in current
-      US dollars, constant US dollars and national currency, cast to their
-      target types.
-    config:
-      contract: {enforced: true}
-    data_tests:
-      - dbt_expectations.expect_table_row_count_to_be_between:
-          arguments:
-            min_value: 1
-      - dbt_utils.unique_combination_of_columns:
-          name: one_dac_1_row_per_donor_year_and_amount_type
-          description: >
-            Fails if DAC1 publishes total ODA under more than one part for a
-            donor, which the pivot in int_conversion_tables_dac_1_series would
-            otherwise resolve by picking one row.
-          arguments:
-            combination_of_columns:
-              - donor_code
-              - year
-              - amount_type
-    columns:
-      - name: donor_code
-        data_type: string
-        description: DAC code of the donor
-        data_tests:
-          - not_null
-      - name: year
-        data_type: integer
-        description: Year the value refers to
-        data_tests:
-          - not_null
-      - name: amount_type
-        data_type: string
-        description: >
-          A for current US dollars, D for constant US dollars of the DAC base
-          year, N for national currency
-        data_tests:
-          - not_null
-      - name: value
-        data_type: double
-        description: Total net ODA, in millions of the amount type's currency
-        data_tests:
-          - not_null
-
-  - name: int_conversion_tables_dac_1_resolved
-    description: >
-      DAC1 total net ODA with each donor replaced by the DCID of its node,
-      group totals other than DAC Countries, Total left out.
+      DAC1 total net ODA (aid type 1010, flow 1140) in current US dollars,
+      constant US dollars and national currency, with each donor replaced by
+      the DCID of its node, group totals other than DAC Countries, Total left
+      out.
     config:
       contract: {enforced: true}
     data_tests:
@@ -61,8 +17,10 @@ models:
             not_null test on entity catches. This fails if the join drops or
             duplicates rows instead.
           arguments:
-            compare_model: ref('stg_conversion_tables_dac_1')
-            compare_row_condition: "{{ is_dac_1_donor('donor_code') }}"
+            compare_model: ref('stg_dac1')
+            compare_row_condition: >-
+              aid_type = '1010' and flow = '1140' and
+              {{ is_dac1_donor('donor_code') }}
     columns:
       - name: entity
         data_type: string
@@ -76,7 +34,7 @@ models:
           - not_null
       - name: amount_type
         data_type: string
-        description: A, D or N, as in stg_conversion_tables_dac_1
+        description: A, D or N, as in stg_dac1
         data_tests:
           - not_null
       - name: value
@@ -85,13 +43,13 @@ models:
         data_tests:
           - not_null
 
-  - name: int_conversion_tables_dac_1_series
+  - name: int_conversion_tables_dac1_series
     description: Total net ODA in each price basis, one row per donor and year.
     config:
       contract: {enforced: true}
     data_tests:
       - dbt_utils.unique_combination_of_columns:
-          name: one_dac_1_series_row_per_donor_and_year
+          name: one_dac1_series_row_per_donor_and_year
           arguments:
             combination_of_columns:
               - entity
@@ -421,7 +379,7 @@ models:
           arguments:
             min_value: 1
       - dbt_utils.expression_is_true:
-          name: dac_1_and_weo_rates_agree_within_a_factor_of_two
+          name: dac1_and_weo_rates_agree_within_a_factor_of_two
           description: >
             DAC1 and WEO compute each rate from independent figures, so a ratio
             outside a factor of two means one of them read amounts at the wrong

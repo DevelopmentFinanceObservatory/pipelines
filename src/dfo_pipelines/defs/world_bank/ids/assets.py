@@ -14,6 +14,7 @@ from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
     ConversionRecipe,
     ExportSpec,
+    ObservationInput,
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
@@ -346,13 +347,38 @@ IDS_EXPORT_SPEC = ExportSpec(
     provenance_model="world_bank_ids.dc_ids_provenance",
     conversion_recipe=ConversionRecipe.IDS,
     statvar_model="world_bank_ids.dc_ids_statvars",
-    observation_model="world_bank_ids.dc_ids_observations",
+    observation_inputs=(
+        ObservationInput(
+            model="world_bank_ids.dc_ids_debt_observations",
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                "measurementMethod": "measurement_method",
+                "custom:financingProvider": "financing_provider",
+                "custom:financingRecipient": "financing_recipient",
+            },
+        ),
+        ObservationInput(
+            model="world_bank_ids.dc_ids_economy_observations",
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                "measurementMethod": "measurement_method",
+                "observationAbout": "observation_about",
+            },
+            file_stem="economy_observations",
+        ),
+    ),
     statvar_column_to_property={
         "name": "name",
         "description": "description",
         "source_indicator_code": "sourceIndicatorCode",
         "financial_obligation_type": "financialObligationType",
-        "economic_activity_type": "economicActivityType",
+        "fixed_capital_consumption_basis": "fixedCapitalConsumptionBasis",
         "financial_flow_type": "financialFlowType",
         "netting_basis": "nettingBasis",
         "net_of": "netOf",
@@ -370,15 +396,6 @@ IDS_EXPORT_SPEC = ExportSpec(
     },
     statvar_ignore_columns=("has_provider",),
     statvar_csv_options={"dtype": str},
-    observation_property_to_column={
-        "variable": "variable",
-        "date": "date",
-        "value": "value",
-        "unit": "unit",
-        "measurementMethod": "measurement_method",
-        "custom:financingProvider": "financing_provider",
-        "custom:financingRecipient": "financing_recipient",
-    },
     docs_dir=DOCS_ROOT / "world_bank" / "ids",
     constant_observation_properties={"observationPeriod": "P1Y"},
 )
@@ -388,7 +405,8 @@ IDS_EXPORT_SPEC = ExportSpec(
     group_name="world_bank_ids",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
     deps=[
-        dg.AssetKey(["world_bank_ids", "dc_ids_observations"]),
+        dg.AssetKey(["world_bank_ids", "dc_ids_debt_observations"]),
+        dg.AssetKey(["world_bank_ids", "dc_ids_economy_observations"]),
         dg.AssetKey(["world_bank_ids", "dc_ids_provenance"]),
         dg.AssetKey(["world_bank_ids", "dc_ids_statvars"]),
     ],

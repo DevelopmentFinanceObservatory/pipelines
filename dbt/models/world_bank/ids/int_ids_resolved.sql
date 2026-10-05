@@ -66,7 +66,7 @@ normalised as (
 
 -- The cells where the lender a series code names is already itemised against a
 -- counterpart. Built straight from the source rather than from `normalised`, so
--- the join chain over 147 million rows is evaluated once rather than twice, and
+-- the join chain over every row is evaluated once rather than twice, and
 -- inner joined so only the few rows that name their own lender are scanned.
 restated_totals as (
     select distinct
@@ -103,7 +103,7 @@ from normalised
 -- the source published no such row - all of NIFC, and some of IDAG - the WLD row
 -- is the only record, so it is kept and carries the lender the series names.
 -- Joined on the keys alone: a constant in the ON clause costs the planner its hash
--- join, and probing 147 million rows any other way spills to disk.
+-- join, and probing every row any other way spills to disk.
 left join restated_totals
     on
         normalised.series_code = restated_totals.series_code

@@ -139,7 +139,7 @@ models:
       lender. RDBC, RDBN and MOTH name a class of lender rather than an
       institution, so they resolve nothing here and their WLD rows stay totals.
 
-      Materialized because three lookups and that dedupe over 147 million rows are
+      Materialized because three lookups and that dedupe over every staged row are
       too much to repeat on every scan, and every model below reads it.
     config:
       contract: {enforced: true}
@@ -230,7 +230,7 @@ models:
       - dbt_utils.expression_is_true:
           name: only_debt_service_and_disbursements_run_past_the_debt_stock
           description: >
-            dc_ids_observations marks a year after the debt stock's last year as a
+            int_ids_observations marks a year after the debt stock's last year as a
             projection, which holds only while the World Bank projects nothing but
             principal, interest, total debt service and disbursements. Fails if any
             other series reports a later year.
@@ -337,16 +337,15 @@ models:
               description: >
                 A code that resolves to no node mints a StatVar without the
                 constraint it sets. The lists mirror the lookups in int_ids_mapped.
-                Skips GSR, which resolves with its dataset (exports under BX,
-                imports under BM).
+                Skips GNP, whose properties ids_measure_mapping sets.
               arguments:
                 to: ref('code_mapping')
                 field: code
-                from_condition: "series_code_pos_2 <> 'GSR'"
+                from_condition: "series_code_pos_2 <> 'GNP'"
                 to_condition: >
                   property = 'wbCode' and list in (
-                    'dcid:FinancialObligationTypeEnum', 'dcid:EconomicActivityTypeEnum',
-                    'dcid:FinancialFlowTypeEnum', 'dcid:NettingBasisEnum',
+                    'dcid:FinancialObligationTypeEnum', 'dcid:FinancialFlowTypeEnum',
+                    'dcid:NettingBasisEnum',
                     'dcid:FinancialPositionTypeEnum', 'dcid:FinancingResourceEnum'
                   )
       - name: series_code_pos_3
@@ -369,8 +368,8 @@ models:
                 to_condition: >
                   (
                     property = 'wbCode' and list in (
-                      'dcid:EconomicActivityTypeEnum', 'dcid:FinancialFlowTypeEnum',
-                      'dcid:CurrencyUnit', 'dcid:FinancingResourceEnum',
+                      'dcid:FinancialFlowTypeEnum', 'dcid:CurrencyUnit',
+                      'dcid:FinancingResourceEnum',
                       'dcid:FinancingFormEnum', 'dcid:IDSConcessionalityEnum',
                       'dcid:GuaranteeStatusEnum', 'dcid:MaturityBandEnum',
                       'dcid:IncludesIMFCreditEnum', 'dcid:InterestRateVariabilityEnum',
@@ -414,17 +413,17 @@ models:
     description: >
       Every IDS series mapped onto its Data Commons properties, one row per series
       and creditor breakdown. The mapping is a function of the series code alone, so
-      it is resolved over the 576 distinct codes rather than over all 147 million
-      observations; that is what lets the StatVar model be a projection rather than a
-      select distinct over the fact table.
+      it is resolved over the distinct codes rather than over every observation;
+      that is what lets the StatVar model be a projection rather than a select
+      distinct over the fact table.
 
       A series reported both across all creditors and itemised by creditor measures a
       total and its parts, so it yields two variables rather than one holding both.
 
       Materialized because both Data Commons models read it and every observation
-      scan would otherwise re-resolve its twenty-odd code_mapping joins. At 1,127
-      rows the table costs nothing; as a view the observation grain test exhausts
-      memory.
+      scan would otherwise re-resolve its twenty-odd code_mapping joins. At one row
+      per series and breakdown the table costs nothing; as a view the observation
+      grain test exhausts memory.
     config:
       contract: {enforced: true}
       materialized: table
@@ -512,9 +511,9 @@ models:
       - name: financial_obligation_type
         data_type: string
         description: DCID of the obligation type
-      - name: economic_activity_type
+      - name: fixed_capital_consumption_basis
         data_type: string
-        description: DCID of the economic activity, on the non-debt context series
+        description: DCID of the fixed capital consumption basis, set for GNI only
       - name: financial_flow_type
         data_type: string
         description: DCID of the flow type
@@ -571,6 +570,13 @@ models:
           from creditor_breakdown: a series whose lender its code names has every
           row attributed to that lender, so its observations carry a provider while
           the variable has no breakdown.
+        data_tests:
+          - not_null
+      - name: entity_property
+        data_type: string
+        description: >
+          The observation property naming the debtor: financingRecipient for a debt
+          measure, observationAbout for a measure of the debtor economy itself
         data_tests:
           - not_null
       - name: statvar_dcid
@@ -684,9 +690,9 @@ models:
       - name: financial_obligation_type
         data_type: string
         description: DCID of the obligation type
-      - name: economic_activity_type
+      - name: fixed_capital_consumption_basis
         data_type: string
-        description: DCID of the economic activity
+        description: DCID of the fixed capital consumption basis, set for GNI only
       - name: financial_flow_type
         data_type: string
         description: DCID of the flow type
@@ -751,11 +757,9 @@ models:
         description: >
           Comma-delimited properties an observation carries rather than the variable,
           so one variable covers every creditor and debtor pair rather than one per
-          pair.
-        data_tests:
-          - not_null
+          pair. Null for GNI, whose observations are about the debtor economy.
 
-  - name: dc_ids_observations
+  - name: int_ids_observations
     description: >
       One row per observation, naming the StatVar it measures. A row lands on the
       variable whose observations carry a provider where it carries one, which for a
@@ -763,9 +767,6 @@ models:
     config:
       contract: {enforced: true}
     data_tests:
-      - dbt_expectations.expect_table_row_count_to_be_between:
-          arguments:
-            min_value: 1
       - dbt_utils.expression_is_true:
           name: every_resolved_observation_reaches_a_variable
           description: >
@@ -775,7 +776,7 @@ models:
             observations without any per-row test noticing.
           arguments:
             expression: >
-              (select count(*) from {{ ref('dc_ids_observations') }})
+              (select count(*) from {{ ref('int_ids_observations') }})
               = (select count(*) from {{ ref('int_ids_unified') }})
       - dbt_utils.expression_is_true:
           name: some_observations_are_projections
@@ -786,7 +787,7 @@ models:
           arguments:
             expression: >
               exists (
-                select 1 from {{ ref('dc_ids_observations') }}
+                select 1 from {{ ref('int_ids_observations') }}
                 where measurement_method = 'dcid:Estimated'
               )
       - dbt_utils.expression_is_true:
@@ -799,6 +800,68 @@ models:
             expression: >
               measurement_method is not null
               or date < extract(year from current_date)
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: >
+          DCID of the creditor, null on a total across creditors. The World Bank
+          rounds those totals more coarsely than their parts, so they are reported
+          rather than summed here.
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the debtor economy or aggregate
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,5)
+        description: >
+          The observed value, unscaled. The IDS reports whole units of currency
+          rather than millions, and the same column holds both trillion-dollar
+          stocks and sub-percent ratios.
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: entity_property
+        data_type: string
+        description: >
+          The observation property naming the debtor: financingRecipient for a debt
+          measure, observationAbout for a measure of the debtor economy itself
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          Estimated on a year after the last reported year, which the World Bank
+          publishes as projections; null on a reported value
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['dcid:Estimated']
+
+  - name: dc_ids_debt_observations
+    description: >
+      One row per observation of a debt measure, naming the StatVar it measures,
+      the debtor and, where it is itemised, the creditor.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
       - dbt_utils.unique_combination_of_columns:
           name: one_observation_per_variable_entities_and_date
           description: >
@@ -829,10 +892,7 @@ models:
           - not_null
       - name: financing_provider
         data_type: string
-        description: >
-          DCID of the creditor, null on a total across creditors. The World Bank
-          rounds those totals more coarsely than their parts, so they are reported
-          rather than summed here.
+        description: DCID of the creditor, null on a total across creditors
       - name: financing_recipient
         data_type: string
         description: DCID of the debtor economy or aggregate
@@ -840,10 +900,7 @@ models:
           - not_null
       - name: value
         data_type: decimal(38,5)
-        description: >
-          The observed value, unscaled. The IDS reports whole units of currency
-          rather than millions, and the same column holds both trillion-dollar
-          stocks and sub-percent ratios.
+        description: The observed value, unscaled
         data_tests:
           - not_null
       - name: unit
@@ -853,13 +910,61 @@ models:
           - not_null
       - name: measurement_method
         data_type: string
-        description: >
-          Estimated on a year after the last reported year, which the World Bank
-          publishes as projections; null on a reported value
+        description: Estimated on a projected year, null on a reported value
+
+  - name: dc_ids_economy_observations
+    description: >
+      One row per observation of a measure of the debtor economy itself, such as
+      GNI, naming the StatVar it measures and the economy it is about.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_economy_observation_per_variable_entity_and_date
+          description: >
+            Data Commons keys an observation on its variable, entity and date, so a
+            duplicate would be rejected on ingest.
+          arguments:
+            combination_of_columns:
+              - variable
+              - observation_about
+              - date
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
         data_tests:
-          - accepted_values:
+          - not_null
+          - relationships:
               arguments:
-                values: ['dcid:Estimated']
+                to: ref('dc_ids_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: observation_about
+        data_type: string
+        description: DCID of the debtor economy the observation is about
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,5)
+        description: The observed value, in US dollars
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: Estimated on a projected year, null on a reported value
 
   - name: dc_ids_provenance
     description: >
