@@ -1,0 +1,105 @@
+version: 2
+
+seeds:
+  - name: ids_measure_mapping
+    description: >
+      Core StatVar properties for each World Bank IDS measure, keyed on the first
+      two segments of the series code. Transcribed from the Position 2 block of the
+      IDS mapping spreadsheet's Segment code mapping tab. These are Data Commons
+      core schema rather than ontology nodes, which is why they are seeded rather
+      than resolved through code_mapping like the constraint values.
+
+      Keyed on the dataset prefix as well as the measure because GSR means exports of
+      goods and services under BX and imports under BM, and nothing else in the code
+      tells them apart.
+    config:
+      column_types:
+        dataset: string
+        measure: string
+        population_type: string
+        measured_property: string
+        stat_type: string
+        unit: string
+        net_of: string
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - dataset
+              - measure
+    columns:
+      - name: dataset
+        description: >
+          First segment of the series code, which the World Bank calls the dataset
+          prefix, e.g. DT for external debt
+        data_tests:
+          - not_null
+      - name: measure
+        description: Second segment of the series code, e.g. DOD for debt outstanding
+        data_tests:
+          - not_null
+      - name: population_type
+        description: DCID of the population the measure counts
+        data_tests:
+          - not_null
+      - name: measured_property
+        description: DCID of the property the measure reports
+        data_tests:
+          - not_null
+      - name: stat_type
+        description: DCID of the stat type, measuredValue except on the average-terms measures
+        data_tests:
+          - not_null
+      - name: unit
+        description: >
+          DCID of the unit where the measure fixes it, as the average-terms and
+          currency-composition measures do. Otherwise the unit segment supplies it.
+      - name: net_of
+        description: >
+          DCID of what is subtracted, on the two net measures. Not in code_mapping
+          because NFL and NTR already key to Disbursement there, and one code cannot
+          resolve to two nodes within one list.
+
+  - name: ids_unit_mapping
+    description: >
+      Unit and denominator properties for the trailing segments of a World Bank IDS
+      series code. Transcribed from the Trailing segments block of the IDS mapping
+      spreadsheet's Segment code mapping tab, with two corrections recorded in the
+      issue plan: MO also denominates, and a DT before a unit segment is the external
+      debt denominator rather than the Debtor Reporting System marker.
+    config:
+      column_types:
+        code: string
+        role: string
+        unit: string
+        measurement_qualifier: string
+        denominator_series_code: string
+        denominator_dcid: string
+    columns:
+      - name: code
+        description: The segment as published
+        data_tests:
+          - not_null
+          - unique
+      - name: role
+        description: >
+          Whether the segment names the unit or the denominator. Only the unit rows
+          are candidates for the rightmost-unit-segment rule; a denominator is read
+          wherever it appears, which is why MO is a unit row that also denominates.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [unit, denominator]
+      - name: unit
+        description: DCID of the unit, empty where the segment only qualifies
+      - name: measurement_qualifier
+        description: DCID qualifying how the value is measured
+      - name: denominator_series_code
+        description: >
+          Series code whose StatVar is the denominator. Resolved against the minted
+          StatVars rather than seeded as a DCID, because this pipeline mints them.
+      - name: denominator_dcid
+        description: >
+          DCID of the denominator where it is an existing Data Commons StatVar rather
+          than one of this dataset's own series. Per capita is the only such case.

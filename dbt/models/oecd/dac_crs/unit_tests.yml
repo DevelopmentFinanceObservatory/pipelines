@@ -1,0 +1,267 @@
+unit_tests:
+  - name: stg_excludes_donor_core_contributions_to_multilaterals
+    model: stg_dac_crs
+    description: >
+      bi_multi = 2 rows are donor core contributions to multilateral organisations,
+      also reported in Members' Total Use of the Multilateral System, so are
+      dropped here to avoid double counting. A null bi_multi is not known to be a
+      core contribution and is kept.
+    given:
+      - input: source('oecd_dac_crs', 'raw_dac_crs')
+        rows:
+          - {year: 2023, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 1, usd_commitment: 10}
+          - {year: 2023, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 2, usd_commitment: 20}
+          - {year: 2023, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: null, usd_commitment: 30}
+    expect:
+      rows:
+        - {usd_commitment: 10}
+        - {usd_commitment: 30}
+
+  - name: resolved_resolves_entities_within_their_own_code_system
+    model: int_dac_crs_resolved
+    description: >
+      A DAC code identifies a node only within its own code system, and codes are
+      reused across them, so an unscoped join fans the row out and resolves an entity
+      to a node of the wrong kind.
+    given:
+      - input: ref('stg_dac_crs')
+        rows:
+          - {year: 2023, donor_code: "1", recipient_code: "1059", category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_commitment: 10}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", property: dacCode, code: "1", dcid: "dcid:country/AUT"}
+          - {list: "dcid:Organization", property: dacCode, code: "1059", dcid: "dcid:ArabMonetaryFund"}
+          - {list: "dcid:CurrencyUnit", property: dacCode, code: "1", dcid: "dcid:CurrencyATS"}
+          - {list: "dcid:CurrencyUnit", property: dacCode, code: "1059", dcid: "dcid:CurrencyXAD"}
+    expect:
+      rows:
+        - {year: 2023, donor: "dcid:country/AUT", recipient: "dcid:ArabMonetaryFund", usd_commitment: 10}
+
+  - name: unified_sums_values_sharing_a_dimension_key
+    model: int_dac_crs_unified
+    description: Source rows differing only outside the dimension columns are summed.
+    given:
+      - input: ref('int_dac_crs_resolved')
+        rows:
+          - {year: 2023, donor: D1, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_commitment: 10}
+          - {year: 2023, donor: D1, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_commitment: 5}
+    expect:
+      rows:
+        - {year: 2023, donor: D1, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", financing_event_type: commitment, netting_basis: gross, valuation_basis: face_value, value: 15}
+
+  - name: unified_maps_each_measure_to_its_dimensions
+    model: int_dac_crs_unified
+    description: >
+      Every source measure becomes one row carrying the dimensions it stands for, and
+      no measure is added or lost. Repayments are an input to net disbursements only,
+      so they appear in no row of their own.
+    given:
+      - input: ref('int_dac_crs_resolved')
+        rows:
+          - {year: 2023, donor: D1, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_commitment: 1, usd_disbursement: 4, usd_grant_equiv: 7, usd_received: 10}
+    expect:
+      rows:
+        - {financing_event_type: commitment, netting_basis: gross, valuation_basis: face_value, value: 1}
+        - {financing_event_type: disbursement, netting_basis: gross, valuation_basis: face_value, value: 4}
+        - {financing_event_type: disbursement, netting_basis: net, valuation_basis: face_value, value: -6}
+        - {financing_event_type: disbursement, netting_basis: null, valuation_basis: grant_equivalent, value: 7}
+
+  - name: unified_nets_repayments_off_disbursements
+    model: int_dac_crs_unified
+    description: >
+      Net disbursement is gross less repayments; a disbursement with no repayment
+      keeps its full value, a repayment with no disbursement is negative, and a row
+      with neither produces no net value.
+    given:
+      - input: ref('int_dac_crs_resolved')
+        rows:
+          - {year: 2023, donor: D1, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_disbursement: 100, usd_received: 30}
+          - {year: 2023, donor: D2, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_disbursement: null, usd_received: 40}
+          - {year: 2023, donor: D3, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_disbursement: null, usd_received: null}
+          - {year: 2023, donor: D4, recipient: R1, category: "10", finance_t: "110", aid_t: A01, purpose_code: "11110", usd_disbursement: 50, usd_received: null}
+    expect:
+      rows:
+        - {donor: D1, financing_event_type: disbursement, netting_basis: gross, value: 100}
+        - {donor: D1, financing_event_type: disbursement, netting_basis: net, value: 70}
+        - {donor: D2, financing_event_type: disbursement, netting_basis: net, value: -40}
+        - {donor: D4, financing_event_type: disbursement, netting_basis: gross, value: 50}
+        - {donor: D4, financing_event_type: disbursement, netting_basis: net, value: 50}
+
+  - name: mapped_omits_null_constraints
+    model: int_dac_crs_mapped
+    description: A null dimension should stay null, and not mint a constraint DCID.
+    given:
+      - input: ref('int_dac_crs_unified')
+        rows:
+          - {aid_t: A01, financing_event_type: disbursement, netting_basis: gross, valuation_basis: face_value}
+          - {aid_t: null, financing_event_type: commitment, netting_basis: null, valuation_basis: grant_equivalent}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:CRSCooperationModalityEnum", property: classificationCode, code: A01, dcid: "dcid:CRSCooperationModalityA01"}
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: measuredValue, dcid_segment: null}
+    expect:
+      rows:
+        - {cooperation_modality: "dcid:CRSCooperationModalityA01", netting_basis: "dcid:Gross", constraint_properties: "nettingBasis,financialFlowType,crsCooperationModality", statvar_dcid: "dcid:Amount_FinancialFlow_Gross_Disbursement_CRSCooperationModalityA01_Nominal", unit: "dcid:CurrencyUSD"}
+        - {cooperation_modality: null, netting_basis: null, constraint_properties: "financialObligationType", statvar_dcid: "dcid:GrantEquivalent_FinancialObligation_Commitment_Nominal", unit: "dcid:CurrencyUSD"}
+
+  - name: mapped_maps_each_measure_dimension_to_its_node
+    model: int_dac_crs_mapped
+    description: >
+      The stage decides the population type, which of the two financing event type
+      properties carries a value, and whether a netting basis applies at all. Nothing
+      else catches a swapped pair: publishing commitments as disbursements would leave
+      every other test green.
+    given:
+      - input: ref('int_dac_crs_unified')
+        rows:
+          - {donor: D1, financing_event_type: commitment, netting_basis: gross}
+          - {donor: D2, financing_event_type: disbursement, netting_basis: net}
+      - input: ref('code_mapping')
+        rows: []
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: measuredValue, dcid_segment: null}
+    expect:
+      rows:
+        - {financing_provider: D1, population_type: "dcid:FinancialObligation", financial_obligation_type: "dcid:Commitment", financial_flow_type: null, netting_basis: null, measurement_qualifier: "dcid:Nominal", unit: "dcid:CurrencyUSD"}
+        - {financing_provider: D2, population_type: "dcid:FinancialFlow", financial_obligation_type: null, financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", measurement_qualifier: "dcid:Nominal", unit: "dcid:CurrencyUSD"}
+
+  - name: mapped_resolves_each_code_within_its_own_code_system
+    model: int_dac_crs_mapped
+    description: >
+      A code identifies a node only within its own code system, and codes are shared
+      across them, so an unscoped join fans the row out and takes a dimension from the
+      wrong vocabulary.
+    given:
+      - input: ref('int_dac_crs_unified')
+        rows:
+          - {finance_t: "110", purpose_code: "110"}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:CRSTypeOfFinanceEnum", property: classificationCode, code: "110", dcid: "dcid:CRSTypeOfFinance110"}
+          - {list: "dcid:CRSPurposeCodeEnum", property: classificationCode, code: "110", dcid: "dcid:CRSPurposeCode110"}
+          - {list: "dcid:CRSTypeOfFinanceEnum", property: otherCode, code: "110", dcid: "dcid:OtherVocabulary110"}
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: measuredValue, dcid_segment: null}
+    expect:
+      rows:
+        - {type_of_finance: "dcid:CRSTypeOfFinance110", purpose_code: "dcid:CRSPurposeCode110"}
+
+  - name: mapped_names_the_statvar_after_the_labels_of_its_dimensions
+    model: int_dac_crs_mapped
+    description: >
+      The name is assembled from the label of each dimension, every one of which comes
+      from a different code system, so an argument taken from the wrong system would
+      publish a name that disagrees with the variable it names. The phrasing itself is
+      covered by the macro's own cases in tests/test_mint_crs_statvar_name.sql.
+    given:
+      - input: ref('int_dac_crs_unified')
+        rows:
+          - {category: "10", finance_t: "110", aid_t: A01, purpose_code: "110", financing_event_type: disbursement, netting_basis: gross, valuation_basis: face_value}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:CRSTypeOfFlowEnum", property: classificationCode, code: "10", dcid: "dcid:CRSTypeOfFlow10", label: official development assistance (CRS Flow)}
+          - {list: "dcid:CRSTypeOfFinanceEnum", property: classificationCode, code: "110", dcid: "dcid:CRSTypeOfFinance110", label: standard grant (CRS Finance)}
+          - {list: "dcid:CRSCooperationModalityEnum", property: classificationCode, code: A01, dcid: "dcid:CRSCooperationModalityA01", label: general budget support (CRS Modality)}
+          - {list: "dcid:CRSPurposeCodeEnum", property: classificationCode, code: "110", dcid: "dcid:CRSPurposeCode110", label: education (CRS Purpose)}
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: measuredValue, dcid_segment: null}
+    expect:
+      rows:
+        - {statvar_name: "Official development assistance gross disbursements for education (standard grant, general budget support)"}
+
+  - name: statvars_are_one_row_per_variable
+    model: dc_dac_crs_statvars
+    description: >
+      Mapped rows sharing a variable collapse to one node, so the StatVar table is the
+      distinct set of variables, and a node cannot disagree with the observations
+      pointing at it - both are projections of the same mapped row.
+    given:
+      - input: ref('int_dac_crs_mapped')
+        rows:
+          - {statvar_dcid: Amount_FinancialFlow_ODA, statvar_name: ODA commitments, type_of_flow: CRSTypeOfFlow10, financing_provider: France}
+          - {statvar_dcid: Amount_FinancialFlow_ODA, statvar_name: ODA commitments, type_of_flow: CRSTypeOfFlow10, financing_provider: Germany}
+    expect:
+      rows:
+        - {dcid: Amount_FinancialFlow_ODA, name: ODA commitments, type_of_flow: CRSTypeOfFlow10}
+
+  - name: observations_scale_amounts_to_whole_currency_units
+    model: dc_dac_crs_observations
+    description: CRS reports in millions so observation values are scaled up
+    given:
+      - input: ref('int_dac_crs_mapped')
+        rows:
+          - {statvar_dcid: SV1, year: 2024, value: 1.44734, unit: "dcid:CurrencyUSD"}
+          - {statvar_dcid: SV2, year: 2024, value: -3690.32613, unit: "dcid:CurrencyUSD"}
+    expect:
+      rows:
+        - {variable: SV1, date: 2024, value: 1447340.00, unit: "dcid:CurrencyUSD"}
+        - {variable: SV2, date: 2024, value: -3690326130.00, unit: "dcid:CurrencyUSD"}
+
+  - name: provenance_reports_the_dates_it_publishes
+    model: dc_dac_crs_provenance
+    given:
+      - input: ref('dc_dac_crs_observations')
+        rows:
+          - {date: 2019}
+          - {date: 2015}
+          - {date: 2023}
+      - input: source('oecd_dac_crs', 'raw_dac_crs_metadata')
+        rows:
+          - {downloaded_at: "2026-08-18 23:47:05+00", source_release_date: "2025-12-15"}
+    expect:
+      rows:
+        - {last_data_refresh_date: "2026-08-18", next_source_release_date: "2026-04", earliest_observation_date: "2015", latest_observation_date: "2023", license_attribution: "OECD (2025), Creditor Reporting System (CRS), OECD Data Explorer, https://webfs-dcd.oecd.org/files/dotStat/DSD_CRS/CRS.parquet (accessed on 2026-08-18)"}
+
+  - name: provenance_holds_an_overdue_release_date_in_the_past
+    model: dc_dac_crs_provenance
+    description: >
+      The expected release follows the one we last observed, not the calendar, so
+      refreshing during a month that has produced nothing leaves the date where it
+      is rather than advancing to the next slot. In 2026 the June release did not
+      land until August, and every refresh in between kept reporting June - a date
+      now in the past, which tells a consumer the source is overdue. Advancing it
+      would hide that.
+    given:
+      - input: ref('dc_dac_crs_observations')
+        rows:
+          - {date: 2023}
+      - input: source('oecd_dac_crs', 'raw_dac_crs_metadata')
+        rows:
+          - {downloaded_at: "2026-07-20 09:00:00+00", source_release_date: "2026-04-16"}
+    expect:
+      rows:
+        - {next_source_release_date: "2026-06"}
+
+  - name: provenance_expects_the_next_of_the_four_release_months
+    model: dc_dac_crs_provenance
+    description: >
+      OECD publishes CRS in April, June, September and December, so the expected
+      date is the first of those months after the release we hold - rolling into
+      April of the following year once December has been published. A late release
+      resolves against the month it actually landed in, so the August 2026 arrival
+      of the June release points at September, not back at June.
+    given:
+      - input: ref('dc_dac_crs_observations')
+        rows:
+          - {date: 2023}
+      - input: source('oecd_dac_crs', 'raw_dac_crs_metadata')
+        rows:
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-01-20"}
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-04-16"}
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-06-18"}
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-08-27"}
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-09-24"}
+          - {downloaded_at: "2026-09-11 00:00:00+00", source_release_date: "2026-12-15"}
+    expect:
+      rows:
+        - {next_source_release_date: "2026-04"}
+        - {next_source_release_date: "2026-06"}
+        - {next_source_release_date: "2026-09"}
+        - {next_source_release_date: "2026-09"}
+        - {next_source_release_date: "2026-12"}
+        - {next_source_release_date: "2027-04"}

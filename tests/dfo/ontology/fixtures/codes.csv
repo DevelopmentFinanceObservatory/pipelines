@@ -1,0 +1,554 @@
+list,code,dcid,label,property
+dcid:CRSPurposeCodeEnum,11120,dcid:CRSPurposeCode11120,education facility and training (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,15150,dcid:CRSPurposeCode15150,support for democratic participation and civil society (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,16030,dcid:CRSPurposeCode16030,housing policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,23220,dcid:CRSPurposeCode23220,hydroelectric power plant (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,321,dcid:CRSPurposeCode321,industry (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,43040,dcid:CRSPurposeCode43040,rural development (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,51010,dcid:CRSPurposeCode51010,general budget support (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,53040,dcid:CRSPurposeCode53040,import support for commodities (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,998,dcid:CRSPurposeCode998,unallocated and unspecified (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,99810,dcid:CRSPurposeCode99810,sectors not specified (CRS Purpose),classificationCode
+dcid:CRSTypeOfFinanceEnum,110,dcid:CRSTypeOfFinance110,standard grant (CRS Finance),classificationCode
+dcid:CRSTypeOfFinanceEnum,421,dcid:CRSTypeOfFinance421,standard loan (CRS Finance),classificationCode
+dcid:CRSTypeOfFlowEnum,10,dcid:CRSTypeOfFlow10,official development assistance (CRS Flow),classificationCode
+dcid:CRSTypeOfFlowEnum,21,dcid:CRSTypeOfFlow21,non-export credit official flow (CRS Flow),classificationCode
+dcid:Country,071,dcid:country/ALB,Albania,wbCounterpartCode
+dcid:CurrencyUnit,2,dcid:CurrencyBEF,Belgian Franc (historic),dacCode
+dcid:CurrencyUnit,3,dcid:CurrencyDKK,Danish Krone,dacCode
+dcid:CurrencyUnit,302,dcid:CurrencyUSD,US Dollar,dacCode
+dcid:DACRecipientUnallocatedByCountry,498,dcid:DACAmericaUnallocated,"America, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,798,dcid:DACAsiaUnallocated,"Asia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,9998,dcid:DACBilateralUnallocated,"Bilateral, unallocated (DAC)",dacCode
+dcid:FinancialPositionTypeEnum,DOD,dcid:AmountOutstanding,amount outstanding,wbCode
+dcid:IDSCreditorTypeEnum,BLAT,dcid:IDSCreditorTypeBLAT,bilateral (IDS Creditor),classificationCode
+dcid:FinancialFlowTypeEnum,TDS,dcid:ServicingPayment,servicing payment,wbCode
+dcid:CurrencyUnit,CHF,dcid:CurrencyCHF,Swiss Franc,iso4217AlphaCode
+dcid:CurrencyUnit,DEM,dcid:CurrencyDEM,Deutsche Mark (historic),iso4217AlphaCode
+dcid:CurrencyUnit,EUR,dcid:CurrencyEUR,Euro,iso4217AlphaCode
+dcid:CurrencyUnit,FRF,dcid:CurrencyFRF,French Franc (historic),iso4217AlphaCode
+dcid:CurrencyUnit,GBP,dcid:CurrencyGBP,Pound Sterling,iso4217AlphaCode
+dcid:CurrencyUnit,JPY,dcid:CurrencyJPY,Yen,iso4217AlphaCode
+dcid:CurrencyUnit,USD,dcid:CurrencyUSD,US Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,XDR,dcid:CurrencyXDR,SDR (Special Drawing Right),iso4217AlphaCode
+dcid:CRSPurposeCodeEnum,11110,dcid:CRSPurposeCode11110,education policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12110,dcid:CRSPurposeCode12110,health policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12220,dcid:CRSPurposeCode12220,basic health care (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12240,dcid:CRSPurposeCode12240,basic nutrition (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12250,dcid:CRSPurposeCode12250,infectious disease control (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12263,dcid:CRSPurposeCode12263,tuberculosis control (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12264,dcid:CRSPurposeCode12264,COVID-19 control (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,12281,dcid:CRSPurposeCode12281,health personnel development (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,13010,dcid:CRSPurposeCode13010,population policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,13020,dcid:CRSPurposeCode13020,reproductive health care (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,13040,dcid:CRSPurposeCode13040,sexually transmitted disease control (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,14010,dcid:CRSPurposeCode14010,water sector policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,15110,dcid:CRSPurposeCode15110,public sector policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,15130,dcid:CRSPurposeCode15130,legal and judicial development (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,15160,dcid:CRSPurposeCode15160,human rights institutions and mechanisms (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,15170,dcid:CRSPurposeCode15170,"women's rights organisations, movements, and institutions (CRS Purpose)",classificationCode
+dcid:CRSPurposeCodeEnum,15180,dcid:CRSPurposeCode15180,support to end violence against women and girls (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,16010,dcid:CRSPurposeCode16010,social protection (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,16050,dcid:CRSPurposeCode16050,multisector aid for basic social services (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,16062,dcid:CRSPurposeCode16062,statistical capacity building (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,23110,dcid:CRSPurposeCode23110,energy policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,31110,dcid:CRSPurposeCode31110,agricultural policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,31120,dcid:CRSPurposeCode31120,agricultural development (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,41010,dcid:CRSPurposeCode41010,environmental policy and administrative management (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,43010,dcid:CRSPurposeCode43010,multisector aid (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,72010,dcid:CRSPurposeCode72010,material relief assistance and service (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,72050,dcid:CRSPurposeCode72050,relief co-ordination and support service (CRS Purpose),classificationCode
+dcid:CRSPurposeCodeEnum,74020,dcid:CRSPurposeCode74020,multi-hazard response preparedness (CRS Purpose),classificationCode
+dcid:Country,4,dcid:country/FRA,France,dacCode
+dcid:Country,5,dcid:country/DEU,Germany,dacCode
+dcid:Country,12,dcid:country/GBR,United Kingdom,dacCode
+dcid:Country,55,dcid:country/TUR,Turkey,dacCode
+dcid:Country,57,dcid:country/XKS,Kosovo,dacCode
+dcid:Country,63,dcid:country/SRB,Serbia,dacCode
+dcid:Country,64,dcid:country/BIH,Bosnia and Herzegovina,dacCode
+dcid:Country,65,dcid:country/MNE,Montenegro,dacCode
+dcid:Country,66,dcid:country/MKD,Macedonia [FYROM],dacCode
+dcid:Country,71,dcid:country/ALB,Albania,dacCode
+dcid:Country,85,dcid:country/UKR,Ukraine,dacCode
+dcid:Country,86,dcid:country/BLR,Belarus,dacCode
+dcid:Country,93,dcid:country/MDA,Moldova,dacCode
+dcid:Country,130,dcid:country/DZA,Algeria,dacCode
+dcid:Country,133,dcid:country/LBY,Libya,dacCode
+dcid:Country,136,dcid:country/MAR,Morocco,dacCode
+dcid:Country,139,dcid:country/TUN,Tunisia,dacCode
+dcid:Country,142,dcid:country/EGY,Egypt,dacCode
+dcid:Country,218,dcid:country/ZAF,South Africa,dacCode
+dcid:Country,225,dcid:country/AGO,Angola,dacCode
+dcid:Country,227,dcid:country/BWA,Botswana,dacCode
+dcid:Country,228,dcid:country/BDI,Burundi,dacCode
+dcid:Country,229,dcid:country/CMR,Cameroon,dacCode
+dcid:Country,230,dcid:country/CPV,Cape Verde,dacCode
+dcid:Country,231,dcid:country/CAF,Central African Republic,dacCode
+dcid:Country,232,dcid:country/TCD,Chad,dacCode
+dcid:Country,233,dcid:country/COM,Comoros,dacCode
+dcid:Country,234,dcid:country/COG,Congo [Republic],dacCode
+dcid:Country,235,dcid:country/COD,Congo [DRC],dacCode
+dcid:Country,236,dcid:country/BEN,Benin,dacCode
+dcid:Country,238,dcid:country/ETH,Ethiopia,dacCode
+dcid:Country,239,dcid:country/GAB,Gabon,dacCode
+dcid:Country,240,dcid:country/GMB,Gambia,dacCode
+dcid:Country,241,dcid:country/GHA,Ghana,dacCode
+dcid:Country,243,dcid:country/GIN,Guinea,dacCode
+dcid:Country,244,dcid:country/GNB,Guinea-Bissau,dacCode
+dcid:Country,245,dcid:country/GNQ,Equatorial Guinea,dacCode
+dcid:Country,247,dcid:country/CIV,Côte d'Ivoire,dacCode
+dcid:Country,248,dcid:country/KEN,Kenya,dacCode
+dcid:Country,249,dcid:country/LSO,Lesotho,dacCode
+dcid:Country,251,dcid:country/LBR,Liberia,dacCode
+dcid:Country,252,dcid:country/MDG,Madagascar,dacCode
+dcid:Country,253,dcid:country/MWI,Malawi,dacCode
+dcid:Country,255,dcid:country/MLI,Mali,dacCode
+dcid:Country,256,dcid:country/MRT,Mauritania,dacCode
+dcid:Country,257,dcid:country/MUS,Mauritius,dacCode
+dcid:Country,259,dcid:country/MOZ,Mozambique,dacCode
+dcid:Country,260,dcid:country/NER,Niger,dacCode
+dcid:Country,261,dcid:country/NGA,Nigeria,dacCode
+dcid:Country,265,dcid:country/ZWE,Zimbabwe,dacCode
+dcid:Country,266,dcid:country/RWA,Rwanda,dacCode
+dcid:Country,268,dcid:country/STP,São Tomé and Príncipe,dacCode
+dcid:Country,269,dcid:country/SEN,Senegal,dacCode
+dcid:Country,271,dcid:country/ERI,Eritrea,dacCode
+dcid:Country,272,dcid:country/SLE,Sierra Leone,dacCode
+dcid:Country,273,dcid:country/SOM,Somalia,dacCode
+dcid:Country,274,dcid:country/DJI,Djibouti,dacCode
+dcid:Country,275,dcid:country/NAM,Namibia,dacCode
+dcid:Country,276,dcid:country/SHN,Saint Helena,dacCode
+dcid:Country,278,dcid:country/SDN,Sudan,dacCode
+dcid:Country,279,dcid:country/SSD,South Sudan,dacCode
+dcid:Country,280,dcid:country/SWZ,Eswatini,dacCode
+dcid:Country,282,dcid:country/TZA,Tanzania,dacCode
+dcid:Country,283,dcid:country/TGO,Togo,dacCode
+dcid:Country,285,dcid:country/UGA,Uganda,dacCode
+dcid:Country,287,dcid:country/BFA,Burkina Faso,dacCode
+dcid:Country,288,dcid:country/ZMB,Zambia,dacCode
+dcid:Country,336,dcid:country/CRI,Costa Rica,dacCode
+dcid:Country,338,dcid:country/CUB,Cuba,dacCode
+dcid:Country,340,dcid:country/DOM,Dominican Republic,dacCode
+dcid:Country,342,dcid:country/SLV,El Salvador,dacCode
+dcid:Country,347,dcid:country/GTM,Guatemala,dacCode
+dcid:Country,349,dcid:country/HTI,Haiti,dacCode
+dcid:Country,351,dcid:country/HND,Honduras,dacCode
+dcid:Country,352,dcid:country/BLZ,Belize,dacCode
+dcid:Country,354,dcid:country/JAM,Jamaica,dacCode
+dcid:Country,358,dcid:country/MEX,Mexico,dacCode
+dcid:Country,364,dcid:country/NIC,Nicaragua,dacCode
+dcid:Country,366,dcid:country/PAN,Panama,dacCode
+dcid:Country,377,dcid:country/ATG,Antigua and Barbuda,dacCode
+dcid:Country,378,dcid:country/DMA,Dominica,dacCode
+dcid:Country,381,dcid:country/GRD,Grenada,dacCode
+dcid:Country,383,dcid:country/LCA,Saint Lucia,dacCode
+dcid:Country,384,dcid:country/VCT,Saint Vincent and the Grenadines,dacCode
+dcid:Country,385,dcid:country/MSR,Montserrat,dacCode
+dcid:Country,425,dcid:country/ARG,Argentina,dacCode
+dcid:Country,428,dcid:country/BOL,Bolivia,dacCode
+dcid:Country,431,dcid:country/BRA,Brazil,dacCode
+dcid:Country,437,dcid:country/COL,Colombia,dacCode
+dcid:Country,440,dcid:country/ECU,Ecuador,dacCode
+dcid:Country,446,dcid:country/GUY,Guyana,dacCode
+dcid:Country,451,dcid:country/PRY,Paraguay,dacCode
+dcid:Country,454,dcid:country/PER,Peru,dacCode
+dcid:Country,457,dcid:country/SUR,Suriname,dacCode
+dcid:Country,463,dcid:country/VEN,Venezuela,dacCode
+dcid:Country,540,dcid:country/IRN,Iran,dacCode
+dcid:Country,543,dcid:country/IRQ,Iraq,dacCode
+dcid:Country,549,dcid:country/JOR,Jordan,dacCode
+dcid:Country,550,dcid:country/PSE,Palestinian Territories,dacCode
+dcid:Country,555,dcid:country/LBN,Lebanon,dacCode
+dcid:Country,573,dcid:country/SYR,Syria,dacCode
+dcid:Country,580,dcid:country/YEM,Yemen,dacCode
+dcid:Country,610,dcid:country/ARM,Armenia,dacCode
+dcid:Country,611,dcid:country/AZE,Azerbaijan,dacCode
+dcid:Country,612,dcid:country/GEO,Georgia,dacCode
+dcid:Country,613,dcid:country/KAZ,Kazakhstan,dacCode
+dcid:Country,614,dcid:country/KGZ,Kyrgyzstan,dacCode
+dcid:Country,615,dcid:country/TJK,Tajikistan,dacCode
+dcid:Country,616,dcid:country/TKM,Turkmenistan,dacCode
+dcid:Country,617,dcid:country/UZB,Uzbekistan,dacCode
+dcid:Country,625,dcid:country/AFG,Afghanistan,dacCode
+dcid:Country,630,dcid:country/BTN,Bhutan,dacCode
+dcid:Country,635,dcid:country/MMR,Myanmar,dacCode
+dcid:Country,640,dcid:country/LKA,Sri Lanka,dacCode
+dcid:Country,645,dcid:country/IND,India,dacCode
+dcid:Country,655,dcid:country/MDV,Maldives,dacCode
+dcid:Country,660,dcid:country/NPL,Nepal,dacCode
+dcid:Country,665,dcid:country/PAK,Pakistan,dacCode
+dcid:Country,666,dcid:country/BGD,Bangladesh,dacCode
+dcid:Country,728,dcid:country/KHM,Cambodia,dacCode
+dcid:Country,730,dcid:country/CHN,China,dacCode
+dcid:Country,738,dcid:country/IDN,Indonesia,dacCode
+dcid:Country,740,dcid:country/PRK,North Korea,dacCode
+dcid:Country,745,dcid:country/LAO,Laos,dacCode
+dcid:Country,751,dcid:country/MYS,Malaysia,dacCode
+dcid:Country,753,dcid:country/MNG,Mongolia,dacCode
+dcid:Country,755,dcid:country/PHL,Philippines,dacCode
+dcid:Country,764,dcid:country/THA,Thailand,dacCode
+dcid:Country,765,dcid:country/TLS,East Timor,dacCode
+dcid:Country,769,dcid:country/VNM,Vietnam,dacCode
+dcid:Country,831,dcid:country/COK,Cook Islands,dacCode
+dcid:Country,832,dcid:country/FJI,Fiji,dacCode
+dcid:Country,836,dcid:country/KIR,Kiribati,dacCode
+dcid:Country,845,dcid:country/NRU,Nauru,dacCode
+dcid:Country,854,dcid:country/VUT,Vanuatu,dacCode
+dcid:Country,856,dcid:country/NIU,Niue,dacCode
+dcid:Country,859,dcid:country/MHL,Marshall Islands,dacCode
+dcid:Country,860,dcid:country/FSM,Federated States of Micronesia,dacCode
+dcid:Country,861,dcid:country/PLW,Palau,dacCode
+dcid:Country,862,dcid:country/PNG,Papua New Guinea,dacCode
+dcid:Country,866,dcid:country/SLB,Solomon Islands,dacCode
+dcid:Country,868,dcid:country/TKL,Tokelau,dacCode
+dcid:Country,870,dcid:country/TON,Tonga,dacCode
+dcid:Country,872,dcid:country/TUV,Tuvalu,dacCode
+dcid:Country,876,dcid:country/WLF,Wallis and Futuna,dacCode
+dcid:Country,880,dcid:country/WSM,Samoa,dacCode
+dcid:DACRecipientUnallocatedByCountry,88,dcid:DACExYugoslaviaUnallocated,"States of the former Yugoslavia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,89,dcid:DACEuropeUnallocated,"Europe, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,189,dcid:DACNorthOfSaharaUnallocated,"North of Sahara, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,289,dcid:DACSouthOfSaharaUnallocated,"South of Sahara, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,298,dcid:DACAfricaUnallocated,"Africa, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,389,dcid:DACCaribbeanAndCentralAmericaUnallocated,"Caribbean and Central America, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,489,dcid:DACSouthAmericaUnallocated,"South America, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,589,dcid:DACMiddleEastUnallocated,"Middle East, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,619,dcid:DACCentralAsiaUnallocated,"Central Asia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,679,dcid:DACSouthAsiaUnallocated,"South Asia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,689,dcid:DACSouthAndCentralAsiaUnallocated,"South and Central Asia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,789,dcid:DACFarEastAsiaUnallocated,"Far East Asia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,889,dcid:DACOceaniaUnallocated,"Oceania, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1027,dcid:DACEasternAfricaUnallocated,"Eastern Africa, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1028,dcid:DACMiddleAfricaUnallocated,"Middle Africa, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1029,dcid:DACSouthernAfricaUnallocated,"Southern Africa, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1030,dcid:DACWesternAfricaUnallocated,"Western Africa, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1031,dcid:DACCaribbeanUnallocated,"Caribbean, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1032,dcid:DACCentralAmericaUnallocated,"Central America, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1033,dcid:DACMelanesiaUnallocated,"Melanesia, unallocated by country (DAC)",dacCode
+dcid:DACRecipientUnallocatedByCountry,1034,dcid:DACMicronesiaUnallocated,"Micronesia, unallocated by country (DAC)",dacCode
+dcid:Country,1,dcid:country/AUT,Austria,dacCode
+dcid:Country,10,dcid:country/SWE,Sweden,dacCode
+dcid:Country,11,dcid:country/CHE,Switzerland,dacCode
+dcid:Country,18,dcid:country/FIN,Finland,dacCode
+dcid:Country,2,dcid:country/BEL,Belgium,dacCode
+dcid:Country,20,dcid:country/ISL,Iceland,dacCode
+dcid:Country,21,dcid:country/IRL,Ireland,dacCode
+dcid:Country,22,dcid:country/LUX,Luxembourg,dacCode
+dcid:Country,258,dcid:country/MYT,Mayotte,dacCode
+dcid:Country,26,dcid:country/MCO,Monaco,dacCode
+dcid:Country,270,dcid:country/SYC,Seychelles,dacCode
+dcid:Country,3,dcid:country/DNK,Denmark,dacCode
+dcid:Country,30,dcid:country/CYP,Cyprus,dacCode
+dcid:Country,301,dcid:country/CAN,Canada,dacCode
+dcid:Country,302,dcid:country/USA,United States,dacCode
+dcid:Country,328,dcid:country/BHS,Bahamas,dacCode
+dcid:Country,329,dcid:country/BRB,Barbados,dacCode
+dcid:Country,331,dcid:country/BMU,Bermuda,dacCode
+dcid:Country,35,dcid:country/GIB,Gibraltar,dacCode
+dcid:Country,361,dcid:country/ANT,Netherlands Antilles,dacCode
+dcid:Country,373,dcid:country/ABW,Aruba,dacCode
+dcid:Country,375,dcid:country/TTO,Trinidad and Tobago,dacCode
+dcid:Country,376,dcid:country/AIA,Anguilla,dacCode
+dcid:Country,382,dcid:country/KNA,Saint Kitts and Nevis,dacCode
+dcid:Country,386,dcid:country/CYM,Cayman Islands,dacCode
+dcid:Country,387,dcid:country/TCA,Turks and Caicos Islands,dacCode
+dcid:Country,388,dcid:country/VGB,British Virgin Islands,dacCode
+dcid:Country,40,dcid:country/GRC,Greece,dacCode
+dcid:Country,434,dcid:country/CHL,Chile,dacCode
+dcid:Country,443,dcid:country/FLK,Falkland Islands,dacCode
+dcid:Country,45,dcid:country/MLT,Malta,dacCode
+dcid:Country,460,dcid:country/URY,Uruguay,dacCode
+dcid:Country,50,dcid:country/ESP,Spain,dacCode
+dcid:Country,530,dcid:country/BHR,Bahrain,dacCode
+dcid:Country,546,dcid:country/ISR,Israel,dacCode
+dcid:Country,552,dcid:country/KWT,Kuwait,dacCode
+dcid:Country,558,dcid:country/OMN,Oman,dacCode
+dcid:Country,561,dcid:country/QAT,Qatar,dacCode
+dcid:Country,566,dcid:country/SAU,Saudi Arabia,dacCode
+dcid:Country,576,dcid:country/ARE,United Arab Emirates,dacCode
+dcid:Country,6,dcid:country/ITA,Italy,dacCode
+dcid:Country,61,dcid:country/SVN,Slovenia,dacCode
+dcid:Country,62,dcid:country/HRV,Croatia,dacCode
+dcid:Country,68,dcid:country/CZE,Czech Republic,dacCode
+dcid:Country,69,dcid:country/SVK,Slovakia,dacCode
+dcid:Country,7,dcid:country/NLD,Netherlands,dacCode
+dcid:Country,70,dcid:country/LIE,Liechtenstein,dacCode
+dcid:Country,701,dcid:country/JPN,Japan,dacCode
+dcid:Country,72,dcid:country/BGR,Bulgaria,dacCode
+dcid:Country,725,dcid:country/BRN,Brunei,dacCode
+dcid:Country,732,dcid:country/TWN,Taiwan,dacCode
+dcid:Country,735,dcid:country/HKG,Hong Kong,dacCode
+dcid:Country,742,dcid:country/KOR,South Korea,dacCode
+dcid:Country,748,dcid:country/MAC,Macau,dacCode
+dcid:Country,75,dcid:country/HUN,Hungary,dacCode
+dcid:Country,76,dcid:country/POL,Poland,dacCode
+dcid:Country,761,dcid:country/SGP,Singapore,dacCode
+dcid:Country,77,dcid:country/ROU,Romania,dacCode
+dcid:Country,8,dcid:country/NOR,Norway,dacCode
+dcid:Country,801,dcid:country/AUS,Australia,dacCode
+dcid:Country,82,dcid:country/EST,Estonia,dacCode
+dcid:Country,820,dcid:country/NZL,New Zealand,dacCode
+dcid:Country,83,dcid:country/LVA,Latvia,dacCode
+dcid:Country,84,dcid:country/LTU,Lithuania,dacCode
+dcid:Country,840,dcid:country/PYF,French Polynesia,dacCode
+dcid:Country,850,dcid:country/NCL,New Caledonia,dacCode
+dcid:Country,858,dcid:country/MNP,Northern Mariana Islands,dacCode
+dcid:Country,87,dcid:country/RUS,Russia,dacCode
+dcid:Country,9,dcid:country/PRT,Portugal,dacCode
+dcid:Country,AFG,dcid:country/AFG,Afghanistan,wbEconomyCode
+dcid:Country,AGO,dcid:country/AGO,Angola,wbEconomyCode
+dcid:Country,ALB,dcid:country/ALB,Albania,wbEconomyCode
+dcid:Country,ARG,dcid:country/ARG,Argentina,wbEconomyCode
+dcid:Country,ARM,dcid:country/ARM,Armenia,wbEconomyCode
+dcid:Country,AZE,dcid:country/AZE,Azerbaijan,wbEconomyCode
+dcid:Country,BDI,dcid:country/BDI,Burundi,wbEconomyCode
+dcid:Country,BEN,dcid:country/BEN,Benin,wbEconomyCode
+dcid:Country,BFA,dcid:country/BFA,Burkina Faso,wbEconomyCode
+dcid:Country,BGD,dcid:country/BGD,Bangladesh,wbEconomyCode
+dcid:Country,BIH,dcid:country/BIH,Bosnia and Herzegovina,wbEconomyCode
+dcid:Country,BLR,dcid:country/BLR,Belarus,wbEconomyCode
+dcid:Country,BLZ,dcid:country/BLZ,Belize,wbEconomyCode
+dcid:Country,BOL,dcid:country/BOL,Bolivia,wbEconomyCode
+dcid:Country,BRA,dcid:country/BRA,Brazil,wbEconomyCode
+dcid:Country,BTN,dcid:country/BTN,Bhutan,wbEconomyCode
+dcid:Country,BWA,dcid:country/BWA,Botswana,wbEconomyCode
+dcid:Country,CAF,dcid:country/CAF,Central African Republic,wbEconomyCode
+dcid:Country,CHN,dcid:country/CHN,China,wbEconomyCode
+dcid:Country,CIV,dcid:country/CIV,Côte d'Ivoire,wbEconomyCode
+dcid:Country,CMR,dcid:country/CMR,Cameroon,wbEconomyCode
+dcid:Country,COD,dcid:country/COD,Congo [DRC],wbEconomyCode
+dcid:Country,COG,dcid:country/COG,Congo [Republic],wbEconomyCode
+dcid:Country,COL,dcid:country/COL,Colombia,wbEconomyCode
+dcid:Country,COM,dcid:country/COM,Comoros,wbEconomyCode
+dcid:Country,CPV,dcid:country/CPV,Cape Verde,wbEconomyCode
+dcid:Country,DJI,dcid:country/DJI,Djibouti,wbEconomyCode
+dcid:Country,DMA,dcid:country/DMA,Dominica,wbEconomyCode
+dcid:Country,DOM,dcid:country/DOM,Dominican Republic,wbEconomyCode
+dcid:Country,DZA,dcid:country/DZA,Algeria,wbEconomyCode
+dcid:Country,ECU,dcid:country/ECU,Ecuador,wbEconomyCode
+dcid:Country,EGY,dcid:country/EGY,Egypt,wbEconomyCode
+dcid:Country,ERI,dcid:country/ERI,Eritrea,wbEconomyCode
+dcid:Country,ETH,dcid:country/ETH,Ethiopia,wbEconomyCode
+dcid:Country,FJI,dcid:country/FJI,Fiji,wbEconomyCode
+dcid:Country,GAB,dcid:country/GAB,Gabon,wbEconomyCode
+dcid:Country,GEO,dcid:country/GEO,Georgia,wbEconomyCode
+dcid:Country,GHA,dcid:country/GHA,Ghana,wbEconomyCode
+dcid:Country,GIN,dcid:country/GIN,Guinea,wbEconomyCode
+dcid:Country,GMB,dcid:country/GMB,Gambia,wbEconomyCode
+dcid:Country,GNB,dcid:country/GNB,Guinea-Bissau,wbEconomyCode
+dcid:Country,GNQ,dcid:country/GNQ,Equatorial Guinea,wbEconomyCode
+dcid:Country,GRD,dcid:country/GRD,Grenada,wbEconomyCode
+dcid:Country,GTM,dcid:country/GTM,Guatemala,wbEconomyCode
+dcid:Country,GUY,dcid:country/GUY,Guyana,wbEconomyCode
+dcid:Country,HND,dcid:country/HND,Honduras,wbEconomyCode
+dcid:Country,HTI,dcid:country/HTI,Haiti,wbEconomyCode
+dcid:Country,IDN,dcid:country/IDN,Indonesia,wbEconomyCode
+dcid:Country,IND,dcid:country/IND,India,wbEconomyCode
+dcid:Country,IRN,dcid:country/IRN,Iran,wbEconomyCode
+dcid:Country,IRQ,dcid:country/IRQ,Iraq,wbEconomyCode
+dcid:Country,JAM,dcid:country/JAM,Jamaica,wbEconomyCode
+dcid:Country,JOR,dcid:country/JOR,Jordan,wbEconomyCode
+dcid:Country,KAZ,dcid:country/KAZ,Kazakhstan,wbEconomyCode
+dcid:Country,KEN,dcid:country/KEN,Kenya,wbEconomyCode
+dcid:Country,KGZ,dcid:country/KGZ,Kyrgyzstan,wbEconomyCode
+dcid:Country,KHM,dcid:country/KHM,Cambodia,wbEconomyCode
+dcid:Country,LAO,dcid:country/LAO,Laos,wbEconomyCode
+dcid:Country,LBN,dcid:country/LBN,Lebanon,wbEconomyCode
+dcid:Country,LBR,dcid:country/LBR,Liberia,wbEconomyCode
+dcid:Country,LCA,dcid:country/LCA,Saint Lucia,wbEconomyCode
+dcid:Country,LKA,dcid:country/LKA,Sri Lanka,wbEconomyCode
+dcid:Country,LSO,dcid:country/LSO,Lesotho,wbEconomyCode
+dcid:Country,MAR,dcid:country/MAR,Morocco,wbEconomyCode
+dcid:Country,MDA,dcid:country/MDA,Moldova,wbEconomyCode
+dcid:Country,MDG,dcid:country/MDG,Madagascar,wbEconomyCode
+dcid:Country,MDV,dcid:country/MDV,Maldives,wbEconomyCode
+dcid:Country,MEX,dcid:country/MEX,Mexico,wbEconomyCode
+dcid:Country,MKD,dcid:country/MKD,Macedonia [FYROM],wbEconomyCode
+dcid:Country,MLI,dcid:country/MLI,Mali,wbEconomyCode
+dcid:Country,MMR,dcid:country/MMR,Myanmar,wbEconomyCode
+dcid:Country,MNE,dcid:country/MNE,Montenegro,wbEconomyCode
+dcid:Country,MNG,dcid:country/MNG,Mongolia,wbEconomyCode
+dcid:Country,MOZ,dcid:country/MOZ,Mozambique,wbEconomyCode
+dcid:Country,MRT,dcid:country/MRT,Mauritania,wbEconomyCode
+dcid:Country,MUS,dcid:country/MUS,Mauritius,wbEconomyCode
+dcid:Country,MWI,dcid:country/MWI,Malawi,wbEconomyCode
+dcid:Country,NER,dcid:country/NER,Niger,wbEconomyCode
+dcid:Country,NGA,dcid:country/NGA,Nigeria,wbEconomyCode
+dcid:Country,NIC,dcid:country/NIC,Nicaragua,wbEconomyCode
+dcid:Country,NPL,dcid:country/NPL,Nepal,wbEconomyCode
+dcid:Country,PAK,dcid:country/PAK,Pakistan,wbEconomyCode
+dcid:Country,PER,dcid:country/PER,Peru,wbEconomyCode
+dcid:Country,PHL,dcid:country/PHL,Philippines,wbEconomyCode
+dcid:Country,PNG,dcid:country/PNG,Papua New Guinea,wbEconomyCode
+dcid:Country,PRY,dcid:country/PRY,Paraguay,wbEconomyCode
+dcid:Country,RWA,dcid:country/RWA,Rwanda,wbEconomyCode
+dcid:Country,SDN,dcid:country/SDN,Sudan,wbEconomyCode
+dcid:Country,SEN,dcid:country/SEN,Senegal,wbEconomyCode
+dcid:Country,SLB,dcid:country/SLB,Solomon Islands,wbEconomyCode
+dcid:Country,SLE,dcid:country/SLE,Sierra Leone,wbEconomyCode
+dcid:Country,SLV,dcid:country/SLV,El Salvador,wbEconomyCode
+dcid:Country,SOM,dcid:country/SOM,Somalia,wbEconomyCode
+dcid:Country,SRB,dcid:country/SRB,Serbia,wbEconomyCode
+dcid:Country,STP,dcid:country/STP,São Tomé and Príncipe,wbEconomyCode
+dcid:Country,SUR,dcid:country/SUR,Suriname,wbEconomyCode
+dcid:Country,SWZ,dcid:country/SWZ,Eswatini,wbEconomyCode
+dcid:Country,SYR,dcid:country/SYR,Syria,wbEconomyCode
+dcid:Country,TCD,dcid:country/TCD,Chad,wbEconomyCode
+dcid:Country,TGO,dcid:country/TGO,Togo,wbEconomyCode
+dcid:Country,THA,dcid:country/THA,Thailand,wbEconomyCode
+dcid:Country,TJK,dcid:country/TJK,Tajikistan,wbEconomyCode
+dcid:Country,TKM,dcid:country/TKM,Turkmenistan,wbEconomyCode
+dcid:Country,TLS,dcid:country/TLS,East Timor,wbEconomyCode
+dcid:Country,TON,dcid:country/TON,Tonga,wbEconomyCode
+dcid:Country,TUN,dcid:country/TUN,Tunisia,wbEconomyCode
+dcid:Country,TUR,dcid:country/TUR,Turkey,wbEconomyCode
+dcid:Country,TZA,dcid:country/TZA,Tanzania,wbEconomyCode
+dcid:Country,UGA,dcid:country/UGA,Uganda,wbEconomyCode
+dcid:Country,UKR,dcid:country/UKR,Ukraine,wbEconomyCode
+dcid:Country,UZB,dcid:country/UZB,Uzbekistan,wbEconomyCode
+dcid:Country,VCT,dcid:country/VCT,Saint Vincent and the Grenadines,wbEconomyCode
+dcid:Country,VNM,dcid:country/VNM,Vietnam,wbEconomyCode
+dcid:Country,VUT,dcid:country/VUT,Vanuatu,wbEconomyCode
+dcid:Country,WSM,dcid:country/WSM,Samoa,wbEconomyCode
+dcid:Country,XKX,dcid:country/XKS,Kosovo,wbEconomyCode
+dcid:Country,YEM,dcid:country/YEM,Yemen,wbEconomyCode
+dcid:Country,ZAF,dcid:country/ZAF,South Africa,wbEconomyCode
+dcid:Country,ZMB,dcid:country/ZMB,Zambia,wbEconomyCode
+dcid:Country,ZWE,dcid:country/ZWE,Zimbabwe,wbEconomyCode
+dcid:CurrencyUnit,AED,dcid:CurrencyAED,UAE Dirham,iso4217AlphaCode
+dcid:CurrencyUnit,AFN,dcid:CurrencyAFN,Afghani,iso4217AlphaCode
+dcid:CurrencyUnit,ALL,dcid:CurrencyALL,Lek,iso4217AlphaCode
+dcid:CurrencyUnit,AMD,dcid:CurrencyAMD,Armenian Dram,iso4217AlphaCode
+dcid:CurrencyUnit,AOA,dcid:CurrencyAOA,Kwanza,iso4217AlphaCode
+dcid:CurrencyUnit,ARS,dcid:CurrencyARS,Argentine Peso,iso4217AlphaCode
+dcid:CurrencyUnit,AUD,dcid:CurrencyAUD,Australian Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,AWG,dcid:CurrencyAWG,Aruban Florin,iso4217AlphaCode
+dcid:CurrencyUnit,AZN,dcid:CurrencyAZN,Azerbaijan Manat,iso4217AlphaCode
+dcid:CurrencyUnit,BAM,dcid:CurrencyBAM,Convertible Mark,iso4217AlphaCode
+dcid:CurrencyUnit,BBD,dcid:CurrencyBBD,Barbados Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,BDT,dcid:CurrencyBDT,Taka,iso4217AlphaCode
+dcid:CurrencyUnit,BHD,dcid:CurrencyBHD,Bahraini Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,BIF,dcid:CurrencyBIF,Burundi Franc,iso4217AlphaCode
+dcid:CurrencyUnit,BND,dcid:CurrencyBND,Brunei Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,BOB,dcid:CurrencyBOB,Boliviano,iso4217AlphaCode
+dcid:CurrencyUnit,BRL,dcid:CurrencyBRL,Brazilian Real,iso4217AlphaCode
+dcid:CurrencyUnit,BSD,dcid:CurrencyBSD,Bahamian Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,BTN,dcid:CurrencyBTN,Ngultrum,iso4217AlphaCode
+dcid:CurrencyUnit,BWP,dcid:CurrencyBWP,Pula,iso4217AlphaCode
+dcid:CurrencyUnit,BYN,dcid:CurrencyBYN,Belarusian Ruble,iso4217AlphaCode
+dcid:CurrencyUnit,BZD,dcid:CurrencyBZD,Belize Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,CAD,dcid:CurrencyCAD,Canadian Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,CDF,dcid:CurrencyCDF,Congolese Franc,iso4217AlphaCode
+dcid:CurrencyUnit,CLP,dcid:CurrencyCLP,Chilean Peso,iso4217AlphaCode
+dcid:CurrencyUnit,CNY,dcid:CurrencyCNY,Yuan Renminbi,iso4217AlphaCode
+dcid:CurrencyUnit,COP,dcid:CurrencyCOP,Colombian Peso,iso4217AlphaCode
+dcid:CurrencyUnit,CRC,dcid:CurrencyCRC,Costa Rican Colon,iso4217AlphaCode
+dcid:CurrencyUnit,CVE,dcid:CurrencyCVE,Cabo Verde Escudo,iso4217AlphaCode
+dcid:CurrencyUnit,CZK,dcid:CurrencyCZK,Czech Koruna,iso4217AlphaCode
+dcid:CurrencyUnit,DJF,dcid:CurrencyDJF,Djibouti Franc,iso4217AlphaCode
+dcid:CurrencyUnit,DKK,dcid:CurrencyDKK,Danish Krone,iso4217AlphaCode
+dcid:CurrencyUnit,DOP,dcid:CurrencyDOP,Dominican Peso,iso4217AlphaCode
+dcid:CurrencyUnit,DZD,dcid:CurrencyDZD,Algerian Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,EGP,dcid:CurrencyEGP,Egyptian Pound,iso4217AlphaCode
+dcid:CurrencyUnit,ERN,dcid:CurrencyERN,Nakfa,iso4217AlphaCode
+dcid:CurrencyUnit,ETB,dcid:CurrencyETB,Ethiopian Birr,iso4217AlphaCode
+dcid:CurrencyUnit,FJD,dcid:CurrencyFJD,Fiji Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,GEL,dcid:CurrencyGEL,Lari,iso4217AlphaCode
+dcid:CurrencyUnit,GHS,dcid:CurrencyGHS,Ghana Cedi,iso4217AlphaCode
+dcid:CurrencyUnit,GMD,dcid:CurrencyGMD,Dalasi,iso4217AlphaCode
+dcid:CurrencyUnit,GNF,dcid:CurrencyGNF,Guinean Franc,iso4217AlphaCode
+dcid:CurrencyUnit,GTQ,dcid:CurrencyGTQ,Quetzal,iso4217AlphaCode
+dcid:CurrencyUnit,GYD,dcid:CurrencyGYD,Guyana Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,HKD,dcid:CurrencyHKD,Hong Kong Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,HNL,dcid:CurrencyHNL,Lempira,iso4217AlphaCode
+dcid:CurrencyUnit,HTG,dcid:CurrencyHTG,Gourde,iso4217AlphaCode
+dcid:CurrencyUnit,HUF,dcid:CurrencyHUF,Forint,iso4217AlphaCode
+dcid:CurrencyUnit,IDR,dcid:CurrencyIDR,Rupiah,iso4217AlphaCode
+dcid:CurrencyUnit,ILS,dcid:CurrencyILS,New Israeli Sheqel,iso4217AlphaCode
+dcid:CurrencyUnit,INR,dcid:CurrencyINR,Indian Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,IQD,dcid:CurrencyIQD,Iraqi Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,IRR,dcid:CurrencyIRR,Iranian Rial,iso4217AlphaCode
+dcid:CurrencyUnit,ISK,dcid:CurrencyISK,Iceland Krona,iso4217AlphaCode
+dcid:CurrencyUnit,JMD,dcid:CurrencyJMD,Jamaican Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,JOD,dcid:CurrencyJOD,Jordanian Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,KES,dcid:CurrencyKES,Kenyan Shilling,iso4217AlphaCode
+dcid:CurrencyUnit,KGS,dcid:CurrencyKGS,Som,iso4217AlphaCode
+dcid:CurrencyUnit,KHR,dcid:CurrencyKHR,Riel,iso4217AlphaCode
+dcid:CurrencyUnit,KMF,dcid:CurrencyKMF,Comorian Franc,iso4217AlphaCode
+dcid:CurrencyUnit,KRW,dcid:CurrencyKRW,South Korean Won,iso4217AlphaCode
+dcid:CurrencyUnit,KWD,dcid:CurrencyKWD,Kuwaiti Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,KZT,dcid:CurrencyKZT,Tenge,iso4217AlphaCode
+dcid:CurrencyUnit,LAK,dcid:CurrencyLAK,Lao Kip,iso4217AlphaCode
+dcid:CurrencyUnit,LBP,dcid:CurrencyLBP,Lebanese Pound,iso4217AlphaCode
+dcid:CurrencyUnit,LKR,dcid:CurrencyLKR,Sri Lanka Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,LSL,dcid:CurrencyLSL,Loti,iso4217AlphaCode
+dcid:CurrencyUnit,LYD,dcid:CurrencyLYD,Libyan Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,MAD,dcid:CurrencyMAD,Moroccan Dirham,iso4217AlphaCode
+dcid:CurrencyUnit,MDL,dcid:CurrencyMDL,Moldovan Leu,iso4217AlphaCode
+dcid:CurrencyUnit,MGA,dcid:CurrencyMGA,Malagasy Ariary,iso4217AlphaCode
+dcid:CurrencyUnit,MKD,dcid:CurrencyMKD,Denar,iso4217AlphaCode
+dcid:CurrencyUnit,MMK,dcid:CurrencyMMK,Kyat,iso4217AlphaCode
+dcid:CurrencyUnit,MNT,dcid:CurrencyMNT,Tugrik,iso4217AlphaCode
+dcid:CurrencyUnit,MOP,dcid:CurrencyMOP,Pataca,iso4217AlphaCode
+dcid:CurrencyUnit,MRU,dcid:CurrencyMRU,Ouguiya,iso4217AlphaCode
+dcid:CurrencyUnit,MUR,dcid:CurrencyMUR,Mauritius Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,MVR,dcid:CurrencyMVR,Rufiyaa,iso4217AlphaCode
+dcid:CurrencyUnit,MWK,dcid:CurrencyMWK,Malawi Kwacha,iso4217AlphaCode
+dcid:CurrencyUnit,MXN,dcid:CurrencyMXN,Mexican Peso,iso4217AlphaCode
+dcid:CurrencyUnit,MYR,dcid:CurrencyMYR,Malaysian Ringgit,iso4217AlphaCode
+dcid:CurrencyUnit,MZN,dcid:CurrencyMZN,Mozambique Metical,iso4217AlphaCode
+dcid:CurrencyUnit,NAD,dcid:CurrencyNAD,Namibia Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,NGN,dcid:CurrencyNGN,Naira,iso4217AlphaCode
+dcid:CurrencyUnit,NIO,dcid:CurrencyNIO,Cordoba Oro,iso4217AlphaCode
+dcid:CurrencyUnit,NOK,dcid:CurrencyNOK,Norwegian Krone,iso4217AlphaCode
+dcid:CurrencyUnit,NPR,dcid:CurrencyNPR,Nepalese Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,NZD,dcid:CurrencyNZD,New Zealand Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,OMR,dcid:CurrencyOMR,Rial Omani,iso4217AlphaCode
+dcid:CurrencyUnit,PEN,dcid:CurrencyPEN,Sol,iso4217AlphaCode
+dcid:CurrencyUnit,PGK,dcid:CurrencyPGK,Kina,iso4217AlphaCode
+dcid:CurrencyUnit,PHP,dcid:CurrencyPHP,Philippine Peso,iso4217AlphaCode
+dcid:CurrencyUnit,PKR,dcid:CurrencyPKR,Pakistan Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,PLN,dcid:CurrencyPLN,Zloty,iso4217AlphaCode
+dcid:CurrencyUnit,PYG,dcid:CurrencyPYG,Guarani,iso4217AlphaCode
+dcid:CurrencyUnit,QAR,dcid:CurrencyQAR,Qatari Rial,iso4217AlphaCode
+dcid:CurrencyUnit,RON,dcid:CurrencyRON,Romanian Leu,iso4217AlphaCode
+dcid:CurrencyUnit,RSD,dcid:CurrencyRSD,Serbian Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,RUB,dcid:CurrencyRUB,Russian Ruble,iso4217AlphaCode
+dcid:CurrencyUnit,RWF,dcid:CurrencyRWF,Rwanda Franc,iso4217AlphaCode
+dcid:CurrencyUnit,SAR,dcid:CurrencySAR,Saudi Riyal,iso4217AlphaCode
+dcid:CurrencyUnit,SBD,dcid:CurrencySBD,Solomon Islands Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,SCR,dcid:CurrencySCR,Seychelles Rupee,iso4217AlphaCode
+dcid:CurrencyUnit,SDG,dcid:CurrencySDG,Sudanese Pound,iso4217AlphaCode
+dcid:CurrencyUnit,SEK,dcid:CurrencySEK,Swedish Krona,iso4217AlphaCode
+dcid:CurrencyUnit,SGD,dcid:CurrencySGD,Singapore Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,SLE,dcid:CurrencySLE,Leone,iso4217AlphaCode
+dcid:CurrencyUnit,SRD,dcid:CurrencySRD,Surinam Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,SSP,dcid:CurrencySSP,South Sudanese Pound,iso4217AlphaCode
+dcid:CurrencyUnit,STN,dcid:CurrencySTN,Dobra,iso4217AlphaCode
+dcid:CurrencyUnit,SYP,dcid:CurrencySYP,Syrian Pound,iso4217AlphaCode
+dcid:CurrencyUnit,SZL,dcid:CurrencySZL,Lilangeni,iso4217AlphaCode
+dcid:CurrencyUnit,THB,dcid:CurrencyTHB,Baht,iso4217AlphaCode
+dcid:CurrencyUnit,TJS,dcid:CurrencyTJS,Somoni,iso4217AlphaCode
+dcid:CurrencyUnit,TMT,dcid:CurrencyTMT,Turkmenistan New Manat,iso4217AlphaCode
+dcid:CurrencyUnit,TND,dcid:CurrencyTND,Tunisian Dinar,iso4217AlphaCode
+dcid:CurrencyUnit,TOP,dcid:CurrencyTOP,Pa’anga,iso4217AlphaCode
+dcid:CurrencyUnit,TRY,dcid:CurrencyTRY,Turkish Lira,iso4217AlphaCode
+dcid:CurrencyUnit,TTD,dcid:CurrencyTTD,Trinidad and Tobago Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,TWD,dcid:CurrencyTWD,New Taiwan Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,TZS,dcid:CurrencyTZS,Tanzanian Shilling,iso4217AlphaCode
+dcid:CurrencyUnit,UAH,dcid:CurrencyUAH,Hryvnia,iso4217AlphaCode
+dcid:CurrencyUnit,UGX,dcid:CurrencyUGX,Uganda Shilling,iso4217AlphaCode
+dcid:CurrencyUnit,UYU,dcid:CurrencyUYU,Peso Uruguayo,iso4217AlphaCode
+dcid:CurrencyUnit,UZS,dcid:CurrencyUZS,Uzbekistan Sum,iso4217AlphaCode
+dcid:CurrencyUnit,VES,dcid:CurrencyVES,Bolívar Soberano,iso4217AlphaCode
+dcid:CurrencyUnit,VND,dcid:CurrencyVND,Dong,iso4217AlphaCode
+dcid:CurrencyUnit,VUV,dcid:CurrencyVUV,Vatu,iso4217AlphaCode
+dcid:CurrencyUnit,WST,dcid:CurrencyWST,Tala,iso4217AlphaCode
+dcid:CurrencyUnit,XAF,dcid:CurrencyXAF,CFA Franc BEAC,iso4217AlphaCode
+dcid:CurrencyUnit,XCD,dcid:CurrencyXCD,East Caribbean Dollar,iso4217AlphaCode
+dcid:CurrencyUnit,XOF,dcid:CurrencyXOF,CFA Franc BCEAO,iso4217AlphaCode
+dcid:CurrencyUnit,YER,dcid:CurrencyYER,Yemeni Rial,iso4217AlphaCode
+dcid:CurrencyUnit,ZAR,dcid:CurrencyZAR,Rand,iso4217AlphaCode
+dcid:CurrencyUnit,ZMW,dcid:CurrencyZMW,Zambian Kwacha,iso4217AlphaCode
+dcid:CurrencyUnit,ZWG,dcid:CurrencyZWG,Zimbabwe Gold,iso4217AlphaCode
+dcid:Organization,918,dcid:EuropeanUnionInstitutions,European Union institutions,dacCode

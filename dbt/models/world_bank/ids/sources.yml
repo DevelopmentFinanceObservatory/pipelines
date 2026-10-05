@@ -1,0 +1,80 @@
+---
+version: 2
+
+sources:
+  - name: world_bank_ids
+    description: World Bank International Debt Statistics data
+    tables:
+      - name: raw_ids
+        description: >
+          Bulk IDS data as published by the World Bank, loaded verbatim in wide
+          format: six dimension columns plus one column per year, every value as
+          text.
+        config:
+          meta:
+            dagster:
+              asset_key: ["world_bank_ids_raw_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: ids_required_columns_present
+              description: >
+                Contain, not match, because the year columns are expected to
+                grow as the World Bank extends the time dimension, so only the
+                dimension columns are pinned.
+              arguments:
+                column_list:
+                  - Country Code
+                  - Country Name
+                  - Counterpart-Area Code
+                  - Counterpart-Area Name
+                  - Series Code
+                  - Series Name
+        columns:
+          - name: Country Code
+            data_type: varchar
+            description: >
+              World Bank economy code of the debtor, whitespace-padded to 10
+              characters. ISO3 for countries, plus World Bank aggregates such as
+              SSA and LIC.
+          - name: Country Name
+            data_type: varchar
+            description: Name of the debtor economy
+          - name: Counterpart-Area Code
+            data_type: varchar
+            description: >
+              World Bank code of the creditor, three characters with leading
+              zeros preserved. Mostly numeric, plus BND, FCW and WLD.
+          - name: Counterpart-Area Name
+            data_type: varchar
+            description: >
+              Name of the creditor, with surrounding whitespace on some rows
+          - name: Series Code
+            data_type: varchar
+            description: >
+              World Bank indicator code of the measure, whitespace-padded on
+              some rows
+          - name: Series Name
+            data_type: varchar
+            description: Name of the indicator
+      - name: raw_ids_metadata
+        description: When the data in raw_ids was downloaded and released
+        config:
+          meta:
+            dagster:
+              asset_key: ["world_bank_ids_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_ids_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw files were downloaded
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When the World Bank released the data in the raw files
+            data_tests:
+              - not_null

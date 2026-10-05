@@ -1,0 +1,24 @@
+version: 2
+
+seeds:
+  - name: stat_type_mapping
+    description: >
+      Mapping between a Data Commons stat type and the segment it contributes to a
+      StatVar DCID. Data Commons curates these rather than deriving them, so a stat
+      type is added here by hand when a pipeline first measures one.
+    config:
+      column_types:
+        stat_type: string
+        dcid_segment: string
+    columns:
+      - name: stat_type
+        description: DCID of the stat type, as it appears on the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: dcid_segment
+        description: >
+          Segment the stat type contributes to the DCID, empty where it contributes
+          none. Nullable by design: the default measuredValue is omitted from the DCID
+          entirely, so a missing mapping is caught by a relationships test on the stat
+          type instead.

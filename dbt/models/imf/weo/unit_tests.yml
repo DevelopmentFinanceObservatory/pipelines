@@ -1,0 +1,293 @@
+unit_tests:
+  - name: unified_scales_values_to_whole_units
+    model: int_weo_unified
+    given:
+      - input: ref('int_weo_resolved')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, obs_value: 1.5, scale_code: 1000000000, last_actual_year: 2024}
+          - {observation_about: "dcid:country/KEN", concept_code: NGSD_NGDP, time_period: 2024, obs_value: 25.3, scale_code: 1, last_actual_year: 2024}
+    expect:
+      rows:
+        - {concept_code: NGDPD, value: 1500000000}
+        - {concept_code: NGSD_NGDP, value: 25.3}
+
+  - name: unified_flags_years_after_the_last_actual_as_estimates
+    model: int_weo_unified
+    given:
+      - input: ref('int_weo_resolved')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: 2024}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: 2024}
+    expect:
+      rows:
+        - {time_period: 2024, is_estimate: false}
+        - {time_period: 2025, is_estimate: true}
+
+  - name: unified_dates_ppp_estimates_from_the_same_country_gdp
+    model: int_weo_unified
+    description: >
+      The PPP series carry no last actual year, so each takes the one on its
+      country's GDP in US dollars, not another country's.
+    given:
+      - input: ref('int_weo_resolved')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: 2024}
+          - {observation_about: "dcid:country/GBR", concept_code: NGDPD, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: 2025}
+          - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: null}
+          - {observation_about: "dcid:country/KEN", concept_code: PPPPC, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: null}
+    expect:
+      rows:
+        - {observation_about: "dcid:country/KEN", concept_code: NGDPD, is_estimate: false}
+        - {observation_about: "dcid:country/GBR", concept_code: NGDPD, is_estimate: false}
+        - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, is_estimate: true}
+        - {observation_about: "dcid:country/KEN", concept_code: PPPPC, is_estimate: false}
+
+  - name: mapped_names_statvars_from_the_label_without_its_currency
+    model: int_weo_mapped
+    description: >
+      A label ending in its unit names the StatVar shared across currencies. A
+      label whose unit isn't a trailing segment, or that has no unit, is kept whole.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGSD_NGDP, time_period: 2024, value: 2, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, time_period: 2024, value: 3, is_estimate: false}
+      - input: ref('weo_indicator_mapping')
+        rows:
+          - {concept_code: NGDPD, stat_type: "dcid:measuredValue", unit: "dcid:CurrencyUSD"}
+          - {concept_code: NGSD_NGDP, stat_type: "dcid:measuredValue", unit: "dcid:Percent"}
+          - {concept_code: PPPGDP, stat_type: "dcid:measuredValue", unit: "dcid:PPPInternationalDollar"}
+      - input: ref('stg_weo')
+        rows:
+          - {concept_code: NGDPD, concept_label: "Gross domestic product (GDP), Current prices, US dollar", unit_label: US dollar}
+          - {concept_code: NGSD_NGDP, concept_label: "Gross national savings, Percent of GDP", unit_label: Percent}
+          - {concept_code: PPPGDP, concept_label: "Gross domestic product (GDP), Purchasing power parity (PPP) international dollar", unit_label: null}
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+      - input: ref('code_mapping')
+        rows: []
+      - input: ref('weo_currency_mapping')
+        rows: []
+      - input: ref('int_weo_dollar_countries')
+        rows: []
+      - input: ref('int_weo_dollar_twins')
+        rows: []
+    expect:
+      rows:
+        - {value: 1, statvar_name: "Gross domestic product (GDP), Current prices"}
+        - {value: 2, statvar_name: "Gross national savings, Percent of GDP"}
+        - {value: 3, statvar_name: "Gross domestic product (GDP), Purchasing power parity (PPP) international dollar"}
+
+  - name: mapped_mints_dcids_naming_their_denominators
+    model: int_weo_mapped
+    description: >
+      A share of another indicator names that indicator's StatVar as its
+      denominator. A denominator given as a dcid is used as it is.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGSD_NGDP, time_period: 2024, value: 2, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGAP_NPGDP, time_period: 2024, value: 3, is_estimate: false}
+      - input: ref('weo_indicator_mapping')
+        rows:
+          - {concept_code: NGDP, population_type: "dcid:EconomicProduction", measured_property: "dcid:valueAdded", stat_type: "dcid:measuredValue", product_tax_basis: "dcid:IncludingProductTaxes", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", measurement_qualifier: "dcid:Nominal", unit: "dcid:CurrencyKES"}
+          - {concept_code: NGSD_NGDP, population_type: "dcid:EconomicUnit", measured_property: "dcid:saving", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", denominator_concept_code: NGDP, unit: "dcid:Percent"}
+          - {concept_code: NGAP_NPGDP, population_type: "dcid:EconomicProduction", measured_property: "dcid:outputGap", stat_type: "dcid:measuredValue", product_tax_basis: "dcid:IncludingProductTaxes", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", measurement_qualifier: "dcid:RealValue", denominator_dcid: "dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_CyclicallyAdjusted_RealValue", unit: "dcid:Percent"}
+      - input: ref('stg_weo')
+        rows: []
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+      - input: ref('code_mapping')
+        rows: []
+      - input: ref('weo_currency_mapping')
+        rows: []
+      - input: ref('int_weo_dollar_countries')
+        rows: []
+      - input: ref('int_weo_dollar_twins')
+        rows: []
+    expect:
+      rows:
+        - value: 1
+          statvar_dcid: "dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_Nominal"
+          measurement_denominator: null
+        - value: 2
+          statvar_dcid: "dcid:Saving_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal_AsAFractionOf_ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_Nominal"
+          measurement_denominator: "dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_Nominal"
+        - value: 3
+          statvar_dcid: "dcid:OutputGap_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_RealValue_AsAFractionOf_ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_CyclicallyAdjusted_RealValue"
+          measurement_denominator: "dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_CyclicallyAdjusted_RealValue"
+
+  - name: mapped_takes_each_unit_and_method
+    model: int_weo_mapped
+    description: >
+      A fixed unit and method apply as given. Without a fixed unit, the unit is
+      the country's own currency. Without a fixed method, projections are
+      Estimated and reported years carry none.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2025, value: 1, is_estimate: true}
+          - {observation_about: "dcid:country/KEN", concept_code: NGAP_NPGDP, time_period: 2024, value: 1, is_estimate: false}
+      - input: ref('weo_indicator_mapping')
+        rows:
+          - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null, measurement_method: null}
+          - {concept_code: NGAP_NPGDP, stat_type: "dcid:measuredValue", unit: "dcid:Percent", measurement_method: "dcid:Modelled"}
+      - input: ref('stg_weo')
+        rows: []
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+      - input: ref('weo_currency_mapping')
+        rows:
+          - {imf_area_code: KEN, iso4217_code: KES}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
+      - input: ref('int_weo_dollar_countries')
+        rows: []
+      - input: ref('int_weo_dollar_twins')
+        rows: []
+    expect:
+      rows:
+        - {time_period: 2024, unit: "dcid:CurrencyKES", measurement_method: null}
+        - {time_period: 2025, unit: "dcid:CurrencyKES", measurement_method: "dcid:Estimated"}
+        - {time_period: 2024, unit: "dcid:Percent", measurement_method: "dcid:Modelled"}
+
+  - name: mapped_drops_a_dollar_countrys_domestic_currency_copy
+    model: int_weo_mapped
+    description: >
+      A dollar country keeps its US-dollar series and drops the domestic-currency
+      copy, but keeps a domestic-currency series with no US-dollar twin. Another
+      country keeps both.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/ECU", concept_code: NGDP, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/ECU", concept_code: NGDPD, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/ECU", concept_code: NGDP_R, time_period: 2024, value: 4, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2024, value: 2, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, value: 3, is_estimate: false}
+      - input: ref('weo_indicator_mapping')
+        rows:
+          - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null}
+          - {concept_code: NGDPD, stat_type: "dcid:measuredValue", unit: "dcid:CurrencyUSD"}
+          - {concept_code: NGDP_R, stat_type: "dcid:measuredValue", unit: null}
+      - input: ref('stg_weo')
+        rows: []
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+      - input: ref('weo_currency_mapping')
+        rows:
+          - {imf_area_code: KEN, iso4217_code: KES}
+          - {imf_area_code: ECU, iso4217_code: USD}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:Country", code: ECU, dcid: "dcid:country/ECU", property: imfAreaCode}
+          - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
+          - {list: "dcid:CurrencyUnit", code: USD, dcid: "dcid:CurrencyUSD", property: iso4217AlphaCode}
+      - input: ref('int_weo_dollar_countries')
+        rows:
+          - {dcid: "dcid:country/ECU"}
+      - input: ref('int_weo_dollar_twins')
+        rows:
+          - {domestic_code: NGDP, dollar_code: NGDPD}
+    expect:
+      rows:
+        - {observation_about: "dcid:country/ECU", unit: "dcid:CurrencyUSD", value: 1}
+        - {observation_about: "dcid:country/ECU", unit: "dcid:CurrencyUSD", value: 4}
+        - {observation_about: "dcid:country/KEN", unit: "dcid:CurrencyKES", value: 2}
+        - {observation_about: "dcid:country/KEN", unit: "dcid:CurrencyUSD", value: 3}
+
+  - name: mapped_keeps_only_the_indicators_the_mapping_lists
+    model: int_weo_mapped
+    description: >
+      An indicator int_weo_unified holds that weo_indicator_mapping doesn't list
+      stays out of the import.
+    given:
+      - input: ref('int_weo_unified')
+        rows:
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP, time_period: 2024, value: 1, is_estimate: false}
+          - {observation_about: "dcid:country/KEN", concept_code: NGDP_D, time_period: 2024, value: 2, is_estimate: false}
+      - input: ref('weo_indicator_mapping')
+        rows:
+          - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null}
+      - input: ref('stg_weo')
+        rows: []
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+      - input: ref('weo_currency_mapping')
+        rows:
+          - {imf_area_code: KEN, iso4217_code: KES}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
+      - input: ref('int_weo_dollar_countries')
+        rows: []
+      - input: ref('int_weo_dollar_twins')
+        rows: []
+    expect:
+      rows:
+        - {concept_code: NGDP, value: 1}
+
+  - name: statvars_list_every_indicator_a_variable_was_minted_from
+    model: dc_weo_statvars
+    description: A StatVar lists each of its indicator codes once, in code order.
+    given:
+      - input: ref('int_weo_mapped')
+        rows:
+          - {statvar_dcid: SV1, statvar_name: GDP, concept_code: NGDPD, observation_about: "dcid:country/KEN"}
+          - {statvar_dcid: SV1, statvar_name: GDP, concept_code: NGDP, observation_about: "dcid:country/KEN"}
+          - {statvar_dcid: SV1, statvar_name: GDP, concept_code: NGDP, observation_about: "dcid:country/GBR"}
+          - {statvar_dcid: SV2, statvar_name: Saving, concept_code: NGSD_NGDP, observation_about: "dcid:country/KEN"}
+      - input: ref('weo_extra_statvars')
+        rows:
+          - {dcid: SV3, name: Potential GDP}
+    expect:
+      rows:
+        - {dcid: SV1, source_indicator_code: '"NGDP","NGDPD"'}
+        - {dcid: SV2, source_indicator_code: '"NGSD_NGDP"'}
+        - {dcid: SV3, source_indicator_code: null}
+
+  - name: provenance_expects_the_next_edition_after_each_release
+    model: dc_weo_provenance
+    description: An April release is followed in October, and October by April.
+    given:
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2026-04-20 09:00:00+00", source_release_date: "2026-04-14"}
+      - input: ref('dc_weo_observations')
+        rows:
+          - {date: 1980}
+          - {date: 2031}
+      - input: ref('weo_source')
+        rows:
+          - {dcid: source/IMF}
+    expect:
+      rows:
+        - {last_data_refresh_date: "2026-04-20", next_source_release_date: "2026-10", earliest_observation_date: "1980", latest_observation_date: "2031"}
+
+  - name: provenance_expects_april_after_an_october_release
+    model: dc_weo_provenance
+    given:
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2025-10-20 09:00:00+00", source_release_date: "2025-10-14"}
+      - input: ref('dc_weo_observations')
+        rows:
+          - {date: 1980}
+      - input: ref('weo_source')
+        rows:
+          - {dcid: source/IMF}
+    expect:
+      rows:
+        - {next_source_release_date: "2026-04"}

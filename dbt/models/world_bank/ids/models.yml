@@ -1,0 +1,957 @@
+---
+version: 2
+
+models:
+  - name: stg_ids
+    description: >
+      IDS observations in long format, one row per debtor, creditor, series and
+      year. The wide year columns are unpivoted, text is trimmed, values are
+      cast, and rows with no value are dropped, as are the series
+      ids_excluded_series lists as out of scope.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_country_counterpart_series_year
+          description: >
+            The grain: one row per country_code, counterpart_code, series_code
+            and year.
+          arguments:
+            combination_of_columns:
+              - country_code
+              - counterpart_code
+              - series_code
+              - year
+      - dbt_utils.expression_is_true:
+          name: codes_and_names_are_trimmed
+          description: >
+            Every text column is trimmed in stg_ids, so no value may carry
+            surrounding whitespace. Guards the cleaning step.
+          arguments:
+            expression: >
+              country_code = trim(country_code)
+              and country_name = trim(country_name)
+              and counterpart_code = trim(counterpart_code)
+              and counterpart_name = trim(counterpart_name)
+              and series_code = trim(series_code)
+              and series_name = trim(series_name)
+    columns:
+      - name: country_code
+        data_type: string
+        description: World Bank economy code of the debtor
+        data_tests:
+          - not_null
+      - name: country_name
+        data_type: string
+        description: Name of the debtor economy
+        data_tests:
+          - not_null
+      - name: counterpart_name
+        data_type: string
+        description: Name of the creditor
+        data_tests:
+          - not_null
+      - name: counterpart_code
+        data_type: string
+        description: World Bank code of the creditor
+        data_tests:
+          - not_null
+      - name: series_name
+        data_type: string
+        description: Name of the indicator
+        data_tests:
+          - not_null
+      - name: series_code
+        data_type: string
+        description: World Bank indicator code of the measure
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1970
+                strictly: false
+      - name: value
+        data_type: decimal(38,5)
+        description: >
+          Observed value of the series, in the units the indicator declares.
+
+  - name: int_ids_pruned
+    description: >
+      stg_ids without the zeros outside lending relationships: a creditor series
+      zero in every year, the years before a creditor's first nonzero value, and
+      averages for a year with no commitments. Zeros on world totals, and within or after a
+      creditor's run of lending, are kept.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: pruning_drops_only_zeros
+          description: >
+            Every nonzero staged value survives, so the pruning removes zeros and
+            nothing else.
+          arguments:
+            expression: >
+              (select count(*) from {{ ref('stg_ids') }} where value <> 0)
+              = (select count(*) from {{ ref('int_ids_pruned') }} where value <> 0)
+    columns:
+      - name: country_code
+        data_type: string
+        description: World Bank economy code of the debtor
+      - name: country_name
+        data_type: string
+        description: Name of the debtor economy
+      - name: counterpart_name
+        data_type: string
+        description: Name of the creditor
+      - name: counterpart_code
+        data_type: string
+        description: World Bank code of the creditor
+      - name: series_name
+        data_type: string
+        description: Name of the indicator
+      - name: series_code
+        data_type: string
+        description: World Bank indicator code of the measure
+      - name: year
+        data_type: integer
+        description: Year the observation is reported against
+      - name: value
+        data_type: decimal(38,5)
+        description: Observed value of the series, in the units the indicator declares
+
+  - name: int_ids_resolved
+    description: >
+      IDS observations with the debtor economy and the creditor replaced by
+      the DCIDs of the nodes identifying them.
+
+      Nine segment codes name a single lender in the third segment rather than in
+      the counterpart column, so the creditor is normalised here: such a row
+      takes the lender its code names where the counterpart supplies none. A WLD
+      row on one of those series then restates the row naming that lender and is
+      dropped; where the source published no such row it is kept, carrying the
+      lender. RDBC, RDBN and MOTH name a class of lender rather than an
+      institution, so they resolve nothing here and their WLD rows stay totals.
+
+      Materialized because three lookups and that dedupe over 147 million rows are
+      too much to repeat on every scan, and every model below reads it.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_debtor_creditor_series_and_year
+          description: >
+            The grain, carried over from stg_ids. Fails if two source codes
+            resolve to the same node, which would silently merge observations
+            rather than duplicate them.
+          arguments:
+            combination_of_columns:
+              - debtor
+              - creditor
+              - series_code
+              - year
+          config:
+            # Scoped to resolved rows so this asserts one thing: that two source
+            # codes never land on the same node. WLD carries no creditor, so
+            # those null would group together and fail here as a false
+            # duplicate. This is also what catches a normalised WLD row kept
+            # alongside the row it restates: both would name the same lender.
+            where: "creditor is not null"
+    columns:
+      - name: debtor
+        data_type: string
+        description: DCID of the debtor economy or aggregate
+        data_tests:
+          - not_null:
+              name: every_debtor_code_resolves_to_a_node
+              description: >
+                A null means stg_ids holds a debtor code with no mapping in
+                code_mapping. This is the unresolved-entity guard.
+      - name: creditor
+        data_type: string
+        description: DCID of the creditor
+        data_tests:
+          - not_null:
+              name: every_creditor_code_resolves_to_a_node
+              description: >
+                A null means stg_ids holds a counterpart code with no mapping
+                in code_mapping. This is the unresolved-entity guard. WLD is
+                excluded because it is deliberately unmodelled: it is the
+                all-creditors total, not a creditor, and the DC schema layer
+                emits no financingProvider for it.
+              config:
+                where: "counterpart_code <> 'WLD'"
+      - name: counterpart_code
+        data_type: string
+        description: >
+          Creditor code as published, retained so that a null creditor can be
+          told apart from a code that failed to resolve.
+        data_tests:
+          - not_null
+      - name: series_code
+        data_type: string
+        description: World Bank indicator code of the measure, as published
+        data_tests:
+          - not_null
+      - name: series_name
+        data_type: string
+        description: >
+          Name of the indicator as published, carried for the Data Commons layer,
+          which names each StatVar after the series it measures.
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,5)
+        description: >
+          Observed value of the series, in the units the series declares.
+
+  - name: int_ids_unified
+    description: >
+      IDS observations at the unified grain, one row per debtor, creditor,
+      series and year, with the series code decomposed into its dot-separated
+      positional segments. A projection of int_ids_resolved: nothing is joined,
+      nothing is filtered. Segment meaning is left to the Data Commons mapping
+      layer, which resolves it from the series code.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: only_debt_service_and_disbursements_run_past_the_debt_stock
+          description: >
+            dc_ids_observations marks a year after the debt stock's last year as a
+            projection, which holds only while the World Bank projects nothing but
+            principal, interest, total debt service and disbursements. Fails if any
+            other series reports a later year.
+          arguments:
+            expression: >
+              year <= (
+                select max(year) from {{ ref('int_ids_unified') }}
+                where series_code = 'DT.DOD.DECT.CD'
+              )
+              or series_code_pos_2 in ('AMT', 'INT', 'TDS', 'DIS')
+      - dbt_utils.equal_rowcount:
+          name: decomposition_neither_drops_nor_duplicates_an_observation
+          description: >
+            The model splits the series code and drops counterpart_code, and
+            must do nothing else, so the output holds exactly one row per input
+            row. This is what fails if a filter is ever added: the WLD rows are
+            carried deliberately, and zeros are pruned upstream, in int_ids_pruned.
+          arguments:
+            compare_model: ref('int_ids_resolved')
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_debtor_creditor_decomposed_series_and_year
+          description: >
+            The grain, over the dimension columns rather than over the series
+            code they were split from. Unscoped, unlike the equivalent on
+            int_ids_resolved. A duplicate means two economy codes resolved to
+            the same debtor node.
+          arguments:
+            combination_of_columns:
+              - debtor
+              - creditor
+              - series_code_pos_1
+              - series_code_pos_2
+              - series_code_pos_3
+              - series_code_pos_4
+              - series_code_pos_5
+              - year
+      - dbt_utils.expression_is_true:
+          name: the_positional_segments_reconstruct_the_series_code
+          description: >
+            Rejoining the positions reproduces the code they were split from,
+            which is what fails if the split is truncated, the delimiter is
+            wrong or a position is transposed. concat_ws skips nulls, so the
+            codes carrying fewer than five segments reconstruct from their
+            populated positions alone.
+          arguments:
+            expression: >
+              concat_ws(
+                '.',
+                series_code_pos_1,
+                series_code_pos_2,
+                series_code_pos_3,
+                series_code_pos_4,
+                series_code_pos_5
+              ) = series_code
+    columns:
+      - name: debtor
+        data_type: string
+        description: DCID of the debtor economy or aggregate
+        data_tests:
+          - not_null
+      - name: creditor
+        data_type: string
+        description: >
+          DCID of the creditor, null on the WLD rows. WLD is the all-creditors
+          total rather than a creditor, so it resolves to no node, and a null
+          here is how the mapping layer tells the total from its components.
+      - name: series_code
+        data_type: string
+        description: >
+          World Bank series code of the measure, as published. Retained
+          alongside its segments as the key to the series-level Data Commons
+          mapping.
+        data_tests:
+          - not_null
+      - name: series_name
+        data_type: string
+        description: >
+          Name of the indicator as published. The Data Commons layer takes the
+          StatVar name from it, so it is carried down rather than looked up
+          against stg_ids from there.
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,5)
+        description: >
+          Observed value of the series, in the units the series declares.
+      - name: series_code_pos_1
+        data_type: string
+        description: First dot-separated segment of the series code
+        data_tests:
+          - not_null
+      - name: series_code_pos_2
+        data_type: string
+        description: Second dot-separated segment of the series code
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_measure_code_resolves_to_an_ontology_node
+              description: >
+                A code that resolves to no node mints a StatVar without the
+                constraint it sets. The lists mirror the lookups in int_ids_mapped.
+                Skips GSR, which resolves with its dataset (exports under BX,
+                imports under BM).
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                from_condition: "series_code_pos_2 <> 'GSR'"
+                to_condition: >
+                  property = 'wbCode' and list in (
+                    'dcid:FinancialObligationTypeEnum', 'dcid:EconomicActivityTypeEnum',
+                    'dcid:FinancialFlowTypeEnum', 'dcid:NettingBasisEnum',
+                    'dcid:FinancialPositionTypeEnum', 'dcid:FinancingResourceEnum'
+                  )
+      - name: series_code_pos_3
+        data_type: string
+        description: >
+          Third dot-separated segment of the series code. Every published code
+          carries at least three segments, so a null in any of the first three
+          means the World Bank has shipped a shorter code than this
+          decomposition assumes.
+        data_tests:
+          - not_null
+          - dbt_utils.relationships_where:
+              name: every_category_code_resolves_to_an_ontology_node
+              description: >
+                Skips DECT, TOTL and MKTP, which mean the total.
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                from_condition: "series_code_pos_3 not in ('DECT', 'TOTL', 'MKTP')"
+                to_condition: >
+                  (
+                    property = 'wbCode' and list in (
+                      'dcid:EconomicActivityTypeEnum', 'dcid:FinancialFlowTypeEnum',
+                      'dcid:CurrencyUnit', 'dcid:FinancingResourceEnum',
+                      'dcid:FinancingFormEnum', 'dcid:IDSConcessionalityEnum',
+                      'dcid:GuaranteeStatusEnum', 'dcid:MaturityBandEnum',
+                      'dcid:IncludesIMFCreditEnum', 'dcid:InterestRateVariabilityEnum',
+                      'dcid:Organization'
+                    )
+                  )
+                  or (
+                    property = 'classificationCode'
+                    and list in ('dcid:IDSCreditorTypeEnum', 'dcid:IDSDebtorTypeEnum')
+                  )
+      - name: series_code_pos_4
+        data_type: string
+        description: >
+          Fourth dot-separated segment, null for the codes that carry only
+          three.
+        data_tests:
+          - dbt_utils.relationships_where:
+              name: every_sector_code_resolves_to_an_ontology_node
+              description: >
+                Skips the unit and denominator codes, which ids_unit_mapping
+                resolves.
+              arguments:
+                to: ref('code_mapping')
+                field: code
+                from_condition: >
+                  series_code_pos_4 not in (
+                    select code from {{ ref('ids_unit_mapping') }}
+                  )
+                to_condition: >
+                  property = 'wbCode' and list in (
+                    'dcid:FinancingResourceEnum', 'dcid:GuaranteeStatusEnum',
+                    'dcid:IDSDebtorTypeEnum'
+                  )
+      - name: series_code_pos_5
+        data_type: string
+        description: >
+          Fifth dot-separated segment, null for the codes that carry fewer than
+          five.
+
+  - name: int_ids_mapped
+    description: >
+      Every IDS series mapped onto its Data Commons properties, one row per series
+      and creditor breakdown. The mapping is a function of the series code alone, so
+      it is resolved over the 576 distinct codes rather than over all 147 million
+      observations; that is what lets the StatVar model be a projection rather than a
+      select distinct over the fact table.
+
+      A series reported both across all creditors and itemised by creditor measures a
+      total and its parts, so it yields two variables rather than one holding both.
+
+      Materialized because both Data Commons models read it and every observation
+      scan would otherwise re-resolve its twenty-odd code_mapping joins. At 1,127
+      rows the table costs nothing; as a view the observation grain test exhausts
+      memory.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_row_per_series_and_creditor_breakdown
+          description: The grain. A duplicate means a lookup fanned a series out.
+          arguments:
+            combination_of_columns:
+              - series_code
+              - creditor_breakdown
+      - dbt_utils.expression_is_true:
+          name: a_total_carries_no_creditor_breakdown
+          description: >
+            The breakdown constraint is set on the itemised variable and absent on
+            the total, which is what keeps a total out of the variable holding its
+            parts.
+          arguments:
+            expression: >
+              creditor_breakdown is null or creditor_breakdown = 'dcid:ByCreditor'
+    columns:
+      - name: series_code
+        data_type: string
+        description: World Bank series code of the measure, as published
+        data_tests:
+          - not_null
+      - name: series_name
+        data_type: string
+        description: Name of the series as published, which becomes the StatVar description
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population the variable measures
+        data_tests:
+          - not_null:
+              name: every_series_resolves_to_a_population_type
+              description: >
+                The guard on the whole mapping. Every series reaches this through the
+                measure seed, so a null means the World Bank has published a series
+                whose domain and measure the seed does not cover.
+      - name: measured_property
+        data_type: string
+        description: DCID of the property measured
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stat_type_mapping')
+                field: stat_type
+      - name: measurement_qualifier
+        data_type: string
+        description: >
+          DCID qualifying how the value is measured, null on the ratio series that
+          qualify nothing
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null:
+              config:
+                # Population is the one series reporting a count rather than an
+                # amount, and it is not exported.
+                where: "series_code <> 'SP.POP.TOTL'"
+      - name: measurement_denominator
+        data_type: string
+        description: >
+          DCID of the StatVar this one is expressed as a fraction of, null on the
+          series that are not ratios
+      - name: constraint_properties
+        data_type: string
+        description: >
+          Comma-delimited property names that constrain the variable. Null on
+          population, which a population type and a measured property identify on
+          their own; dc_ids_statvars requires one because every series it exports
+          does need constraining.
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type
+      - name: economic_activity_type
+        data_type: string
+        description: DCID of the economic activity, on the non-debt context series
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, set on the two net measures
+      - name: net_of
+        data_type: string
+        description: DCID of what is subtracted, set on the two net measures
+      - name: financial_position_type
+        data_type: string
+        description: DCID of the position type
+      - name: currency_of_denomination
+        data_type: string
+        description: DCID of the currency the position is denominated in
+      - name: financing_resource
+        data_type: string
+        description: DCID of the instrument the amount relates to
+      - name: financing_form
+        data_type: string
+        description: DCID of the form the finance is delivered as
+      - name: ids_concessionality
+        data_type: string
+        description: DCID of the concessionality category
+      - name: ids_creditor_type
+        data_type: string
+        description: DCID of the class of lender the amount is owed to
+      - name: guarantee_status
+        data_type: string
+        description: DCID of the guarantee status
+      - name: maturity_band
+        data_type: string
+        description: DCID of the maturity band
+      - name: includes_imf_credit
+        data_type: string
+        description: DCID stating whether the aggregate folds in use of IMF credit
+      - name: ids_debtor_type
+        data_type: string
+        description: DCID of the class of borrower that owes the amount
+      - name: interest_rate_variability
+        data_type: string
+        description: DCID stating that the rate moves with a market rate
+      - name: creditor_breakdown
+        data_type: string
+        description: >
+          Set on the variable itemised by creditor and absent on the total, so a
+          total never shares a DCID with its parts. It names the DCID only, and is
+          not a constraint. Absent on a series reported only one way, which is one
+          variable with nothing to contrast.
+      - name: has_provider
+        data_type: boolean
+        description: >
+          Whether this variable's observations carry a financing provider. Distinct
+          from creditor_breakdown: a series whose lender its code names has every
+          row attributed to that lender, so its observations carry a provider while
+          the variable has no breakdown.
+        data_tests:
+          - not_null
+      - name: statvar_dcid
+        data_type: string
+        description: >
+          DCID minted for the StatVar. Not unique here: this model is at series
+          grain, and four series describe two variables once the lender sits on the
+          observation. dc_ids_statvars groups them and is where uniqueness holds.
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: >
+          Human-readable name of the StatVar, composed from its properties. Not
+          unique here, for the same reason as statvar_dcid.
+        data_tests:
+          - not_null:
+              name: every_variable_composes_a_name
+              description: >
+                A null means the name macro has no phrase for a unit, denominator
+                or measured property.
+
+  - name: dc_ids_statvars
+    description: >
+      The StatVar nodes the observations reference, one row per variable rather than
+      per series. Four series describe two variables: once the lender sits on the
+      observation, net flows from the IBRD and from the IMF's non-concessional
+      lending are one measure, so they mint one DCID and are grouped here.
+
+      Population is excluded: its properties mint Count_Person, which already exists
+      in Data Commons, so emitting it would redefine an existing node rather than add
+      one.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.expression_is_true:
+          name: the_entity_declaration_follows_the_observations
+          description: >
+            A variable whose observations carry no provider is measured for the
+            debtor alone and must declare one entity; the rest must declare both.
+            This is what fails if the declaration and the observations fall out of
+            step, which is how six million observations went missing once.
+          arguments:
+            expression: >
+              has_provider
+              = (observation_properties = 'financingProvider,financingRecipient')
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: >
+          Human-readable name of the StatVar, composed from its properties
+        data_tests:
+          - not_null
+          - unique
+      - name: description
+        data_type: string
+        description: >
+          World Bank name of each series the StatVar was minted from,
+          semicolon-delimited
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population measured
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the property measured
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type, measuredValue except on the average-terms series
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID qualifying how the value is measured
+      - name: measurement_denominator
+        data_type: string
+        description: >
+          DCID of the StatVar this one is expressed as a fraction of. The World Bank
+          publishes the denominators as series of their own, so all but per capita
+          resolve to variables this pipeline mints.
+        data_tests:
+          - relationships:
+              name: every_denominator_names_a_variable_this_import_defines
+              description: >
+                Scoped past Count_Person, which is an existing Data Commons variable
+                rather than one of this dataset's series.
+              arguments:
+                to: ref('dc_ids_statvars')
+                field: dcid
+              config:
+                where: "measurement_denominator <> 'dcid:Count_Person'"
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+        data_tests:
+          - not_null
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type
+      - name: economic_activity_type
+        data_type: string
+        description: DCID of the economic activity
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis
+      - name: net_of
+        data_type: string
+        description: DCID of what is subtracted on a net measure
+      - name: financial_position_type
+        data_type: string
+        description: DCID of the position type
+      - name: currency_of_denomination
+        data_type: string
+        description: DCID of the currency the position is denominated in
+      - name: financing_resource
+        data_type: string
+        description: DCID of the instrument the amount relates to
+      - name: financing_form
+        data_type: string
+        description: DCID of the form the finance is delivered as
+      - name: ids_concessionality
+        data_type: string
+        description: DCID of the concessionality category
+      - name: ids_creditor_type
+        data_type: string
+        description: DCID of the class of lender the amount is owed to
+      - name: guarantee_status
+        data_type: string
+        description: DCID of the guarantee status
+      - name: maturity_band
+        data_type: string
+        description: DCID of the maturity band
+      - name: includes_imf_credit
+        data_type: string
+        description: DCID stating whether the aggregate folds in use of IMF credit
+      - name: ids_debtor_type
+        data_type: string
+        description: DCID of the class of borrower that owes the amount
+      - name: interest_rate_variability
+        data_type: string
+        description: DCID stating that the rate moves with a market rate
+      - name: has_provider
+        data_type: boolean
+        description: >
+          Whether this variable's observations name a financing provider. What the
+          observation model matches a row against, and what the entity declaration
+          below follows.
+        data_tests:
+          - not_null
+      - name: source_indicator_code
+        data_type: string
+        description: >
+          World Bank series codes the variable was minted from, as quoted MCF text
+          values, kept as the audit trail from the published indicators to the
+          variable. More than one where several series describe the same measure and
+          differ only by a lender, which sits on the observation.
+        data_tests:
+          - not_null
+      - name: observation_properties
+        data_type: string
+        description: >
+          Comma-delimited properties an observation carries rather than the variable,
+          so one variable covers every creditor and debtor pair rather than one per
+          pair.
+        data_tests:
+          - not_null
+
+  - name: dc_ids_observations
+    description: >
+      One row per observation, naming the StatVar it measures. A row lands on the
+      variable whose observations carry a provider where it carries one, which for a
+      series reported both ways separates the total from its itemised parts.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.expression_is_true:
+          name: every_resolved_observation_reaches_a_variable
+          description: >
+            The Data Commons layer maps, it does not filter, so every unified row
+            must land on exactly one variable. Written as a count because the
+            failure it guards against is silent: a join that stops matching drops
+            observations without any per-row test noticing.
+          arguments:
+            expression: >
+              (select count(*) from {{ ref('dc_ids_observations') }})
+              = (select count(*) from {{ ref('int_ids_unified') }})
+      - dbt_utils.expression_is_true:
+          name: some_observations_are_projections
+          description: >
+            The World Bank projects debt service past the last reported year in
+            every release. Fails if nothing is marked Estimated, which is what a
+            missing debt stock would do to the cutoff.
+          arguments:
+            expression: >
+              exists (
+                select 1 from {{ ref('dc_ids_observations') }}
+                where measurement_method = 'dcid:Estimated'
+              )
+      - dbt_utils.expression_is_true:
+          name: reported_observations_end_before_the_current_year
+          description: >
+            Annual data for a year still in progress cannot be complete, so a
+            reported observation dated this year or later is a projection the
+            cutoff missed.
+          arguments:
+            expression: >
+              measurement_method is not null
+              or date < extract(year from current_date)
+      - dbt_utils.unique_combination_of_columns:
+          name: one_observation_per_variable_entities_and_date
+          description: >
+            Data Commons keys an observation on its variable, entities and date, so a
+            duplicate would be rejected on ingest. Unscoped: the totals group on a
+            null provider, and there is exactly one of those per series, debtor and
+            year.
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_ids_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: >
+          DCID of the creditor, null on a total across creditors. The World Bank
+          rounds those totals more coarsely than their parts, so they are reported
+          rather than summed here.
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the debtor economy or aggregate
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,5)
+        description: >
+          The observed value, unscaled. The IDS reports whole units of currency
+          rather than millions, and the same column holds both trillion-dollar
+          stocks and sub-percent ratios.
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          Estimated on a year after the last reported year, which the World Bank
+          publishes as projections; null on a reported value
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['dcid:Estimated']
+
+  - name: dc_ids_provenance
+    description: >
+      Provenance node for the IDS data. Observation dates are read from the
+      observations model.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_provenance_row
+          description: >
+            The node describes one import, so a second row means the observation
+            range it cross joins returned more than one.
+          arguments:
+            value: 1
+      - dbt_utils.expression_is_true:
+          name: source_data_url_names_every_bulk_file
+          description: >
+            The World Bank splits IDS across six bulk files and the pipeline
+            downloads all six, so the provenance must name all six. Fails if the
+            download list and the provenance fall out of step.
+          arguments:
+            expression: "len(str_split(source_data_url, ',')) = 6"
+    columns:
+      - name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What IDS is and what it covers
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the World Bank source node, which exists in Data Commons already
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the landing page for the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: >
+          Comma-delimited URLs of the six bulk files the data is published as
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: URL of the terms the source data is published under
+        data_tests:
+          - not_null
+      - name: license_type
+        data_type: string
+        description: DCID of the license the data is published under
+        data_tests:
+          - not_null
+      - name: source_release_frequency
+        data_type: string
+        description: How often the World Bank publishes, as an ISO 8601 duration
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: Date the raw data was downloaded, as YYYY-MM-DD
+        data_tests:
+          - not_null
+      - name: next_source_release_date
+        data_type: string
+        description: Month of the next expected release, as YYYY-MM
+        data_tests:
+          - not_null
+      - name: next_data_refresh_date
+        data_type: string
+        description: Same as next_source_release_date
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year the import carries an observation for
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year the import carries an observation for
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: Attribution in the standard form for CC BY
+        data_tests:
+          - not_null

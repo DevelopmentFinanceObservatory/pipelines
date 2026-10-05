@@ -1,0 +1,72 @@
+version: 2
+
+seeds:
+  - name: dac_agency_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        donor_code: string
+        acronym: string
+        agency_type: string
+
+  - name: dac_aid_t_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        description: string
+        category: string
+        parent_code: string
+
+  - name: dac_category_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        description: string
+        category: string
+        parent_code: string
+
+  - name: dac_donor_code_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        type: string
+        iso3_code: string
+        dac_code: string
+
+  - name: dac_finance_t_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        description: string
+        category: string
+        parent_code: string
+
+  - name: dac_purpose_code_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        description: string
+        category: string
+        parent_code: string
+
+  - name: dac_recipient_code_codelist
+    config:
+      column_types:
+        codelist: string
+        code: string
+        label: string
+        type: string
+        iso3_code: string
+        dac_code: string

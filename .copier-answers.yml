@@ -1,0 +1,13 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v1.0.2
+_src_path: gh:ONEcampaign/bblocks-projects
+author_email: tilly.woodfield@one.org
+author_name: Tilly Woodfield
+include_notebooks: false
+include_pytest: true
+license: mit
+project_description: Data pipelines for the Development Finance Observatory.
+project_name: dfo-pipelines
+project_slug: dfo_pipelines
+project_type: project
+python_version: '3.13'

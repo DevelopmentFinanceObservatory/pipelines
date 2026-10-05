@@ -1,0 +1,82 @@
+unit_tests:
+  - name: code_mapping_carries_both_the_export_and_the_interim_curation
+    model: code_mapping
+    description: >
+      A consumer sees one mapping table, so a node the ontology has not adopted yet
+      resolves exactly like an exported one. Reading only the export would leave every
+      interim node unresolved, and the model is the only place that would show it.
+    given:
+      - input: source('dfo_ontology', 'raw_code_mapping')
+        rows:
+          - {list: "dcid:CRSTypeOfFlowEnum", code: "10", dcid: "dcid:CRSTypeOfFlow10", label: ODA, property: classificationCode}
+      - input: ref('interim_code_mapping')
+        rows:
+          - {list: "dcid:Country", code: "1", dcid: "dcid:country/AUT", label: Austria, property: dacCode}
+      - input: ref('ids_code_mapping')
+        rows: []
+    expect:
+      rows:
+        - {list: "dcid:CRSTypeOfFlowEnum", code: "10", dcid: "dcid:CRSTypeOfFlow10", label: ODA, property: classificationCode}
+        - {list: "dcid:Country", code: "1", dcid: "dcid:country/AUT", label: Austria, property: dacCode}
+
+  - name: code_mapping_drops_an_interim_mapping_the_ontology_has_adopted
+    model: code_mapping
+    description: >
+      The ontology is the authority on a code it publishes, so once the export
+      carries a mapping the interim row for it is dropped.
+    given:
+      - input: source('dfo_ontology', 'raw_code_mapping')
+        rows:
+          - {list: "dcid:Country", code: "1", dcid: "dcid:country/AUT", label: Austria, property: dacCode}
+      - input: ref('interim_code_mapping')
+        rows:
+          - {list: "dcid:Country", code: "1", dcid: "dcid:AustriaAwaitingAdoption", label: Austria, property: dacCode}
+          - {list: "dcid:Country", code: "2", dcid: "dcid:country/BEL", label: Belgium, property: dacCode}
+      - input: ref('ids_code_mapping')
+        rows: []
+    expect:
+      rows:
+        - {list: "dcid:Country", code: "1", dcid: "dcid:country/AUT", label: Austria, property: dacCode}
+        - {list: "dcid:Country", code: "2", dcid: "dcid:country/BEL", label: Belgium, property: dacCode}
+
+  - name: code_mapping_carries_a_pipeline_owned_mapping
+    model: code_mapping
+    description: >
+      The ontology defines the nodes behind some codes but leaves the codes to
+      the pipeline, so a consumer has to resolve them from the seed exactly like
+      an exported one. Reading only the export and the interim curation would
+      leave every such code unresolved.
+    given:
+      - input: source('dfo_ontology', 'raw_code_mapping')
+        rows:
+          - {list: "dcid:CRSTypeOfFlowEnum", code: "10", dcid: "dcid:CRSTypeOfFlow10", label: ODA, property: classificationCode}
+      - input: ref('interim_code_mapping')
+        rows: []
+      - input: ref('ids_code_mapping')
+        rows:
+          - {list: "dcid:CurrencyUnit", code: MULC, dcid: "dcid:MultipleCurrencies", label: Multiple currencies, property: wbCode}
+    expect:
+      rows:
+        - {list: "dcid:CRSTypeOfFlowEnum", code: "10", dcid: "dcid:CRSTypeOfFlow10", label: ODA, property: classificationCode}
+        - {list: "dcid:CurrencyUnit", code: MULC, dcid: "dcid:MultipleCurrencies", label: Multiple currencies, property: wbCode}
+
+  - name: code_mapping_drops_a_pipeline_owned_mapping_the_export_carries
+    model: code_mapping
+    description: >
+      The export stays authoritative on any code it publishes, so a
+      pipeline-owned row for that code waits dormant in the seed instead of
+      duplicating it, and takes over only once the export stops carrying it.
+    given:
+      - input: source('dfo_ontology', 'raw_code_mapping')
+        rows:
+          - {list: "dcid:CurrencyUnit", code: MULC, dcid: "dcid:MultipleCurrencies", label: Multiple currencies, property: wbCode}
+      - input: ref('interim_code_mapping')
+        rows: []
+      - input: ref('ids_code_mapping')
+        rows:
+          - {list: "dcid:CurrencyUnit", code: MULC, dcid: "dcid:MultipleCurrenciesAwaitingTheBench", label: Multiple currencies, property: wbCode}
+          - {list: "dcid:CurrencyUnit", code: OTHC, dcid: "dcid:OtherCurrencies", label: Other currencies, property: wbCode}
+    expect:
+      rows:
+        - {list: "dcid:CurrencyUnit", code: MULC, dcid: "dcid:MultipleCurrencies", label: Multiple currencies, property: wbCode}
+        - {list: "dcid:CurrencyUnit", code: OTHC, dcid: "dcid:OtherCurrencies", label: Other currencies, property: wbCode}

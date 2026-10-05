@@ -1,0 +1,555 @@
+version: 2
+
+models:
+  - name: stg_imputed_multilateral_sectors
+    description: >
+      Imputed multilateral spending by purpose at source granularity, limited to the
+      columns consumed downstream and cast to their target types.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          description: >
+            The raw grain: one row per donor, channel, recipient, purpose and
+            year. A core contribution resolves to exactly one allocation path
+            (its own or a stale share window, a single proxy channel, or
+            unallocated), so allocation_status never needs to be part of the
+            key.
+          arguments:
+            combination_of_columns:
+              - donor_code
+              - channel_code
+              - recipient_code
+              - purpose_code
+              - year
+    columns:
+      - name: donor_code
+        data_type: string
+        description: DAC code of the provider whose core contributions are attributed
+        data_tests:
+          - not_null
+      - name: recipient_code
+        data_type: string
+        description: >
+          DAC code of the recipient the spending reached. A null recipient on a
+          fixed_purpose proxy row (a proxy row with a null share_channel_code) or
+          an unallocated row is mapped to 9998, "Bilateral,
+          unallocated/unspecified". A null on any other row stays null and fails
+          the not_null test.
+        data_tests:
+          - not_null
+      - name: channel_code
+        data_type: string
+        description: >
+          DAC code of the multilateral channel the spending passed through,
+          dropped by int_imputed_multilateral_sectors_aggregated.
+        data_tests:
+          - not_null
+      - name: purpose_code
+        data_type: string
+        description: >
+          DAC sector/purpose code the spending was imputed against. A null purpose
+          on an unallocated row is mapped to 998, "Unallocated/unspecified". A null
+          on any other row stays null and fails the not_null test.
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the contribution was made
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Imputed spending, gross disbursement, current USD, in millions
+        data_tests:
+          - not_null
+
+  - name: int_imputed_multilateral_sectors_resolved
+    description: >
+      Imputed multilateral spending with the provider and the recipient replaced by
+      their DCIDs.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.equal_rowcount:
+          name: row_count_matches_stg_imputed_multilateral_sectors
+          description: >
+            The donor and recipient joins are left joins so an unmapped DAC code
+            produces a null caught by the not_null tests below, rather than a row
+            that silently disappears. This test catches the row loss the not_null
+            tests would miss if a join were narrowed to an inner join or scoped
+            incorrectly and fanned out instead.
+          arguments:
+            compare_model: ref('stg_imputed_multilateral_sectors')
+    columns:
+      - name: year
+        data_type: integer
+        description: Year the contribution was made
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the provider whose core contributions are attributed
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient the spending reached
+        data_tests:
+          - not_null
+      - name: purpose_code
+        data_type: string
+        description: DAC sector/purpose code the spending was imputed against
+        data_tests:
+          - not_null
+      - name: channel_code
+        data_type: string
+        description: >
+          DAC code of the multilateral channel the spending passed through,
+          dropped by int_imputed_multilateral_sectors_aggregated.
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Imputed spending, gross disbursement, current USD, in millions
+        data_tests:
+          - not_null
+
+  - name: int_imputed_multilateral_sectors_aggregated
+    description: >
+      Imputed multilateral spending at the target grain, summed over channel_code.
+      Materialized because it aggregates over every source row.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - year
+              - donor
+              - recipient
+              - purpose_code
+    columns:
+      - name: year
+        data_type: integer
+        description: Year the contribution was made
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the provider whose core contributions are attributed
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient the spending reached
+        data_tests:
+          - not_null
+      - name: purpose_code
+        data_type: string
+        description: DAC sector/purpose code the spending was imputed against
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: >
+          Sum of the imputed spending value for this combination of dimensions,
+          across every channel it passed through, gross disbursement, current USD,
+          in millions
+        data_tests:
+          - not_null
+
+  - name: int_imputed_multilateral_sectors_mapped
+    description: >
+      The target grain mapped onto the DC vocabulary, with minted StatVar DCIDs.
+      Every dimension except the purpose is a constant literal. The series
+      covers ODA gross disbursements in current-price USD and measures
+      attributedAmount, the part of imputed multilateral spending credited to
+      the donors whose core contributions it draws on.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.equal_rowcount:
+          name: purpose_join_neither_drops_nor_duplicates_a_row
+          description: >
+            The purpose code join must resolve exactly one code_mapping row
+            per input row, so the output holds exactly one row per
+            aggregated row. Catches a code that resolves to no mapping and a
+            mapping that fans a row out.
+          arguments:
+            compare_model: ref('int_imputed_multilateral_sectors_aggregated')
+    columns:
+      - name: statvar_dcid
+        data_type: string
+        description: DCID of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: Human-readable name of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population the StatVar measures, FinancialFlow throughout
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: >
+          DCID of the property the StatVar measures, attributedAmount throughout.
+          It is the part of a flow's amount credited to a party whose resources
+          it draws on, where the flow cannot be traced to that party directly.
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type of the StatVar, measuredValue throughout
+        data_tests:
+          - not_null
+          - relationships:
+              name: every_stat_type_has_a_dcid_segment_mapping
+              description: >
+                A stat type with no mapping would mint a DCID missing its segment,
+                colliding with the measuredValue variant of the same measure.
+              arguments:
+                to: ref('stat_type_mapping')
+                field: stat_type
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, Gross throughout
+        data_tests:
+          - not_null
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type, Disbursement throughout
+        data_tests:
+          - not_null
+      - name: type_of_flow
+        data_type: string
+        description: DCID of the flow category, resolved to ODA throughout
+        data_tests:
+          - not_null
+      - name: aid_type
+        data_type: string
+        description: >
+          DCID of the DAC2a aid type, DAC2aAidType106 throughout.
+          It is a StatVar constraint, so it is part of the StatVar dcid.
+        data_tests:
+          - not_null
+      - name: purpose_code
+        data_type: string
+        description: DCID of the sector
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: >
+          DCID qualifying how the value is measured. Every published amount is at
+          current prices, so this is nominal throughout.
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          DCID of the method the observation was produced by, Modelled
+          throughout. mint_statvar_dcid excludes it from the StatVar dcid.
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the financing provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the financing recipient
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the currency the amount is denominated in, always USD
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the contribution was made
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: The observed amount
+        data_tests:
+          - not_null
+
+  - name: dc_imputed_multilateral_sectors_statvars
+    description: >
+      The StatVar nodes the observations reference, one row per variable, taken
+      from the model that mints the DCID. Materialized because it dedupes
+      variables from observations, and data tests would each repeat that.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        data_type: string
+        description: DCID of the population measured, FinancialFlow throughout
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: >
+          DCID of the property measured, attributedAmount throughout. It is the
+          part of a flow's amount credited to a party whose resources it draws
+          on, where the flow cannot be traced to that party directly.
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type, measuredValue throughout
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, Gross throughout
+        data_tests:
+          - not_null
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type, Disbursement throughout
+        data_tests:
+          - not_null
+      - name: type_of_flow
+        data_type: string
+        description: DCID of the flow category, resolved to ODA throughout
+        data_tests:
+          - not_null
+      - name: aid_type
+        data_type: string
+        description: >
+          DCID of the DAC2a aid type, DAC2aAidType106 throughout.
+          It is a StatVar constraint, so it is part of the StatVar dcid.
+        data_tests:
+          - not_null
+      - name: purpose_code
+        data_type: string
+        description: DCID of the sector
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID qualifying how the value is measured, nominal throughout
+        data_tests:
+          - not_null
+      - name: observation_properties
+        data_type: string
+        description: >
+          Comma-delimited properties carried on the observation instead of the
+          variable, so one variable covers every provider and recipient pair.
+        data_tests:
+          - not_null
+
+  - name: dc_imputed_multilateral_sectors_observations
+    description: >
+      One row per observation, naming the StatVar it measures. Materialized
+      because the export reads it once per year partition.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_observation_per_variable_entities_and_date
+          description: >
+            Data Commons keys an observation on its variable, entity and date, so
+            a duplicate would be rejected on ingest.
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_imputed_multilateral_sectors_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against, the contribution year
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the financing provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the financing recipient
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(18,2)
+        description: >
+          The observed amount, in whole units of the currency the unit names.
+          oda-data returns millions, so this is the source figure scaled up.
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the currency, always USD
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          DCID of the method the observation was produced by, Modelled
+          throughout. mint_statvar_dcid excludes it from the StatVar dcid.
+        data_tests:
+          - not_null
+
+  - name: dc_imputed_multilateral_sectors_provenance
+    description: >
+      Provenance node for ONE's imputed multilateral sectors data. Observation
+      dates are read from the observations model.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_provenance_row
+          description: >
+            The node describes one import, and the extraction metadata it joins
+            holds one row. A second row here means that join fanned out.
+          arguments:
+            value: 1
+    columns:
+      - name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What the imputed multilateral sectors data is and how it is computed
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the ONE source node
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the landing page for the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: >
+          Comma-delimited URLs of the two OECD dataflows the data is computed
+          from, CRS and Members' Total Use of the Multilateral System
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: URL of the terms the source data is published under
+        data_tests:
+          - not_null
+      - name: license_type
+        data_type: string
+        description: DCID of the licence type node the source data is published under.
+        data_tests:
+          - not_null
+      - name: source_release_frequency
+        data_type: string
+        description: >
+          How often the source publishes, as an ISO 8601 duration. The CRS
+          publishes four times a year, the faster of the two sources, so this is
+          the mean gap. next_source_release_date carries the exact month.
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: Date the raw data was last downloaded
+        data_tests:
+          - not_null
+      - name: next_source_release_date
+        data_type: string
+        description: >
+          Month of expected next publish, as ISO 8601 year and month: the
+          earlier of CRS's own next release and Members' Total Use's own next
+          release.
+        data_tests:
+          - not_null
+      - name: next_data_refresh_date
+        data_type: string
+        description: >
+          When the data is next expected to be refreshed, as ISO 8601 year and month.
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year an observation is reported against
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year an observation is reported against
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation string required by the source's license, naming CRS and
+          Members' Total Use with each source's own release year. The
+          leading "ONE (year)" citation uses the later of the two release
+          years.
+        data_tests:
+          - not_null

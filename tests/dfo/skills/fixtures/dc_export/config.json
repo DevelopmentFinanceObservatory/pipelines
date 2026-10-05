@@ -1,0 +1,9 @@
+{
+    "importName": "dfo_skills",
+    "inputFiles": [
+        {
+            "pattern": "*.mcf",
+            "provenance": "dcid:provenance/DFOSkills"
+        }
+    ]
+}

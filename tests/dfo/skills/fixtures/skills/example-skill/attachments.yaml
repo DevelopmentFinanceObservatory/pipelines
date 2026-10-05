@@ -1,0 +1,6 @@
+applies_to:
+  - dcid:ExampleNode
+  - dcid:ExampleOtherNode
+sources:
+  - dcid:provenance/OECDCreditorReportingSystem
+  - dcid:provenance/IMFWorldEconomicOutlook

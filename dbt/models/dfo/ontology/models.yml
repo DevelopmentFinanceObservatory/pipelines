@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: code_mapping
+    description: >
+      Every mapping from a source's classification codes to the DCIDs of the nodes
+      defining them, created by combining the DFO ontology export with the mappings
+      a pipeline curates by hand: in the interim seed until the ontology adopts
+      them, or in the ids seed where the ontology leaves the codes to the pipeline.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - supersedes_interim_mappings:
+          description: >
+            A mapping is curated in interim_code_mapping only until the ontology
+            publishes it. This model drops the superseded row so a refreshed
+            export does not stall on it, but this test emits a warning for rows
+            that can be removed from the seed.
+          config:
+            severity: warn
+          arguments:
+            exported: source('dfo_ontology', 'raw_code_mapping')
+            interim: ref('interim_code_mapping')
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dcid_per_list_property_and_code
+          description: >
+            A code identifies a node within the list it belongs to and the
+            property that carries it
+          arguments:
+            combination_of_columns:
+              - list
+              - property
+              - code
+      - unique:
+          name: one_entity_per_dac_code
+          description: >
+            A DAC code identifies one entity across multiple lists, so a consumer can
+            join on the code alone without fanning the row out.
+          column_name: code
+          config:
+            where: >
+              property = 'dacCode'
+              and list in (
+                'dcid:Country',
+                'dcid:Organization',
+                'dcid:DACRecipientUnallocatedByCountry'
+              )
+      - unique:
+          name: one_entity_per_wb_economy_code
+          description: >
+            A World Bank economy code identifies one debtor across the
+            lists it spans, so int_ids_resolved can join on the code alone
+            without fanning the row out.
+          column_name: code
+          config:
+            where: "property = 'wbEconomyCode'"
+      - unique:
+          name: one_entity_per_wb_counterpart_code
+          description: >
+            A World Bank counterpart (creditor) code identifies one creditor
+            across the lists it spans, so int_ids_resolved can join on the code
+            alone without fanning the row out.
+          column_name: code
+          config:
+            where: "property = 'wbCounterpartCode'"
+    columns:
+      - name: list
+        data_type: string
+        description: DCID of the ontology class or enum the code belongs to
+        data_tests:
+          - not_null
+      - name: code
+        data_type: string
+        description: Classification code as published by the source
+        data_tests:
+          - not_null
+      - name: dcid
+        data_type: string
+        description: DCID of the node this code resolves to
+        data_tests:
+          - not_null
+      - name: label
+        data_type: string
+        description: Name of the node
+        data_tests:
+          - not_null
+      - name: property
+        data_type: string
+        description: The node property that contains the classification code
+        data_tests:
+          - not_null

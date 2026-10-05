@@ -1,0 +1,7 @@
+Node: dcid:ExampleNode
+typeOf: dcid:Class
+name: "Example node"
+
+Node: dcid:ExampleOtherNode
+typeOf: dcid:Class
+name: "Example other node"

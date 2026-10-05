@@ -1,0 +1,885 @@
+version: 2
+
+models:
+  - name: stg_conversion_tables_dac_1
+    description: >
+      DAC1 total net ODA (aid type 1010, flow 1140) by donor and year in current
+      US dollars, constant US dollars and national currency, cast to their
+      target types.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac_1_row_per_donor_year_and_amount_type
+          description: >
+            Fails if DAC1 publishes total ODA under more than one part for a
+            donor, which the pivot in int_conversion_tables_dac_1_series would
+            otherwise resolve by picking one row.
+          arguments:
+            combination_of_columns:
+              - donor_code
+              - year
+              - amount_type
+    columns:
+      - name: donor_code
+        data_type: string
+        description: DAC code of the donor
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: amount_type
+        data_type: string
+        description: >
+          A for current US dollars, D for constant US dollars of the DAC base
+          year, N for national currency
+        data_tests:
+          - not_null
+      - name: value
+        data_type: double
+        description: Total net ODA, in millions of the amount type's currency
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_dac_1_resolved
+    description: >
+      DAC1 total net ODA with each donor replaced by the DCID of its node,
+      group totals other than DAC Countries, Total left out.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          name: every_staged_donor_row_is_resolved
+          description: >
+            The donor join is a left join so an unmapped donor yields a null the
+            not_null test on entity catches. This fails if the join drops or
+            duplicates rows instead.
+          arguments:
+            compare_model: ref('stg_conversion_tables_dac_1')
+            compare_row_condition: "{{ is_dac_1_donor('donor_code') }}"
+    columns:
+      - name: entity
+        data_type: string
+        description: DCID of the donor, or DACCountriesTotal for donor 20001
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: amount_type
+        data_type: string
+        description: A, D or N, as in stg_conversion_tables_dac_1
+        data_tests:
+          - not_null
+      - name: value
+        data_type: double
+        description: Total net ODA, in millions of the amount type's currency
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_dac_1_series
+    description: Total net ODA in each price basis, one row per donor and year.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac_1_series_row_per_donor_and_year
+          arguments:
+            combination_of_columns:
+              - entity
+              - year
+    columns:
+      - name: entity
+        data_type: string
+        description: DCID of the donor
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the values refer to
+        data_tests:
+          - not_null
+      - name: current_usd
+        data_type: double
+        description: Total net ODA in millions of current US dollars. Null when unreported.
+      - name: constant_usd
+        data_type: double
+        description: >
+          Total net ODA in millions of constant US dollars of the DAC base year.
+          Null when unreported.
+      - name: national_currency
+        data_type: double
+        description: >
+          Total net ODA in millions of the donor's national currency. Null for
+          DAC Countries, Total and for donors that report in US dollars outright.
+
+  - name: int_conversion_tables_weo_series
+    description: >
+      The WEO series the IMF conversion table is computed from, one row per
+      country and year.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_weo_series_row_per_country_and_year
+          arguments:
+            combination_of_columns:
+              - country
+              - year
+    columns:
+      - name: country
+        data_type: string
+        description: DCID of the country
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the values refer to
+        data_tests:
+          - not_null
+      - name: gdp_national_currency
+        data_type: double
+        description: GDP in national currency (NGDP). Null when WEO publishes none that year.
+      - name: gdp_usd
+        data_type: double
+        description: GDP in US dollars (NGDPD). Null when WEO publishes none that year.
+      - name: gdp_deflator
+        data_type: double
+        description: GDP deflator in national currency (NGDP_D). Null when WEO publishes none that year.
+      - name: rate_is_estimate
+        data_type: boolean
+        description: Whether NGDP or NGDPD is a projection in this year
+        data_tests:
+          - not_null
+      - name: deflator_is_estimate
+        data_type: boolean
+        description: Whether NGDP, NGDPD or NGDP_D is a projection in this year
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_dac_rate_members
+    description: >
+      Every DAC1 donor's own implied exchange rate, in units of its currency per
+      US dollar, for each year it reports national-currency and US-dollar ODA.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests: &rate_member_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_member_rate_per_area_and_year
+          arguments:
+            combination_of_columns:
+              - area
+              - year
+    columns: &rate_member_columns
+      - name: area
+        data_type: string
+        description: DCID of the DAC1 donor or WEO country
+        data_tests:
+          - not_null
+      - name: currency
+        data_type: string
+        description: >
+          ISO 4217 code of the area's currency. A WEO country the IMF currency
+          map leaves out keeps a null here, which this test catches.
+        data_tests:
+          - not_null
+      - name: currency_unit
+        data_type: string
+        description: DCID of the currency's CurrencyUnit node
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the rate refers to
+        data_tests:
+          - not_null
+      - name: rate
+        data_type: double
+        description: Units of the currency per US dollar, as the area's own data implies
+        data_tests:
+          - not_null
+      - name: is_estimate
+        data_type: boolean
+        description: Whether the rate is computed from an IMF projection
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_rate_members
+    description: >
+      Every WEO country's own implied exchange rate, in units of its currency
+      per US dollar, for each year WEO publishes both GDP series.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests: *rate_member_tests
+    columns: *rate_member_columns
+
+  - name: int_conversion_tables_dac_rate_references
+    description: >
+      The DAC1 donor whose rate is each currency's rate in the DAC table, one
+      row per currency.
+    config:
+      contract: {enforced: true}
+    data_tests: &rate_reference_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_reference_per_currency
+          arguments:
+            combination_of_columns:
+              - currency
+    columns: &rate_reference_columns
+      - name: currency
+        data_type: string
+        description: ISO 4217 code of the currency
+        data_tests:
+          - not_null
+      - name: member_count
+        data_type: bigint
+        description: Number of areas that use the currency in the table's source
+        data_tests:
+          - not_null
+      - name: seeded_reference_area
+        data_type: string
+        description: >
+          The area the currency's currency_rate_reference row names. Null when
+          the currency has no row.
+      - name: reference_area
+        data_type: string
+        description: >
+          DCID of the area whose rate is the currency's rate. Null, and failing
+          this test, for a shared currency with no reference row or with a
+          reference row naming an area that does not use the currency.
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_rate_references
+    description: >
+      The WEO country whose rate is each currency's rate in the IMF table, one
+      row per currency.
+    config:
+      contract: {enforced: true}
+    data_tests: *rate_reference_tests
+    columns: *rate_reference_columns
+
+  - name: int_conversion_tables_dac_rates
+    description: >
+      Each currency's exchange rate per year from DAC1, read from its reference
+      donor. Covers only the currencies and years DAC1 reports.
+    config:
+      contract: {enforced: true}
+    data_tests: &rate_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_rate_per_currency_and_year
+          arguments:
+            combination_of_columns:
+              - currency
+              - year
+      - dbt_utils.expression_is_true:
+          name: the_us_dollar_is_one_us_dollar
+          description: >
+            Fails if the source's US-dollar figures for the United States differ
+            from its national-currency ones, which would mean a scale or
+            currency error in that source's series.
+          arguments:
+            expression: "currency <> 'USD' or abs(rate - 1) < 1e-9"
+    columns: &rate_columns
+      - name: currency
+        data_type: string
+        description: ISO 4217 code of the currency
+        data_tests:
+          - not_null
+      - name: currency_unit
+        data_type: string
+        description: DCID of the currency's CurrencyUnit node
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the rate refers to
+        data_tests:
+          - not_null
+      - name: rate
+        data_type: double
+        description: Units of the currency per US dollar
+        data_tests:
+          - not_null
+      - name: is_estimate
+        data_type: boolean
+        description: Whether the rate is computed from an IMF projection
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_rates
+    description: >
+      Each currency's exchange rate per year from WEO, read from its reference
+      country.
+    config:
+      contract: {enforced: true}
+    data_tests: *rate_tests
+    columns: *rate_columns
+
+  - name: int_conversion_tables_dac_rate_agreement
+    description: >
+      Each currency's DAC1 member donors, other than its reference and the
+      donors currency_rate_reference marks not_checked, compared with the
+      reference in the member's last actual year. A member whose rate strays
+      from the reference beyond 1e-6 uses a different currency from the one the
+      IMF map gives it, at least in that year. Its blocking check gates the DAC
+      export only.
+    config:
+      contract: {enforced: true}
+    data_tests: &rate_agreement_tests
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          name: the_check_has_members_to_compare
+          description: >
+            A currency shared by several areas puts a member beside its
+            reference here, so an empty model means a join or a mapping broke
+            and the agreement check below would compare nothing.
+          arguments:
+            min_value: 1
+      - dbt_utils.expression_is_true:
+          name: every_member_agrees_with_its_reference
+          arguments:
+            expression: "relative_deviation <= tolerance"
+    columns: &rate_agreement_columns
+      - name: currency
+        data_type: string
+        description: ISO 4217 code of the shared currency
+        data_tests:
+          - not_null
+      - name: area
+        data_type: string
+        description: DCID of the member area checked
+        data_tests:
+          - not_null
+      - name: last_actual_year
+        data_type: integer
+        description: >
+          The member's last year computed from no projection. Null, and failing
+          this test, for a member with projected rates only.
+        data_tests:
+          - not_null
+      - name: member_rate
+        data_type: double
+        description: The member's own rate in its last actual year
+        data_tests:
+          - not_null
+      - name: reference_rate
+        data_type: double
+        description: >
+          The currency's rate in the member's last actual year. Null, and
+          failing this test, when the reference has no rate that year, so the
+          member cannot be checked.
+        data_tests:
+          - not_null
+      - name: relative_deviation
+        data_type: double
+        description: Absolute relative difference between the member's rate and the reference's
+        data_tests:
+          - not_null
+      - name: tolerance
+        data_type: double
+        description: Largest relative_deviation accepted, 1e-6 for both sources
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_rate_agreement
+    description: >
+      Each currency's WEO member countries, other than its reference and the
+      countries currency_rate_reference marks not_checked, compared with the
+      reference in the member's last actual year. A member whose rate strays
+      from the reference beyond 1e-6 uses a different currency from the one the
+      IMF map gives it, at least in that year. Its blocking check gates both
+      exports, because the DAC table fills from these rates.
+    config:
+      contract: {enforced: true}
+    data_tests: *rate_agreement_tests
+    columns: *rate_agreement_columns
+
+  - name: int_conversion_tables_dac_rate_band
+    description: >
+      DAC1's rate for each currency-year it reports beside WEO's reported rate,
+      with their ratio. Its blocking checks gate the DAC export only, as they
+      guard the rates DAC1 supplies.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          name: the_two_sources_share_currency_years
+          description: >
+            Every DAC donor currency WEO also covers lands here, so an empty
+            model means a join or a mapping broke and the band below would
+            check nothing.
+          arguments:
+            min_value: 1
+      - dbt_utils.expression_is_true:
+          name: dac_1_and_weo_rates_agree_within_a_factor_of_two
+          description: >
+            DAC1 and WEO compute each rate from independent figures, so a ratio
+            outside a factor of two means one of them read amounts at the wrong
+            scale. On the April 2026 WEO and the DAC1 of 1 October 2026 every
+            ratio lies between 0.77 (the euro before 1999, ECU against Germany's
+            converted marks) and 1.10.
+          arguments:
+            expression: "rate_ratio between 0.5 and 2"
+    columns:
+      - name: currency
+        data_type: string
+        description: ISO 4217 code of the currency
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the rates refer to
+        data_tests:
+          - not_null
+      - name: dac_rate
+        data_type: double
+        description: The DAC table's rate, from DAC1
+        data_tests:
+          - not_null
+      - name: imf_rate
+        data_type: double
+        description: The IMF table's reported rate, from the WEO
+        data_tests:
+          - not_null
+      - name: rate_ratio
+        data_type: double
+        description: dac_rate divided by imf_rate
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_dac_deflators_unrebased
+    description: >
+      Each DAC1 donor's US-dollar deflator, and DAC Countries, Total's, as DAC1
+      gives it, before rebasing, per year.
+    config:
+      contract: {enforced: true}
+    data_tests: &deflator_unrebased_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_unrebased_deflator_per_entity_and_year
+          arguments:
+            combination_of_columns:
+              - entity
+              - year
+    columns: &deflator_unrebased_columns
+      - name: entity
+        data_type: string
+        description: DCID of the DAC1 donor, DACCountriesTotal, or the WEO country
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the deflator refers to
+        data_tests:
+          - not_null
+      - name: deflator
+        data_type: double
+        description: US-dollar deflator on the source's own base
+        data_tests:
+          - not_null
+      - name: is_estimate
+        data_type: boolean
+        description: Whether the deflator is computed from an IMF projection
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_deflators_unrebased
+    description: >
+      Each WEO country's US-dollar deflator as computed from WEO, before
+      rebasing, per year.
+    config:
+      contract: {enforced: true}
+    data_tests: *deflator_unrebased_tests
+    columns: *deflator_unrebased_columns
+
+  - name: int_conversion_tables_dac_deflators
+    description: >
+      Each DAC-table entity's US-dollar deflator rebased to equal 100 in the
+      conversion_tables_deflator_base_year var, per year.
+    config:
+      contract: {enforced: true}
+    data_tests: &deflator_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_deflator_per_entity_and_year
+          arguments:
+            combination_of_columns:
+              - entity
+              - year
+    columns: &deflator_columns
+      - name: entity
+        data_type: string
+        description: DCID of the DAC1 donor, DACCountriesTotal, or the WEO country
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the deflator refers to
+        data_tests:
+          - not_null
+      - name: deflator
+        data_type: double
+        description: US-dollar deflator, 100 in the base year
+        data_tests:
+          - not_null
+      - name: is_estimate
+        data_type: boolean
+        description: Whether the deflator is computed from an IMF projection
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_imf_deflators
+    description: >
+      Each WEO country's US-dollar deflator rebased to equal 100 in the
+      conversion_tables_deflator_base_year var, per year.
+    config:
+      contract: {enforced: true}
+    data_tests: *deflator_tests
+    columns: *deflator_columns
+
+  - name: int_conversion_tables_statvars
+    description: >
+      The exchange-rate and deflator StatVars of both tables, with minted
+      DCIDs, the unit their observations carry, and the recipe and series that
+      key them.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: two_statvars_per_table
+          arguments:
+            value: 4
+      - dbt_utils.unique_combination_of_columns:
+          name: one_statvar_per_recipe_and_series
+          arguments:
+            combination_of_columns:
+              - recipe
+              - series
+    columns:
+      - name: statvar_dcid
+        data_type: string
+        description: DCID of the StatVar, minted by mint_statvar_dcid
+        data_tests:
+          - not_null
+          - unique
+      - name: statvar_name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+      - name: recipe
+        data_type: string
+        description: DCID of the ConversionRecipe member whose table declares the StatVar
+        data_tests:
+          - not_null
+      - name: series
+        data_type: string
+        description: exchange_rate or deflator
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: CurrencyUnit for the rate, EconomicProduction for the deflator
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: exchangeRate for the rate, deflator for the deflator
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: measuredValue throughout
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: The recipe member, which separates the DAC StatVars from the IMF ones
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: >
+          Unit of the StatVar's observations, CurrencyPerUSDollar for the rate
+          and IndexPoint for the deflator.
+        data_tests:
+          - not_null
+
+  - name: int_conversion_tables_dac_observations
+    description: >
+      Every observation of the DAC table, one row per StatVar, entity and year.
+      Rates fill per currency: a currency DAC1 reports takes DAC1's rate and
+      has no rate in years DAC1 lacks, such as years after DAC1's latest and
+      years before its donor reported, and every other currency takes the IMF table's
+      rate. From 1999 each donor's own currency reproduces the OECD's
+      national-currency amounts. Before 1999 the euro rate is EU Institutions'
+      ECU rate, while donors' DAC1 euro amounts are legacy currencies at the
+      fixed conversion rates.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests: &table_observation_tests
+      - dbt_utils.unique_combination_of_columns:
+          name: one_observation_per_variable_entity_and_date
+          arguments:
+            combination_of_columns:
+              - variable
+              - observation_about
+              - date
+      - dbt_utils.expression_is_true:
+          name: only_projected_rows_carry_a_measurement_method
+          arguments:
+            expression: "measurement_method is null or measurement_method = 'dcid:IMFProjection'"
+      - dbt_utils.expression_is_true:
+          name: every_value_is_positive_and_finite
+          description: >
+            The loader refuses a whole table for one value that is zero,
+            negative or not finite, so a rate or deflator that comes out so
+            (a donor-year whose rounded constant-price amount is zero or has
+            the opposite sign) fails the build here, and stops only this
+            table's export.
+          arguments:
+            expression: "value > 0 and isfinite(value)"
+    columns: &table_observation_columns
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+      - name: date
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: observation_about
+        data_type: string
+        description: >
+          DCID of the CurrencyUnit node for a rate, or of the country, EU
+          Institutions or DACCountriesTotal for a deflator
+        data_tests:
+          - not_null
+      - name: value
+        data_type: double
+        description: Units of the currency per US dollar, or index points
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit, CurrencyPerUSDollar or IndexPoint
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          IMFProjection on a value computed from an IMF projection. Null on a
+          reported value.
+
+  - name: int_conversion_tables_imf_observations
+    description: >
+      Every observation of the IMF table, one row per StatVar, entity and year,
+      all computed from WEO.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests: *table_observation_tests
+    columns: *table_observation_columns
+
+  - name: dc_conversion_tables_dac_observations
+    description: Observations of the DAC conversion table.
+    config:
+      contract: {enforced: true}
+    data_tests: &observation_tests
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns: &observation_columns
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+      - name: date
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: observation_about
+        data_type: string
+        description: DCID of the currency for a rate, or of the entity for a deflator
+        data_tests:
+          - not_null
+      - name: value
+        data_type: double
+        description: Units of the currency per US dollar, or index points
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit, CurrencyPerUSDollar or IndexPoint
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          IMFProjection on a value computed from an IMF projection. Null on a
+          reported value.
+
+  - name: dc_conversion_tables_imf_observations
+    description: Observations of the IMF conversion table.
+    config:
+      contract: {enforced: true}
+    data_tests: *observation_tests
+    columns: *observation_columns
+
+  - name: dc_conversion_tables_dac_statvars
+    description: The two StatVars of the DAC conversion table.
+    config:
+      contract: {enforced: true}
+    data_tests: &statvar_tests
+      - dbt_expectations.expect_table_row_count_to_equal:
+          arguments:
+            value: 2
+    columns: &statvar_columns
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: CurrencyUnit for the rate, EconomicProduction for the deflator
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: exchangeRate or deflator
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: measuredValue
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: The ConversionRecipe member the table serves
+        data_tests:
+          - not_null
+
+  - name: dc_conversion_tables_imf_statvars
+    description: The two StatVars of the IMF conversion table.
+    config:
+      contract: {enforced: true}
+    data_tests: *statvar_tests
+    columns: *statvar_columns
+
+  - name: dc_conversion_tables_dac_provenance
+    description: >
+      Provenance node of the DAC conversion table. Observation dates are read
+      from the observations model.
+    config:
+      contract: {enforced: true}
+    data_tests: &provenance_tests
+      - dbt_expectations.expect_table_row_count_to_equal:
+          arguments:
+            value: 1
+    columns: &provenance_columns
+      - name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the ONE source node
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the methodology page for the tables
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: Comma-delimited URLs of the datasets the table is computed from
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: Comma-delimited URLs of the terms the source data are published under
+        data_tests:
+          - not_null
+      - name: source_release_frequency
+        data_type: string
+        description: >
+          How often the sources publish, as an ISO 8601 duration. The WEO
+          publishes in April and October and DAC1 twice a year.
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: >
+          UTC timestamp, to the second, of the dbt run that computed the table,
+          e.g. 2026-10-02T14:03:11Z. Every rebuild moves it, and the API's
+          rate-table cache keys on it.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      - name: deflator_base_year
+        data_type: integer
+        description: >
+          Year every deflator series equals 100 in, from the
+          conversion_tables_deflator_base_year var. Exported as the
+          provenance's deflatorBaseYear.
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year an observation is reported against
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year an observation is reported against
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What the table holds and how it is computed
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation string naming the table and the datasets it is computed from.
+          Its access date is the day of last_data_refresh_date, with no time.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "[(]accessed on [0-9]{4}-[0-9]{2}-[0-9]{2}[)]"
+
+  - name: dc_conversion_tables_imf_provenance
+    description: >
+      Provenance node of the IMF conversion table. Observation dates are read
+      from the observations model.
+    config:
+      contract: {enforced: true}
+    data_tests: *provenance_tests
+    columns: *provenance_columns

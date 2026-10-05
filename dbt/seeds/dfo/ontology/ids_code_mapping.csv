@@ -1,0 +1,98 @@
+list,code,dcid,label,property
+dcid:EconomicActivityTypeEnum,BX.GSR,dcid:ExportsOfGoodsServicesAndPrimaryIncome,"exports of goods, services and primary income",wbCode
+dcid:EconomicActivityTypeEnum,GNP,dcid:GrossNationalIncome,gross national income,wbCode
+dcid:CurrencyUnit,MULC,dcid:MultipleCurrencies,Multiple currencies,wbCode
+dcid:CurrencyUnit,OTHC,dcid:OtherCurrencies,Other currencies,wbCode
+dcid:CurrencyUnit,DMAK,dcid:CurrencyDEM,Deutsche Mark (historic),wbCode
+dcid:CurrencyUnit,EURO,dcid:CurrencyEUR,Euro,wbCode
+dcid:CurrencyUnit,FFRC,dcid:CurrencyFRF,French Franc (historic),wbCode
+dcid:CurrencyUnit,JYEN,dcid:CurrencyJPY,Yen,wbCode
+dcid:CurrencyUnit,SDRW,dcid:CurrencyXDR,SDR (Special Drawing Right),wbCode
+dcid:CurrencyUnit,SWFR,dcid:CurrencyCHF,Swiss Franc,wbCode
+dcid:CurrencyUnit,UKPS,dcid:CurrencyGBP,Pound Sterling,wbCode
+dcid:CurrencyUnit,USDL,dcid:CurrencyUSD,US Dollar,wbCode
+dcid:FinancialFlowTypeEnum,DFR,dcid:ClaimReduction,claim reduction,wbCode
+dcid:FinancialFlowTypeEnum,TXR,dcid:ClaimRescheduling,claim rescheduling,wbCode
+dcid:FinancialFlowTypeEnum,NFL,dcid:Disbursement,disbursement,wbCode
+dcid:FinancialFlowTypeEnum,NTR,dcid:Disbursement,disbursement,wbCode
+dcid:FinancialObligationTypeEnum,GPA,dcid:Commitment,commitment,wbCode
+dcid:FinancialObligationTypeEnum,GRE,dcid:Commitment,commitment,wbCode
+dcid:FinancialObligationTypeEnum,GRT,dcid:Commitment,commitment,wbCode
+dcid:FinancialObligationTypeEnum,INR,dcid:Commitment,commitment,wbCode
+dcid:FinancialObligationTypeEnum,MAT,dcid:Commitment,commitment,wbCode
+dcid:FinancialPositionTypeEnum,CUR,dcid:AmountOutstanding,amount outstanding,wbCode
+dcid:FinancingFormEnum,EXTA,dcid:OtherThanTechnicalCooperation,other than technical cooperation,wbCode
+dcid:FinancingFormEnum,TECH,dcid:TechnicalCooperation,technical cooperation,wbCode
+dcid:FinancingResourceEnum,COM,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,DIMF,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,EXTA,dcid:UnrequitedTransfer,unrequited transfer,wbCode
+dcid:FinancingResourceEnum,IDAG,dcid:UnrequitedTransfer,unrequited transfer,wbCode
+dcid:FinancingResourceEnum,IMFC,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,IMFN,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,MIBR,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,MIDA,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,MOTH,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,NEBR,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,NIFC,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,RDBC,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,RDBN,dcid:DebtInstrument,debt instrument,wbCode
+dcid:FinancingResourceEnum,TECH,dcid:UnrequitedTransfer,unrequited transfer,wbCode
+dcid:FinancingResourceEnum,US,dcid:Loan,loan,wbCode
+dcid:GuaranteeStatusEnum,DECB,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,DEGG,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,DEPS,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,DOPS,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,DPNG,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,DPPG,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,NEBR,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,NIFC,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,PNGB,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,PNGC,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,PRPG,dcid:PubliclyGuaranteedClaim,publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,PRVG,dcid:PubliclyGuaranteedClaim,publicly guaranteed,wbCode
+dcid:GuaranteeStatusEnum,VPPG,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
+dcid:IDSConcessionalityEnum,ALLC,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,BLTC,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,IMFC,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,IMFN,dcid:IDSNonConcessional,non-concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,MIBR,dcid:IDSNonConcessional,non-concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,MIDA,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,MLTC,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,RDBC,dcid:IDSConcessional,concessional (IDS concessionality),wbCode
+dcid:IDSConcessionalityEnum,RDBN,dcid:IDSNonConcessional,non-concessional (IDS concessionality),wbCode
+dcid:IDSCreditorTypeEnum,PBND,dcid:IDSCreditorTypePBND,bondholders (IDS creditor type),classificationCode
+dcid:IDSCreditorTypeEnum,PCBK,dcid:IDSCreditorTypePCBK,commercial banks (IDS creditor type),classificationCode
+dcid:IDSCreditorTypeEnum,PNGB,dcid:IDSCreditorTypePBND,bondholders (IDS creditor type),classificationCode
+dcid:IDSCreditorTypeEnum,PROP,dcid:IDSCreditorTypePROP,other private creditors (IDS creditor type),classificationCode
+dcid:IDSCreditorTypeEnum,PRVT,dcid:IDSCreditorTypePRVT,private creditors (IDS creditor type),classificationCode
+dcid:IDSCreditorTypeEnum,BLTC,dcid:IDSCreditorTypeBLAT,bilateral (IDS Creditor),classificationCode
+dcid:IDSCreditorTypeEnum,MLTC,dcid:IDSCreditorTypeMLAT,multilateral (IDS Creditor),classificationCode
+dcid:IDSCreditorTypeEnum,RDBC,dcid:IDSCreditorTypeRDB,regional development banks (IDS Creditor),classificationCode
+dcid:IDSCreditorTypeEnum,RDBN,dcid:IDSCreditorTypeRDB,regional development banks (IDS Creditor),classificationCode
+dcid:IDSDebtorTypeEnum,DPNG,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,NEBR,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,NIFC,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,PNGB,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,PNGC,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,PRPG,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),classificationCode
+dcid:IDSDebtorTypeEnum,PRVG,dcid:IDSDebtorTypePrivateSector,private sector (IDS Debtor),wbCode
+dcid:IDSDebtorTypeEnum,PUBS,dcid:IDSDebtorTypePS,public sector (IDS Debtor),classificationCode
+dcid:IncludesIMFCreditEnum,DLTF,dcid:WithIMFCredit,with IMF credit,wbCode
+dcid:IncludesIMFCreditEnum,DLXF,dcid:WithoutIMFCredit,without IMF credit,wbCode
+dcid:InterestRateVariabilityEnum,VPPG,dcid:VariableInterestRate,variable interest rate,wbCode
+dcid:MaturityBandEnum,DLTF,dcid:LongTermMaturity,long-term maturity,wbCode
+dcid:MaturityBandEnum,DLXF,dcid:LongTermMaturity,long-term maturity,wbCode
+dcid:MaturityBandEnum,DSTC,dcid:ShortTermMaturity,short-term maturity,wbCode
+dcid:MaturityBandEnum,PRVS,dcid:LongTermMaturity,long-term maturity,wbCode
+dcid:MaturityBandEnum,PUBS,dcid:LongTermMaturity,long-term maturity,wbCode
+dcid:NettingBasisEnum,NFL,dcid:Net,net,wbCode
+dcid:NettingBasisEnum,NTR,dcid:Net,net,wbCode
+dcid:Organization,DIMF,dcid:InternationalMonetaryFund,International Monetary Fund,wbCode
+dcid:Organization,DSDR,dcid:InternationalMonetaryFund,International Monetary Fund,wbCode
+dcid:Organization,IDAG,dcid:InternationalDevelopmentAssociation,International Development Association,wbCode
+dcid:Organization,IMFC,dcid:InternationalMonetaryFund,International Monetary Fund,wbCode
+dcid:Organization,IMFN,dcid:InternationalMonetaryFund,International Monetary Fund,wbCode
+dcid:Organization,MIBR,dcid:InternationalBankForReconstructionAndDevelopment,International Bank for Reconstruction and Development,wbCode
+dcid:Organization,MIDA,dcid:InternationalDevelopmentAssociation,International Development Association,wbCode
+dcid:Organization,NEBR,dcid:EuropeanBankForReconstructionAndDevelopment,European Bank for Reconstruction and Development,wbCode
+dcid:Organization,NIFC,dcid:InternationalFinanceCorporation,International Finance Corporation,wbCode

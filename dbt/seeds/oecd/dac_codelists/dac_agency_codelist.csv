@@ -1,0 +1,1375 @@
+codelist,code,label,donor_code,acronym,agency_type
+agency_code,1,Federal Ministry of Finance,1,BMF,Main Aid Agencies (in terms of budget)
+agency_code,2,Various ministries,1,MIN,Other Extending Aid Agencies
+agency_code,3,Federal Government of Austria,1,BReg,Other Extending Aid Agencies
+agency_code,4,Oesterreichische Kontrollbank AG,1,OeKB,Export Credit Agencies
+agency_code,5,Federal Ministry for European and International Affairs,1,BMEIA,Main Aid Agencies (in terms of budget)
+agency_code,6,"Provincial governments, local communities",1,Reg,Local Governments
+agency_code,7,Federal Chancellery,1,BKA,Other Extending Aid Agencies
+agency_code,8,Austrian Development Agency,1,ADA,Main Aid Agencies (in terms of budget)
+agency_code,9,"FM of Education, Science and Research",1,BMBWF,Other Extending Aid Agencies
+agency_code,10,"Federal Ministry of Agriculture, Regions and Tourism",1,BMLRT,Other Extending Aid Agencies
+agency_code,11,FM of Defense,1,BMLV,Other Extending Aid Agencies
+agency_code,12,Ministry of Interior,1,BMI,Other Extending Aid Agencies
+agency_code,13,Austrian Development Bank,1,OeEB,Development Finance Institutions
+agency_code,14,"Ministry for Education, Arts and Culture",1,BM:UKK,Unknown
+agency_code,15,"Ministry for Science, Research and Economy",1,BMWFW,Unknown
+agency_code,16,Federal Ministry of Education and Women's Affairs,1,BMBF,Unknown
+agency_code,17,"Federal Ministry of Climate Action, Environment, Energy, Mobility, Innovation and Technology",1,BMK,Other Extending Aid Agencies
+agency_code,98,Other Public Bodies,1,OPB,Unknown
+agency_code,99,Miscellaneous,1,MISC,Other Extending Aid Agencies
+agency_code,10,Directorate General for Co-operation and Development,2,DGCD,Main Aid Agencies (in terms of budget)
+agency_code,20,Official Federal Service of Foreign Affaires (excl. DGCD),2,SPAE,Other Extending Aid Agencies
+agency_code,22,Belgian Investment Company for Developing Countries,2,BIO,Development Finance Institutions
+agency_code,30,Official Federal Service of Finance,2,SPFF,Other Extending Aid Agencies
+agency_code,31,Ducroire National Office,2,OND,Export Credit Agencies
+agency_code,39,Other Official Federal Services,2,ASPF,Other Extending Aid Agencies
+agency_code,60,provinces/municipalities,2,LOC,Other Extending Aid Agencies
+agency_code,70,Flanders Official Regional Ministries,2,MPRF,Local Governments
+agency_code,80,Walloon Official Regional Ministries,2,MPRW,Local Governments
+agency_code,91,Brussels Official Regional Ministries,2,MPRB,Local Governments
+agency_code,94,German speaking Official Regional Ministries,2,MPRG,Local Governments
+agency_code,99,Miscellaneous,2,MISC,Other Extending Aid Agencies
+agency_code,1,Ministry of Foreign Affairs,3,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Danish International Development Agency ,3,DANIDA,Main Aid Agencies (in terms of budget)
+agency_code,3,Impact Fund Denmark ,3,IFDK,Development Finance Institutions
+agency_code,4,Other ministries,3,,Other Extending Aid Agencies
+agency_code,6,Public infrastructure,3,IFDK PI,Other Extending Aid Agencies
+agency_code,72,Export and Investment Fund of Denmark,3,EIFO,Export Credit Agencies
+agency_code,99,Miscellaneous,3,MISC,Other Extending Aid Agencies
+agency_code,1,Government,4,GOV,Unknown
+agency_code,2,MINEFI/NATEXIS,4,MINEFI/NATEXIS,Unknown
+agency_code,3,French Development Agency,4,AFD,Main Aid Agencies (in terms of budget)
+agency_code,6,Ministry of Foreign Affairs,4,MAE,Main Aid Agencies (in terms of budget)
+agency_code,7,MAE/FSP,4,MAE/FSP,Unknown
+agency_code,8,COOP DECENTRAL/MAE,4,COOP DECENTRAL,Unknown
+agency_code,9,MAE/COOP,4,MAE/COOP,Unknown
+agency_code,10,"Ministry of Economy, Finance and Industry",4,MINEFI,Other Extending Aid Agencies
+agency_code,12,Ministry of Interior,4,INT,Other Extending Aid Agencies
+agency_code,13,Ministry of Agriculture,4,AGRI,Other Extending Aid Agencies
+agency_code,14,Ministry of Defence,4,DEF,Other Extending Aid Agencies
+agency_code,15,Interdepartmental,4,InterMin,Other Extending Aid Agencies
+agency_code,16,Other Ministries,4,,Other Extending Aid Agencies
+agency_code,17,"Ministry of Education, Higher education and Research",4,MEN,Other Extending Aid Agencies
+agency_code,30,MIN/EQUIPEMENT,4,MIN/EQUIPEMENT,Unknown
+agency_code,35,MIN/TRANSPORTS,4,MIN/TRANSPORTS,Unknown
+agency_code,36,MIN/SANTE,4,MIN/SANTE,Unknown
+agency_code,37,MIN/TRAVAIL,4,MIN/TRAVAIL,Unknown
+agency_code,42,MINEFI/BDF,4,MINEFI/BDF,Unknown
+agency_code,43,Coface,4,Coface,Export Credit Agencies
+agency_code,44,Proparco,4,Proparco,Development Finance Institutions
+agency_code,45,STOA,4,STOA,Development Finance Institutions
+agency_code,46,CIRAD,4,CIRAD,Other Extending Aid Agencies
+agency_code,47,IRD,4,CIRAD,Other Extending Aid Agencies
+agency_code,91,TRESOR,4,TRESOR,Unknown
+agency_code,92,SEU,4,SEU,Unknown
+agency_code,93,PTT,4,PTT,Unknown
+agency_code,94,ORTF,4,ORTF,Unknown
+agency_code,95,BPI France,4,BPI,Export Credit Agencies
+agency_code,99,Miscellaneous,4,MISC,Other Extending Aid Agencies
+agency_code,1,Federal Ministry for Economic Cooperation and Development,5,BMZ,Other Extending Aid Agencies
+agency_code,2,KfW Bankengruppe (KfW banking group),5,KfW,Main Aid Agencies (in terms of budget)
+agency_code,4,Deutsche Investitions- und Entwicklungsgesellschaft mbH (German Investment and Development Company),5,DEG,Development Finance Institutions
+agency_code,5,Federal Ministry of Finance,5,BMF,Other Extending Aid Agencies
+agency_code,7,Federal Foreign Office,5,FFO,Other Extending Aid Agencies
+agency_code,9,"Federal Ministry for the Enviroment, Climate Action, Nature Conservation and Nuclear Safety",5,BMUKN,Other Extending Aid Agencies
+agency_code,12,Federal States and Local Governments,5,L G,Local Governments
+agency_code,14,Federal Institutions,5,Fed.Inst.,Other Extending Aid Agencies
+agency_code,16,Federal Ministries,5,Fed.Min.,Other Extending Aid Agencies
+agency_code,17,Foundations/Societies/Misc. (non federal),5,Found,Other Extending Aid Agencies
+agency_code,34,Euler Hermes Aktiengesellschaft,5,Euler Hermes,Export Credit Agencies
+agency_code,52,Deutsche Gesellschaft für Internationale Zusammenarbeit (GIZ) GmbH,5,GIZ,Main Aid Agencies (in terms of budget)
+agency_code,60,Federal Ministry of the Interior,5,BMI,Other Extending Aid Agencies
+agency_code,61,Federal Ministry of Justice and Consumer Protection,5,BMJV,Other Extending Aid Agencies
+agency_code,62,Federal Ministry for Economic Affairs and Energy,5,BMWE,Other Extending Aid Agencies
+agency_code,63,"Federal Ministry of Agriculture, Food and Regional Identity",5,BMLEH,Other Extending Aid Agencies
+agency_code,64,Federal Ministry of Defence,5,BMVg,Other Extending Aid Agencies
+agency_code,65,"Federal Ministry for Education, Family Affairs, Senior Citizens, Women and Youth",5,BMBFSFJ,Other Extending Aid Agencies
+agency_code,66,Federal Ministry of Health,5,BMG,Other Extending Aid Agencies
+agency_code,67,Federal Ministry of Transport,5,BMV,Other Extending Aid Agencies
+agency_code,68,"Federal Ministry of Research, Technology and Space",5,BMFTR,Other Extending Aid Agencies
+agency_code,69,Federal Government Commissioner for Culture and the Media,5,BKM,Other Extending Aid Agencies
+agency_code,70,German Bundestag,5,Bundestag,Other Extending Aid Agencies
+agency_code,71,Federal Ministry of Labour and Social Affairs,5,BMAS,Other Extending Aid Agencies
+agency_code,72,"Federal Ministry for Housing, Urban Development and Building",5,BMWSB,Unknown
+agency_code,73,Federal Ministry for Digital Transformation and Government Modernisation,5,BMDS,Other Extending Aid Agencies
+agency_code,80,Land Schleswig-Holstein,5,Schleswig-Holstein,Local Governments
+agency_code,81,Free and Hanseatic City of Hamburg,5,Hamburg,Local Governments
+agency_code,82,Land Lower-Saxony,5,Niedersachsen,Local Governments
+agency_code,83,Free Hanseatic City of Bremen,5,Bremen,Local Governments
+agency_code,84,Land North Rhine-Westphalia,5,Nordrhein-Westfalen,Local Governments
+agency_code,85,Land Hesse,5,Hessen,Local Governments
+agency_code,86,Land Rhineland-Palatinate,5,Rheinland-Pfalz,Local Governments
+agency_code,87,Land Baden-Württemberg,5,Baden-Württemberg,Local Governments
+agency_code,88,Free State of Bavaria,5,Bayern,Local Governments
+agency_code,89,Land Saarland,5,Saarland,Local Governments
+agency_code,90,Land Berlin,5,Berlin,Local Governments
+agency_code,91,Land Brandenburg,5,Brandenburg,Local Governments
+agency_code,92,Land Mecklenburg-Western Pomerania,5,Mecklenburg-Vorpommern,Local Governments
+agency_code,93,Land Saxony-Anhalt,5,Sachsen-Anhalt,Local Governments
+agency_code,94,Free State of Saxony,5,Sachsen,Local Governments
+agency_code,95,Free State of Thuringia,5,Thüringen,Local Governments
+agency_code,99,Miscellaneous,5,MISC,Other Extending Aid Agencies
+agency_code,1,MGI,6,MGI,Unknown
+agency_code,2,Agenzia Erogazioni Per l'Agricoltura,6,AGEA,Other Extending Aid Agencies
+agency_code,3,OGPI,6,OGPI,Unknown
+agency_code,4,Agenzia italiana per la cooperazione allo sviluppo,6,AICS,Main Aid Agencies (in terms of budget)
+agency_code,5,MC,6,MC,Unknown
+agency_code,7,Central administration,6,CA,Other Extending Aid Agencies
+agency_code,8,Local administration - Unspecified,6,LA,Local Governments
+agency_code,9,Artigiancassa,6,Art.,Other Extending Aid Agencies
+agency_code,10,Earmarked fiscal flows to NGOs & religious organisations,6,,Other Extending Aid Agencies
+agency_code,11,Public universities and research institutes and Italian red cross,6,,Other Extending Aid Agencies
+agency_code,12,Ministry of Foreign Affairs and International Cooperation,6,MAECI,Other Extending Aid Agencies
+agency_code,13,Ministry of Economy and Finance,6,MEF,Other Extending Aid Agencies
+agency_code,14,Italian Society for Enterprises Abroad,6,SIMEST,Development Finance Institutions
+agency_code,15,Ministry of Environment and Energy Security,6,MASE,Other Extending Aid Agencies
+agency_code,16,Cassa Depositi e Prestiti,6,CDP,Development Finance Institutions
+agency_code,17,Third Party funds administered by CDP,6,,Other Extending Aid Agencies
+agency_code,18,Italian Trade Agency,6,,Unknown
+agency_code,74,Sezione Speciale per l'Assicurazione del Credito all'Esportazione,6,SACE,Export Credit Agencies
+agency_code,81,Local administration - Regions and autonomous provinces,6,,Local Governments
+agency_code,82,Local administration - Municipalities and metropolitan cities,6,,Local Governments
+agency_code,99,Miscellaneous,6,MISC,Other Extending Aid Agencies
+agency_code,101,Earmarked fiscal flows to NGOs,6,,Other Extending Aid Agencies
+agency_code,102,Earmarked fiscal flows to religious organisations,6,,Other Extending Aid Agencies
+agency_code,171,"Ministry of Economy and Finance funds, administered by CDP",6,,Other Extending Aid Agencies
+agency_code,172,"Ministry of Environment and Energy Security, funds administered by CDP",6,,Other Extending Aid Agencies
+agency_code,1,Ministry of Foreign Affairs of the Netherlands,7,MFA,Main Aid Agencies (in terms of budget)
+agency_code,3,NG,7,NG,Unknown
+agency_code,4,NLD Gov. through NLD Inv Bank for Developing Countries,7,NIO/FMO,Other Extending Aid Agencies
+agency_code,5,FMO,7,FMO,Development Finance Institutions
+agency_code,6,Ministry for Justice and Security,7,JenV,Other Extending Aid Agencies
+agency_code,11,Access to Energy Fund,7,AEF,Private Sector Instrument vehicle
+agency_code,12,Building Prospects,7,BP,Private Sector Instrument vehicle
+agency_code,13,Dutch Fund for Climate and Development,7,DFCD,Private Sector Instrument vehicle
+agency_code,14,MASSIF,7,MASSIF,Private Sector Instrument vehicle
+agency_code,15,Dutch Good Growth Fund – Investing Dutch entrepreneurs,7,DGGF 1,Private Sector Instrument vehicle
+agency_code,16,Dutch Good Growth Fund – Financing Local SMEs,7,DGGF 2,Private Sector Instrument vehicle
+agency_code,33,NCM Credit Management Worldwide,7,NCM,Export Credit Agencies
+agency_code,99,Miscellaneous,7,MISC,Other Extending Aid Agencies
+agency_code,1,Norwegian Agency for Development Co-operation,8,NORAD,Main Aid Agencies (in terms of budget)
+agency_code,4,Ministry of Foreign Affairs,8,MFA,Main Aid Agencies (in terms of budget)
+agency_code,7,Innovation Norway,8,IN,Other Extending Aid Agencies
+agency_code,8,NORFUND,8,NORFUND,Development Finance Institutions
+agency_code,9,Norwegian Agency for Exchange Cooperation,8,FK,Other Extending Aid Agencies
+agency_code,10,Office of the Auditor General,8,OAG,Other Extending Aid Agencies
+agency_code,11,Ministry of Defence,8,DEF,Other Extending Aid Agencies
+agency_code,12,Ministry of Climate and Environment,8,ENV,Other Extending Aid Agencies
+agency_code,13,Ministry of Finance,8,FIN,Other Extending Aid Agencies
+agency_code,14,Ministry of Education and Research,8,KD,Other Extending Aid Agencies
+agency_code,15,Ministry of Children and Families,8,BFD,Other Extending Aid Agencies
+agency_code,16,Ministry of Justice and Public Security,8,JD,Other Extending Aid Agencies
+agency_code,17,Ministry of Labour and Social Inclusion,8,AID ,Other Extending Aid Agencies
+agency_code,18,Ministry of Health and Care Services,8,HOD,Other Extending Aid Agencies
+agency_code,19,The Research Council of Norway,8,RCN,"Other agencies (research, etc.)"
+agency_code,71,Garantiinstituttet for eksportkreditt,8,GIEK,Export Credit Agencies
+agency_code,99,Miscellaneous,8,MISC,Other Extending Aid Agencies
+agency_code,1,Portuguese Government,9,GP,Main Aid Agencies (in terms of budget)
+agency_code,2,Camões-Institute for Cooperation and Language,9,CICL,Main Aid Agencies (in terms of budget)
+agency_code,3,Municipalities,9,MUNIC,Local Governments
+agency_code,4,SOFID Sociedade para o Financiamento do Desenvolvimento,9,SOFID Society for Development Financ,Development Finance Institutions
+agency_code,5,Ministry of Foreign Affairs,9,MNE,Other Extending Aid Agencies
+agency_code,6,Ministry of Finance,9,MF,Other Extending Aid Agencies
+agency_code,7,Ministry of the Presidency,9,MP,Other Extending Aid Agencies
+agency_code,8,Ministry of Economy and Territorial Cohesion,9,ME,Other Extending Aid Agencies
+agency_code,9,Ministry of Deputy and State Reform,9,MARE,Other Extending Aid Agencies
+agency_code,10,Ministry of National Defence,9,MDN,Other Extending Aid Agencies
+agency_code,11,Ministry of Infrastructure and Housing,9,MIH,Other Extending Aid Agencies
+agency_code,12,Ministry of Justice,9,MJ,Other Extending Aid Agencies
+agency_code,13,Ministry of Internal Administration,9,MAI,Other Extending Aid Agencies
+agency_code,14,"Ministry of Education, Science and Innovation",9,MECI,Other Extending Aid Agencies
+agency_code,15,Ministry of Health,9,MS,Other Extending Aid Agencies
+agency_code,16,"Ministry of Labour, Solidarity and Social Security",9,MTSS,Other Extending Aid Agencies
+agency_code,17,Ministry of Environment and Energy,9,MAE,Other Extending Aid Agencies
+agency_code,18,"Ministry of Culture, Youth and Sport",9,MCJD,Other Extending Aid Agencies
+agency_code,19,Ministry of Agriculture and Sea,9,MAM,Other Extending Aid Agencies
+agency_code,20,Bank of Portugal,9,BP,Other Extending Aid Agencies
+agency_code,21,Caixa Geral de Depósitos - Portuguese Public Bank,9,CGD,Other Extending Aid Agencies
+agency_code,22,Banco Português de Fomento - Development Bank,9,BF,Development Finance Institutions
+agency_code,23,Private flows,9,PRIVATE,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,9,MISC,Other Extending Aid Agencies
+agency_code,1,SIDA,10,SIDA,Unknown
+agency_code,2,Ministry of Foreign Affairs,10,MFA,Other Extending Aid Agencies
+agency_code,3,SG,10,SG,Unknown
+agency_code,4,SAREC,10,SAREC,Unknown
+agency_code,5,BITS,10,BITS,Unknown
+agency_code,6,Swedish International Development Authority,10,Sida,Main Aid Agencies (in terms of budget)
+agency_code,11,Ministry of the Environment,10,ENV,Unknown
+agency_code,13,Swedish Migration Agency,10,,Unknown
+agency_code,20,Folke Bernadotte Academy,10,,Unknown
+agency_code,21,The Nordic Africa Institute,10,,Unknown
+agency_code,22,SwedFund,10,SwedFund,Development Finance Institutions
+agency_code,23,Swedish Civil Contingencies Agency,10,,Unknown
+agency_code,24,Swedish Institute,10,,Unknown
+agency_code,25,Swedish Prison and Probation Service,10,,Unknown
+agency_code,27,Swedish National Audit Office,10,,Unknown
+agency_code,28,Swedish Radiation Safety Authority,10,,Unknown
+agency_code,29,The Swedish Research Council,10,,Unknown
+agency_code,30,Swedish Council for Higher Education,10,,Unknown
+agency_code,31,Swedish Prosecution Authority,10,,Unknown
+agency_code,32,Swedish National Courts Administration,10,,Unknown
+agency_code,36,Swedish Police Authority,10,,Unknown
+agency_code,37,Swedish Consumer Agency,10,,Unknown
+agency_code,38,Swedish National Debt Office,10,,Unknown
+agency_code,39,National Board of Trade,10,,Unknown
+agency_code,40,Psychological Defence Agency,10,,Unknown
+agency_code,71,Swedish Export Credits Guarantee Board,10,EKN,Export Credit Agencies
+agency_code,80,Statistics Sweden,10,,Unknown
+agency_code,81,Formas,10,,"Other agencies (research, etc.)"
+agency_code,99,Miscellaneous,10,MISC,Other Extending Aid Agencies
+agency_code,1,Federal Administration (various departments),11,FA,Other Extending Aid Agencies
+agency_code,4,Swiss Agency for Development and Co-operation,11,SDC,Main Aid Agencies (in terms of budget)
+agency_code,5,State Secretariat for Economic Affairs,11,Seco,Other Extending Aid Agencies
+agency_code,6,Federal Department of Foreign Affairs,11,FDFA,Other Extending Aid Agencies
+agency_code,7,"State Secretariat for Education, Research and Innovation",11,SEFRI,Other Extending Aid Agencies
+agency_code,8,State Secretariat for Migration,11,SEM,Other Extending Aid Agencies
+agency_code,9,"Federal Department for Defence, Civil Protection and Sports",11,DDPS,Other Extending Aid Agencies
+agency_code,10,Federal Office for the Environment,11,FOEN,Other Extending Aid Agencies
+agency_code,11,Cantons and municipalities,11,MUNIC,Local Governments
+agency_code,22,Swiss Investment Fund for Emerging Markets,11,SIFEM,Development Finance Institutions
+agency_code,99,Miscellaneous,11,MISC,Other Extending Aid Agencies
+agency_code,1,Department for International Development,12,DFID,Main Aid Agencies (in terms of budget)
+agency_code,2,British International Investment,12,BII,Development Finance Institutions
+agency_code,3,Foreign & Commonwealth Office,12,FCO,Other Extending Aid Agencies
+agency_code,4,Department of Energy and Climate Change,12,DECC,Other Extending Aid Agencies
+agency_code,5,Export Credit Guarantee Department,12,ECGD,Export Credit Agencies
+agency_code,6,Home Office,12,HO,Other Extending Aid Agencies
+agency_code,7,Department for Environment Food and Rural Affairs,12,DEFRA,Other Extending Aid Agencies
+agency_code,8,Ministry of Defence,12,MOD,Other Extending Aid Agencies
+agency_code,9,Department for Work and Pensions,12,DWP,Other Extending Aid Agencies
+agency_code,10,Department of Health  and Social Care,12,DHSC,Other Extending Aid Agencies
+agency_code,11,"Department for Business, Innovation and Skills",12,BIS,Other Extending Aid Agencies
+agency_code,12,"Department for Culture, Media and Sports",12,DCMS,Other Extending Aid Agencies
+agency_code,13,Prosperity Fund,12,PF,Other Extending Aid Agencies
+agency_code,14,Conflict stability and security fund,12,CSSF,Other Extending Aid Agencies
+agency_code,15,HM Revenue and Customs,12,HMRC,Other Extending Aid Agencies
+agency_code,16,"Department for Business, Energy and Industrial Strategy",12,BEIS,Other Extending Aid Agencies
+agency_code,17,"Foreign, Commonwealth and Development Office",12,FCDO,Main Aid Agencies (in terms of budget)
+agency_code,21,Scottish Government,12,SG,Local Governments
+agency_code,22,Welsh Assembly Government,12,WAG,Local Governments
+agency_code,23,FSD Africa (FSDA),12,FSDA,Development Finance Institutions
+agency_code,24,Department for Education,12,DfE,Other Extending Aid Agencies
+agency_code,25,Mobilising Finance for Forests,12,MFF,Development Finance Institutions
+agency_code,26,UK-India Tech Start-up Fund,12,UKIDCF,Development Finance Institutions
+agency_code,27,"Department for Levelling Up, Housing and Communities",12,DLUHC,Other Extending Aid Agencies
+agency_code,28,Innovative Ventures and Technologies for Development,12,INVENT,Development Finance Institutions
+agency_code,29,Mobilising Institutional Capital Through Listed Product Structures,12,MOBILIST,Development Finance Institutions
+agency_code,30,UK Climate Investments,12,UKCI,Development Finance Institutions
+agency_code,99,Miscellaneous,12,MISC,Other Extending Aid Agencies
+agency_code,1,Finnish Government,18,FG,Other Extending Aid Agencies
+agency_code,2,FinnFund,18,FF,Development Finance Institutions
+agency_code,3,Ministry of Foreign Affairs,18,MFA,Main Aid Agencies (in terms of budget)
+agency_code,4,Other Ministries,18,,Other Extending Aid Agencies
+agency_code,5,Ministry of Justice,18,,Other Extending Aid Agencies
+agency_code,6,Ministry of the Interior,18,,Other Extending Aid Agencies
+agency_code,7,Ministry of Defence,18,,Other Extending Aid Agencies
+agency_code,8,Ministry of Finance,18,,Other Extending Aid Agencies
+agency_code,9,Ministry of Education and Culture,18,,Other Extending Aid Agencies
+agency_code,10,Ministry of Agriculture and Forestry,18,,Other Extending Aid Agencies
+agency_code,11,Ministry of Transport and Communications,18,,Other Extending Aid Agencies
+agency_code,12,Ministry of Economic Affairs and Employment,18,,Other Extending Aid Agencies
+agency_code,13,Ministry of Social Affairs and Health,18,,Other Extending Aid Agencies
+agency_code,14,Ministry of the Environment,18,,Other Extending Aid Agencies
+agency_code,72,FinnVera,18,FinnVera,Export Credit Agencies
+agency_code,99,Miscellaneous,18,MISC,Other Extending Aid Agencies
+agency_code,1,Ministry of Foreign Affairs,20,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,ICEIDA,20,ICEIDA,Main Aid Agencies (in terms of budget)
+agency_code,3,ICRU,20,ICRU,Other Extending Aid Agencies
+agency_code,4,Ministry of Finance,20,FIN,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,20,MISC,Other Extending Aid Agencies
+agency_code,1,Department of Foreign Affairs,21,DFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Department of Finance,21,FIN,Other Extending Aid Agencies
+agency_code,3,"Department of Agriculture, Food and the Marine",21,DAFM,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,21,MISC,Unknown
+agency_code,1,Lux-Development,22,LuxDev,Other Extending Aid Agencies
+agency_code,2,Ministry of Foreign and European Affairs,22,MFEA,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of Finance,22,MFIN,Other Extending Aid Agencies
+agency_code,4,Ministry of Culture,22,MCULT,Other Extending Aid Agencies
+agency_code,5,Ministry of Health,22,MSAN,Other Extending Aid Agencies
+agency_code,6,Ministry of home affairs,22,MAINT,Other Extending Aid Agencies
+agency_code,7,"Ministry of the Environment, climate and biodiversity",22,MECB,Other Extending Aid Agencies
+agency_code,8,"Ministry of family affairs, solidarity, living together and reception of refugees",22,MFSVA,Other Extending Aid Agencies
+agency_code,22,Ducroire Office,22,ODL,Export Credit Agencies
+agency_code,23,Female Entrepreneurship Fund,22,FEF,Private Sector Instrument vehicle
+agency_code,99,Miscellaneous,22,MISC,Other Extending Aid Agencies
+agency_code,1,Government of Monaco,26,,Main Aid Agencies (in terms of budget)
+agency_code,1,Cyprus,30,,Main Aid Agencies (in terms of budget)
+agency_code,1,Ministry of the Interior,40,INT,Other Extending Aid Agencies
+agency_code,2,Ministry of Finance,40,MF,Other Extending Aid Agencies
+agency_code,3,Ministry of Foreign Affairs,40,MFA,Main Aid Agencies (in terms of budget)
+agency_code,4,Ministry of National Defense,40,MND,Other Extending Aid Agencies
+agency_code,5,"Ministry of Development, Competitiveness & Shipping",40,MDCS,Other Extending Aid Agencies
+agency_code,6,"Ministry of the Environment, Energy & Climate Change",40,MEECC,Other Extending Aid Agencies
+agency_code,7,"Ministry of Education, Life Long Learning & Religions",40,MELLLR,Other Extending Aid Agencies
+agency_code,8,"Ministry of Infrastructure, Transport and Networks",40,MITN,Other Extending Aid Agencies
+agency_code,9,Ministry of Employment & Social Security,40,MESS,Other Extending Aid Agencies
+agency_code,10,Ministry of Health & Social Solidarity,40,MHSS,Other Extending Aid Agencies
+agency_code,11,Ministry of Agricultural Development & Food,40,MADF,Other Extending Aid Agencies
+agency_code,12,"Ministry of Justice, Transparency & Human Rights",40,MJTHR,Other Extending Aid Agencies
+agency_code,13,Ministry of Citizen Protection,40,MCP,Other Extending Aid Agencies
+agency_code,14,Ministry of Culture & Tourism,40,MCT,Other Extending Aid Agencies
+agency_code,15,Municipalities,40,LA,Local Governments
+agency_code,99,Miscellaneous,40,MISC,Other Extending Aid Agencies
+agency_code,1,Malta,45,,Main Aid Agencies (in terms of budget)
+agency_code,1,Instituto de Credito Oficial,50,ICO,Main Aid Agencies (in terms of budget)
+agency_code,2,Compania Espanola de Seguros de Credito a la Exportacion,50,CESCE,Export Credit Agencies
+agency_code,4,"Ministry of Agriculture, Fisheries, and Food",50,AGR,Other Extending Aid Agencies
+agency_code,5,Ministry of Foreign Affairs and Co-operation,50,MFA,Main Aid Agencies (in terms of budget)
+agency_code,6,Ministry of Economy and Business,50,ECON,Other Extending Aid Agencies
+agency_code,7,"Ministry of Education, Culture and Sports",50,EDUC,Other Extending Aid Agencies
+agency_code,8,Ministry of Public Works,50,MPW,Other Extending Aid Agencies
+agency_code,9,Ministry of Industry and Energy,50,MIE,Other Extending Aid Agencies
+agency_code,10,Ministry of the Environment and Rural and Marine Environs,50,MARM,Other Extending Aid Agencies
+agency_code,11,Ministry of Health,50,MOH,Other Extending Aid Agencies
+agency_code,12,"Ministry of Labour, Migration and Social Security",50,EMP,Other Extending Aid Agencies
+agency_code,13,Ministry of Interior,50,INT,Other Extending Aid Agencies
+agency_code,14,Ministry of Finance,50,FIN,Other Extending Aid Agencies
+agency_code,15,Autonomous Governments,50,AG,Local Governments
+agency_code,16,Municipalities,50,MUNIC,Local Governments
+agency_code,18,Ministry of Science and Technology,50,MST,Other Extending Aid Agencies
+agency_code,19,Ministry of Defense,50,DEF,Other Extending Aid Agencies
+agency_code,20,Public Universities,50,UNIV,Other Extending Aid Agencies
+agency_code,21,Spanish Agency for International Development Co-operation,50,AECID,Other Extending Aid Agencies
+agency_code,22,Others ministries,50,,Other Extending Aid Agencies
+agency_code,30,Comunidad Autónoma de Andalucía,50,,Local Governments
+agency_code,31,Comunidad Autónoma de Aragón,50,,Local Governments
+agency_code,32,Comunidad Autónoma del Principado de Asturias,50,,Local Governments
+agency_code,33,Comunidad Autónoma de las Illes Balears,50,,Local Governments
+agency_code,34,Comunidad Autónoma de Canarias,50,,Local Governments
+agency_code,35,Comunidad Autónoma de Cantabria,50,,Local Governments
+agency_code,36,Comunidad de Castilla y León,50,,Local Governments
+agency_code,37,Comunidad Autónoma de Castilla-La Mancha,50,,Local Governments
+agency_code,38,Comunidad Autónoma de Cataluña,50,,Local Governments
+agency_code,39,Comunidad Valenciana,50,,Local Governments
+agency_code,40,Comunidad Autónoma de Extremadura,50,,Local Governments
+agency_code,41,Comunidad Autónoma de Galicia,50,,Local Governments
+agency_code,42,Comunidad de Madrid,50,,Local Governments
+agency_code,43,Comunidad Autónoma de la Región de Murcia,50,,Local Governments
+agency_code,44,Comunidad Foral de Navarra,50,,Local Governments
+agency_code,45,Comunidad Autónoma del País Vasco o de Euskadi,50,,Local Governments
+agency_code,46,Comunidad Autónoma de La Rioja,50,,Local Governments
+agency_code,47,Ciudad de Ceuta,50,,Local Governments
+agency_code,48,Ciudad de Melilla,50,,Local Governments
+agency_code,59,Compañía Española de Financiación del Desarrollo,50,COFIDES,Development Finance Institutions
+agency_code,60,Development Promotion Fund,50,FONPRODE,Development Finance Institutions
+agency_code,99,Miscellaneous,50,MISC,Other Extending Aid Agencies
+agency_code,1,Türkiye,55,,Main Aid Agencies (in terms of budget)
+agency_code,99,Miscellaneous,55,MISC,Unknown
+agency_code,1,Ministry of Finance,61,FIN,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign and European Affairs,61,MFA,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of the Interior,61,INT,Other Extending Aid Agencies
+agency_code,4,Ministry of Defence,61,DEF,Other Extending Aid Agencies
+agency_code,5,"Ministry of the Environment, Climate and Energy",61,ENV ,Other Extending Aid Agencies
+agency_code,6,"Ministry of Higher Education, Science and Innovation",61,EDU,Other Extending Aid Agencies
+agency_code,7,"Ministry of the Economy, Tourism and Sport",61,ECO,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,61,MISC,Unknown
+agency_code,1,Ministry of Foreign and European Affairs,62,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Veterans,62,,Other Extending Aid Agencies
+agency_code,3,National Protection and Rescue Directorate,62,,Other Extending Aid Agencies
+agency_code,4,Ministry of Health,62,MoH,Other Extending Aid Agencies
+agency_code,5,"Ministry of Agriculture, Forestry and Fisheries",62,AGRI,Other Extending Aid Agencies
+agency_code,6,Ministry for Demography and Immigration,62,,Other Extending Aid Agencies
+agency_code,7,"Ministry of Justice, Administration and Digital Transformatio",62,JUSTICE,Other Extending Aid Agencies
+agency_code,8,"Ministry of Science, Education and Youth",62,,Other Extending Aid Agencies
+agency_code,9,Ministry of Tourism and Sports,62,,Other Extending Aid Agencies
+agency_code,10,Central State Office for Croats Abroad,62,,Other Extending Aid Agencies
+agency_code,11,Croatian National Bank,62,,Other Extending Aid Agencies
+agency_code,12,Ministry of Environmental Protection and Green Transition,62,ENV,Other Extending Aid Agencies
+agency_code,13,"Ministry of Labour, Pensions, Family and Social Policy",62,,Other Extending Aid Agencies
+agency_code,14,Ministry of the Interior,62,INT,Other Extending Aid Agencies
+agency_code,15,Croatian Meteorological and Hydrological Service,62,,Other Extending Aid Agencies
+agency_code,16,Office for Cooperation with NGOs,62,,Other Extending Aid Agencies
+agency_code,17,Central Government Office for Reconstruction and Housing,62,,Other Extending Aid Agencies
+agency_code,18,Ministry of Finance,62,,Other Extending Aid Agencies
+agency_code,19,Ministry of Economy (formerly Ministry of Economy and Sustainable Development),62,,Other Extending Aid Agencies
+agency_code,20,Croatian Bank for Reconstruction and Development,62,,Other Extending Aid Agencies
+agency_code,21,Ministry of Culture and Media,62,,Other Extending Aid Agencies
+agency_code,23,Ministry of Regional Development and EU Funding of Croatia,62,,Other Extending Aid Agencies
+agency_code,24,"Ministry of the Sea, Transport and Infrastructure",62,,Other Extending Aid Agencies
+agency_code,25,Ministry of Defense,62,,Other Extending Aid Agencies
+agency_code,26,"Ministry of Physical Planning, Construction and State Property",62,,Other Extending Aid Agencies
+agency_code,27,Ministry of Economy,62,,Other Extending Aid Agencies
+agency_code,28,Ministry of Demography and Immigration,62,,Other Extending Aid Agencies
+agency_code,29,Croatian Civil Aviation Agency,62,,Other Extending Aid Agencies
+agency_code,30,Croatian Employment Service,62,,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,62,MISC,Unknown
+agency_code,1,Czech Development Agency,68,CZDA,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs,68,MFA,Other Extending Aid Agencies
+agency_code,3,Ministry of Finance,68,FIN,Other Extending Aid Agencies
+agency_code,4,"Ministry of Education, Youth, Sports",68,MŠMT,Other Extending Aid Agencies
+agency_code,5,Ministry of Interior,68,INT,Other Extending Aid Agencies
+agency_code,6,Police,68,,Other Extending Aid Agencies
+agency_code,7,Ministry of Defence,68,DEF,Other Extending Aid Agencies
+agency_code,8,Ministry of Health,68,MoH,Other Extending Aid Agencies
+agency_code,9,Ministry of Industry and Trade,68,MIT,Other Extending Aid Agencies
+agency_code,10,Czech National Bank,68,CNB,Other Extending Aid Agencies
+agency_code,11,Ministry of Justice,68,JUSTICE,Other Extending Aid Agencies
+agency_code,12,Ministry of Labour and Social Affairs,68,MOLSA,Other Extending Aid Agencies
+agency_code,13,Universities,68,,Other Extending Aid Agencies
+agency_code,14,Regional Governments and Municipalities,68,GOV,Local Governments
+agency_code,15,Ministry of Environment,68,ENV,Other Extending Aid Agencies
+agency_code,16,State Office for Nuclear Saftey,68,SÚJB,Other Extending Aid Agencies
+agency_code,17,Czech Export Bank,68,CEB,Export Credit Agencies
+agency_code,18,EGAP,68,EGAP,Other Extending Aid Agencies
+agency_code,19,Ministry of Agriculture,68,AGRI,Other Extending Aid Agencies
+agency_code,20,Ministry of Regional Development,68,MMR,Other Extending Aid Agencies
+agency_code,21,Czech National Development Bank,68,NRB,Other Extending Aid Agencies
+agency_code,22,Ministry of Culture,68,,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,68,MISC,Unknown
+agency_code,1,Ministry of Foreign and European Affairs (MZVaEZ),69,MZVaEZ,Other Extending Aid Agencies
+agency_code,2,Slovak Agency for International Deve (SAMRS),69,SAMRS,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of Finance,69,FIN,Main Aid Agencies (in terms of budget)
+agency_code,4,"Ministry of Education, Science, Rese (MSVVS)",69,MSVVS,Other Extending Aid Agencies
+agency_code,5,Ministry of Interior,69,INT,Other Extending Aid Agencies
+agency_code,18,Other ministries,69,,Other Extending Aid Agencies
+agency_code,30,Local and Regional governments,69,VUC,Local Governments
+agency_code,50,Export-Import bank,69,EXIM,Export Credit Agencies
+agency_code,99,Miscellaneous,69,MISC,Unknown
+agency_code,1,Ministry of Foreign Affairs,70,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Municipalities,70,,Local Governments
+agency_code,1,Bulgaria,72,,Main Aid Agencies (in terms of budget)
+agency_code,1,Ministry of Finance,75,MF,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs and Trade,75,MinTrade,Main Aid Agencies (in terms of budget)
+agency_code,3,Office of Immigration and Nationality,75,BIN,Other Extending Aid Agencies
+agency_code,4,Ministry of Interior,75,INT,Other Extending Aid Agencies
+agency_code,5,Ministry of Human Capacities,75,MCH,Other Extending Aid Agencies
+agency_code,6,Ministry of Defence,75,DEF,Other Extending Aid Agencies
+agency_code,7,Ministry of Agriculture,75,AGRI,Other Extending Aid Agencies
+agency_code,8,Ministry of Justice,75,JUSTICE,Other Extending Aid Agencies
+agency_code,9,Ministry for Innovation and Technology,75,,Other Extending Aid Agencies
+agency_code,10,Prime Minister's Office,75,,Other Extending Aid Agencies
+agency_code,11,Ministry of Construction and Transport,75,,Other Extending Aid Agencies
+agency_code,12,Ministry of Energy,75,,Other Extending Aid Agencies
+agency_code,13,Ministry for National Economy,75,,Other Extending Aid Agencies
+agency_code,21,Hungarian Export Import Bank PLC,75,EXIM,Export Credit Agencies
+agency_code,99,Miscellaneous,75,MISC,Unknown
+agency_code,1,Ministry of Foreign Affairs,76,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Education and Science,76,MSHE,Other Extending Aid Agencies
+agency_code,3,Ministry of Interior and Administration,76,INT,Other Extending Aid Agencies
+agency_code,4,"Ministry of Culture, National Heritage and Sport",76,MCNHS,Other Extending Aid Agencies
+agency_code,5,Ministry of Finance,76,FIN,Other Extending Aid Agencies
+agency_code,6,Ministry of Climate and Environment,76,ENV,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,76,MISC,Unknown
+agency_code,1,Ministry of Foreign Affairs,77,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Public Finance,77,FIN,Main Aid Agencies (in terms of budget)
+agency_code,3,Senate of Romania,77,,Other Extending Aid Agencies
+agency_code,4,Ministry of National Defence,77,DEF,Other Extending Aid Agencies
+agency_code,6,National Integrity Agency,77,,Other Extending Aid Agencies
+agency_code,8,"Ministry of Labour, Family, Social Protection and Elderly",77,,Other Extending Aid Agencies
+agency_code,12,National Agency of Civil Servants,77,,Other Extending Aid Agencies
+agency_code,13,Youth and Sports Ministry,77,,Other Extending Aid Agencies
+agency_code,14,Ministry of Justice,77,JUSTICE,Other Extending Aid Agencies
+agency_code,16,Ministry of Regional Development and Public Administration,77,,Main Aid Agencies (in terms of budget)
+agency_code,17,Ministry of Culture,77,,Other Extending Aid Agencies
+agency_code,18,National Agency for Fiscal Administration,77,,Other Extending Aid Agencies
+agency_code,20,Ministry of Internal Affairs,77,INT,Other Extending Aid Agencies
+agency_code,22,Ministry of Health,77,MoH,Other Extending Aid Agencies
+agency_code,23,Ministry of Information Society,77,,Other Extending Aid Agencies
+agency_code,26,Permanent Electoral Authority,77,,Other Extending Aid Agencies
+agency_code,28,Ministry of Education and Scientific Research,77,EDUC,Main Aid Agencies (in terms of budget)
+agency_code,29,Chamber of Deputies,77,,Other Extending Aid Agencies
+agency_code,30,Ministry of Agriculture and Regional Development,77,AGRI,Other Extending Aid Agencies
+agency_code,31,Romanian Government,77,GOV,Other Extending Aid Agencies
+agency_code,32,Ministry of Environment and Climate Change,77,ENV,Other Extending Aid Agencies
+agency_code,33,Public Ministry,77,,Main Aid Agencies (in terms of budget)
+agency_code,34,National Anticorruption Directorate,77,,Other Extending Aid Agencies
+agency_code,35,Ministry of Tourism,77,,Other Extending Aid Agencies
+agency_code,36,ROAID,77,ROAID,Main Aid Agencies (in terms of budget)
+agency_code,37,Nuclear Agency for Radioactive Waste,77,,Other Extending Aid Agencies
+agency_code,38,National Agency for State Reserves and Special Problems,77,,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,77,MISC,Unknown
+agency_code,1,Ministry of Foreign Affairs,82,MFA,Unknown
+agency_code,2,Other Ministries,82,,Unknown
+agency_code,3,Other Public Sector Institutions,82,,Unknown
+agency_code,4,Local Authorites,82,,Unknown
+agency_code,1,Ministry of Foreign Affairs,83,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Other ministries and institutions,83,Other,Other Extending Aid Agencies
+agency_code,3,Local and regional governments,83,Local,Local Governments
+agency_code,1,Government of the Republic of Lithuania,84,GOV,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs,84,MFA,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of National Defense,84,DEF,Other Extending Aid Agencies
+agency_code,4,Ministry of Environment,84,ENV,Other Extending Aid Agencies
+agency_code,5,Ministry of Finance,84,FIN,Other Extending Aid Agencies
+agency_code,6,Ministry of Economy,84,ECON,Other Extending Aid Agencies
+agency_code,7,Ministry of Education and Science,84,EDUC,Other Extending Aid Agencies
+agency_code,8,Ministry of Transport and Communications,84,,Other Extending Aid Agencies
+agency_code,9,Ministry of Energy,84,,Other Extending Aid Agencies
+agency_code,10,Ministry of Health,84,MoH,Other Extending Aid Agencies
+agency_code,11,Ministry of Agriculture,84,AGRI,Other Extending Aid Agencies
+agency_code,12,Ministry of the Interior,84,INT,Other Extending Aid Agencies
+agency_code,13,Ministry of Social Security and Labour,84,,Other Extending Aid Agencies
+agency_code,14,Ministry of Justice,84,JUSTICE,Other Extending Aid Agencies
+agency_code,15,Ministry of Culture,84,,Other Extending Aid Agencies
+agency_code,20,Governments and Agencies and Other public institutions and Agencies,84,,Other Extending Aid Agencies
+agency_code,30,Local Authorities,84,,Local Governments
+agency_code,1,Russia,87,,Main Aid Agencies (in terms of budget)
+agency_code,1,Nordic Development Fund,104,NDF,Main Aid Agencies (in terms of budget)
+agency_code,2,Energy and Environment Partnership Trust Fund,104,EPP,Core & earmarked (blended)
+agency_code,1,Tunisian Agency for Technical Cooperation,139,,Unknown
+agency_code,1,Directorate of Technical Aid Corps,261,,Unknown
+agency_code,1,Canadian International Development Agency,301,CIDA,Main Aid Agencies (in terms of budget)
+agency_code,2,International Development Research Centre,301,IDRC,Other Extending Aid Agencies
+agency_code,3,Global Affairs Canada,301,GAC,Other Extending Aid Agencies
+agency_code,4,Department of Finance Canada,301,FIN,Other Extending Aid Agencies
+agency_code,6,Foreign Affairs and International Trade Canada,301,DFAIT,Other Extending Aid Agencies
+agency_code,7,Department of National Defence,301,DND,Other Extending Aid Agencies
+agency_code,8,Royal Canadian Mounted Police of Canada,301,RCMP,Other Extending Aid Agencies
+agency_code,9,Provincial Governments and municipalities,301,GOV,Local Governments
+agency_code,10,"Immigration, Refugees and Citizenship Canada",301,IRCC,Unknown
+agency_code,11,Environment and Climate Change Canada,301,ECCC,Unknown
+agency_code,22,FinDev Canada,301,FinDev,Development Finance Institutions
+agency_code,31,Export Development Canada,301,EDC,Export Credit Agencies
+agency_code,99,Miscellaneous,301,MISC,Other Extending Aid Agencies
+agency_code,1,Agency for International Development,302,AID,Main Aid Agencies (in terms of budget)
+agency_code,2,Department of Agriculture,302,AGR,Other Extending Aid Agencies
+agency_code,6,Department of the Treasury,302,DTRE,Other Extending Aid Agencies
+agency_code,7,Department of Defense,302,DOD,Other Extending Aid Agencies
+agency_code,9,Department of the Interior,302,INT,Other Extending Aid Agencies
+agency_code,10,Peace Corps,302,PEACE,Other Extending Aid Agencies
+agency_code,11,State Department,302,STATE,Other Extending Aid Agencies
+agency_code,12,Trade and Development Agency,302,TDA,Other Extending Aid Agencies
+agency_code,13,African Development Foundation,302,ADF,Other Extending Aid Agencies
+agency_code,14,Department of Health and Human Services,302,HHS,Other Extending Aid Agencies
+agency_code,15,Department of Justice,302,JUSTICE,Other Extending Aid Agencies
+agency_code,16,Department of Commerce,302,COMMERCE,Other Extending Aid Agencies
+agency_code,17,Department of Labor,302,LABOR,Other Extending Aid Agencies
+agency_code,18,Millennium Challenge Corporation,302,MCC,Main Aid Agencies (in terms of budget)
+agency_code,19,Department of Homeland Security,302,DHS,Other Extending Aid Agencies
+agency_code,20,Department of Energy,302,DOE,Other Extending Aid Agencies
+agency_code,21,Inter-American Development Foundation,302,IADF,Main Aid Agencies (in terms of budget)
+agency_code,22,Overseas Private Investment Corporation,302,OPIC,Development Finance Institutions
+agency_code,23,Federal Trade Commission,302,FTC,Other Extending Aid Agencies
+agency_code,26,Department of Transportation,302,DOT,Other Extending Aid Agencies
+agency_code,28,Open World Leadership Center,302,LIC,Other Extending Aid Agencies
+agency_code,31,Export Import Bank,302,EXIM,Export Credit Agencies
+agency_code,32,Environmental Protection Agency,302,EPA,Other Extending Aid Agencies
+agency_code,34,International Development Finance Corporation,302,DFC,Development Finance Institutions
+agency_code,35,National Aeronautics and Space Administration,302,NASA,Other Extending Aid Agencies
+agency_code,40,Private flows,302,PRIVATE,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,302,MISC,Other Extending Aid Agencies
+agency_code,1,International Cooperation Area (ACI) of MIDEPLAN,336,,Unknown
+agency_code,2,Ministry of Public Education (MEP),336,,Unknown
+agency_code,3,Costa Rican Institute of Electricity (ICE),336,,Unknown
+agency_code,4,Children’s Board of Costa Rica (PANI),336,,Unknown
+agency_code,5,Ministry of Health (MINSA),336,,Unknown
+agency_code,6,"Deputy Ministry of Environment, National System of Conservation Areas (SINAC)",336,,Unknown
+agency_code,7,Local government ,336,,Unknown
+agency_code,8,Academia,336,,Unknown
+agency_code,9,National Women Institute,336,,Unknown
+agency_code,10,Judicial Branch,336,,Unknown
+agency_code,11,Mixes Social Aid Institute,336,,Unknown
+agency_code,12,General Directorate of Migration,336,,Unknown
+agency_code,99,Other,336,,Unknown
+agency_code,1,"Ministry of Economy, Plannning and Development",340,MEPyD,Unknown
+agency_code,2,Ministry of Foreign Affairs,340,MIREX,Unknown
+agency_code,3,Ministry of Culture,340,CULTURA,Unknown
+agency_code,4,Ministry of Environment and Natural Resources,340,MARENA,Unknown
+agency_code,5,Ministry of Labour,340,MIT,Unknown
+agency_code,6,Ministry of Tourism,340,MITUR,Unknown
+agency_code,7,Ministry of Women,340,MMUJER,Unknown
+agency_code,8,Attorney General's Office,340,PGR,Unknown
+agency_code,9,"Ministry of Higher Education, Science and Technology",340,MESCYT,Unknown
+agency_code,10,Ministry of Public Works and Communications,340,MOPC,Unknown
+agency_code,11,Ministry of Energy and Mines,340,,Unknown
+agency_code,12,Ministry of Public Health and Social Assistance,340,,Unknown
+agency_code,13,"Ministry of Industry, Commerce and MSMEs",340,,Unknown
+agency_code,99,Others,340,Others,Unknown
+agency_code,1,Secretariat of Planning and Programming of the Presidency,347,SEGEPLAN,Unknown
+agency_code,1,Mexican Agency for International Development Cooperation,358,AMEXCID,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs,358,SRE,Other Extending Aid Agencies
+agency_code,3,Ministry of Defence,358,SEDENA,Other Extending Aid Agencies
+agency_code,4,Ministry of Finance and Public Credit,358,SHCP,Other Extending Aid Agencies
+agency_code,5,Ministry of  Welfare,358,SEBIEN,Other Extending Aid Agencies
+agency_code,6,Ministry of Environment and Natural Resources,358,SEMARNAT,Other Extending Aid Agencies
+agency_code,7,Ministry of Energy,358,SENER,Other Extending Aid Agencies
+agency_code,8,Ministry of Economy,358,SECON,Other Extending Aid Agencies
+agency_code,9,Ministry of Agriculture and Rural Development,358,SEDATU,Other Extending Aid Agencies
+agency_code,10,"Ministry of Infrastructure, Communications and Transport",358,SICT,Other Extending Aid Agencies
+agency_code,11,Ministry of Public Function,358,SFP,Other Extending Aid Agencies
+agency_code,12,Ministry of Public Education,358,SEP,Other Extending Aid Agencies
+agency_code,13,Ministry of Health,358,SSA,Other Extending Aid Agencies
+agency_code,14,Ministry of Labor and Social Welfare,358,STPS,Other Extending Aid Agencies
+agency_code,15,"Ministry of Agrarian, Territorial and Urban Development",358,SEDATU,Other Extending Aid Agencies
+agency_code,16,National Council for Science and Technology,358,CONACYT,Other Extending Aid Agencies
+agency_code,17,Ministry of Culture,358,CULTURA,Other Extending Aid Agencies
+agency_code,18,National Institute for the Development of Indigenous Peoples,358,INPI,Other Extending Aid Agencies
+agency_code,19,National Electoral Institute,358,INE,"Other agencies (research, etc.)"
+agency_code,20,Institute National Institute of Statistics and Geography,358,INEGI,"Other agencies (research, etc.)"
+agency_code,21,National Commission of the Retirement Savings System,358,CONSAR,"Other agencies (research, etc.)"
+agency_code,22,Mexican Social Security Institute,358,IMSS,Unknown
+agency_code,23,Institute for Social Security and Services for State Workers,358,ISSSTE,Other Extending Aid Agencies
+agency_code,24,Federal Institute for Access to Public Information and Data Protection,358,INAI,"Other agencies (research, etc.)"
+agency_code,25,Other,358,,Unknown
+agency_code,99,Miscellaneous,358,MISC,Unknown
+agency_code,1,"Ministry of Foreign Affairs, International Trade and Worship",425,,Unknown
+agency_code,1,Brazilian Cooperation Agency,431,,Unknown
+agency_code,2,Ministry of Foreign Affairs,431,,Unknown
+agency_code,3,Central Bank,431,,Unknown
+agency_code,4,"Ministry of Development and Social Assistance, Family and Fight against Hunger",431,,Unknown
+agency_code,5,"Ministry of Science, Technology and Innovation",431,,Unknown
+agency_code,6,National Council for Scientific and Technological Development,431,,Unknown
+agency_code,7,National Water and Sanitation Agency,431,,Unknown
+agency_code,8,Coordination for the Improvement of Higher Education Personnel,431,,Unknown
+agency_code,9,National Institute of Cancer,431,,Unknown
+agency_code,10,National School of Public Administration ,431,,Unknown
+agency_code,11,Brazilian Agricultural Research Corporation,431,,Unknown
+agency_code,12,Ministry of Education,431,MEC,Unknown
+agency_code,13,Ministry of Health,431,SAUDE,Unknown
+agency_code,14,Public Universities,431,Public Universities,Unknown
+agency_code,15,Ministry of Finance,431,ECONOMIA,Unknown
+agency_code,16,Ministry of Defence,431,DEFESA,Unknown
+agency_code,17,Ministry of Sport,431,1,Unknown
+agency_code,18,Ministry of Management and Innovation in Public Service,431,1,Unknown
+agency_code,19,Ministry of Planning and Budget,431,1,Unknown
+agency_code,20,"Ministry of Development, Industry, Trade and Services",431,1,Unknown
+agency_code,21,Ministry of Agriculture and Livestock,431,1,Unknown
+agency_code,22,Ministry of Cities,431,1,Unknown
+agency_code,23,Ministry of Culture,431,1,Unknown
+agency_code,24,Ministry of Communications,431,1,Unknown
+agency_code,25,Ministry of Agrarian Development and Family Agriculture,431,1,Unknown
+agency_code,26,Ministry of Integration and Regional Development,431,1,Unknown
+agency_code,27,Ministry of Human Rights and Citizenship,431,1,Unknown
+agency_code,28,"Ministry of Entrepreneurship, Micro-enterprise and Small Business",431,1,Unknown
+agency_code,29,Ministry of Racial Equality,431,1,Unknown
+agency_code,31,Ministry of Justice and Public Security,431,1,Unknown
+agency_code,32,Ministry of the Environment and Climate Change,431,1,Unknown
+agency_code,33,Ministry of Mines and Energy,431,1,Unknown
+agency_code,34,Ministry of Women's Affairs,431,1,Unknown
+agency_code,35,Ministry of Fisheries and Aquaculture,431,1,Unknown
+agency_code,36,Ministry of Ports and Airports,431,1,Unknown
+agency_code,37,Ministry of Indigenous Peoples,431,1,Unknown
+agency_code,38,Ministry of Social Welfare,431,1,Unknown
+agency_code,39,Ministry of Labor and Employment,431,1,Unknown
+agency_code,40,Ministry of Transportation,431,1,Unknown
+agency_code,41,Ministry of Tourism,431,1,Unknown
+agency_code,42,Comptroller General of the Union,431,1,Unknown
+agency_code,99,Others,431,Others,Unknown
+agency_code,1,Agencia Chilena para la cooperación internacional al desarrollo,434,,Main Aid Agencies (in terms of budget)
+agency_code,1,Missing Label,437,,Main Aid Agencies (in terms of budget)
+agency_code,1,Ministry of Foreign Affairs and Human Mobility,440,MREMH,Unknown
+agency_code,2,Ministry of Agriculture and Livestock,440,MAG,Unknown
+agency_code,3,Ministry of Culture and Heritage,440,MCYP,Unknown
+agency_code,4,"Ministry of Production, International Trade, Investment and Fisheries",440,MPCEIP,Unknown
+agency_code,5,Ministry of Economic and Social Inclusion,440,MIES,Unknown
+agency_code,6,"Ministry of Environment, Water and Ecologic Transition",440,MAATE,Unknown
+agency_code,7,National Council for Disabilities' Equality,440,CONADIS,Unknown
+agency_code,8,Ministry of Telecomunications and Information Society,440,MINTEL,Unknown
+agency_code,9,"Department of Higher Education, Science, Technology and Innovation",440,SENESCYT,Unknown
+agency_code,99,Other,440,,Unknown
+agency_code,1,National Civil Service Authority,454,SERVIR,Unknown
+agency_code,2,Public Procurement Office,454,Peru Compras,Unknown
+agency_code,3,National Institute of Statistics and Informatics,454,INEI,Unknown
+agency_code,4,Ministry of Foreign Trade and Tourism,454,MINCETUR,Unknown
+agency_code,5,Ministry of Agricultural Development and Irrigation,454,MIDAGRI,Unknown
+agency_code,6,Ministry of Development and Social Inclusion,454,MIDIS,Unknown
+agency_code,7,Ministry for Women and Vulnerable Population Groups,454,MIMP,Unknown
+agency_code,8,"Ministry of Housing, Construction and Sanitation",454,MVCS,Unknown
+agency_code,9,National Prosecution Ministry,454,MPFN,Unknown
+agency_code,10,Public Procurement Regulatory Agency,454,OSCE,Unknown
+agency_code,11,Ministry of Foreign Affairs,454,RREE,Unknown
+agency_code,99,Others,454,,Unknown
+agency_code,1,Uruguayan Agency of International Co-operation,460,AUCI,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Environment,460,MA,Other Extending Aid Agencies
+agency_code,3,National Institute of Statistics,460,INE,Other Extending Aid Agencies
+agency_code,99,Others,460,Others,Unknown
+agency_code,1,Israel MASHAV,546,,Main Aid Agencies (in terms of budget)
+agency_code,2,Israeli public universities,546,,Unknown
+agency_code,3,Ministry of Education,546,,Other Extending Aid Agencies
+agency_code,4,Ministry of Aliyah and Integration,546,,Other Extending Aid Agencies
+agency_code,5,local government - Municipal authorities,546,,Local Governments
+agency_code,6,Water Authority,546,,Other Extending Aid Agencies
+agency_code,7,Ministry of Agriculture,546,,Other Extending Aid Agencies
+agency_code,8,Ministry of Construction and Housing,546,,Other Extending Aid Agencies
+agency_code,9,Prime Minister's Office,546,,Other Extending Aid Agencies
+agency_code,10,Ministry of Economics,546,,Other Extending Aid Agencies
+agency_code,11,The Office for Regional Cooperation,546,,Other Extending Aid Agencies
+agency_code,12,Ministry of the Environment,546,,Other Extending Aid Agencies
+agency_code,13,Ministry of Welfare and Social Services,546,,Other Extending Aid Agencies
+agency_code,14,Ministry of Health,546,,Other Extending Aid Agencies
+agency_code,15,Ministry of Foreign Affairs,546,,Main Aid Agencies (in terms of budget)
+agency_code,16,Ministry of Tourism,546,,Other Extending Aid Agencies
+agency_code,17,Ministry of Science,546,,Other Extending Aid Agencies
+agency_code,18,Ministry of Finance,546,,Other Extending Aid Agencies
+agency_code,19,Ministry of Transportation,546,,Other Extending Aid Agencies
+agency_code,20,Ministry of Justice,546,,Other Extending Aid Agencies
+agency_code,21,Ministry of Communication,546,,Other Extending Aid Agencies
+agency_code,22,Health Funds,546,,Unknown
+agency_code,1,Palestinian International Cooperation Agency,551,PICA,Unknown
+agency_code,1,Kuwait Fund for Arab Economic Development (KFAED),552,KFAED,Unknown
+agency_code,2,Government Grants administered by KFAED,552,,Unknown
+agency_code,99,Miscellaneous,552,MISC,Unknown
+agency_code,1,Qatar Fund for Development,561,QFFD,Main Aid Agencies (in terms of budget)
+agency_code,2,Doha Institute,561,,Unknown
+agency_code,3,Qatar Foundation,561,,Unknown
+agency_code,4,Ministry of Foreign Affairs,561,MOFA,Other Extending Aid Agencies
+agency_code,5,Ministry of Public Health,561,MOHP,Other Extending Aid Agencies
+agency_code,6,Qatar University,561,,Unknown
+agency_code,7,Qatar Airways,561,,Unknown
+agency_code,8,Ministry of Defense ,561,,Other Extending Aid Agencies
+agency_code,9,Ministry of Endowments and Islamic Affairs,561,,Other Extending Aid Agencies
+agency_code,10,Ministry of Education and Higher Education,561,,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,561,,Unknown
+agency_code,1,King Salman Humanitarian Aid and Relief Center,566,KSHA,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs,566,MFA,Main Aid Agencies (in terms of budget)
+agency_code,3,King Abdullah International Foundation for Humanitarian Activities,566,KAIF,Unknown
+agency_code,4,Other Governmental Entities,566,GOV,Unknown
+agency_code,5,Saudi Campaigns,566,,Unknown
+agency_code,6,Saudi Development Fund,566,SDF,Main Aid Agencies (in terms of budget)
+agency_code,7,Ministry of Education,566,EDUC,Other Extending Aid Agencies
+agency_code,8,Saudi Red Crescent Authority,566,SRCA,Unknown
+agency_code,9,Ministry of Finance,566,FIN,Other Extending Aid Agencies
+agency_code,10,Saudi Development and Reconstruction Program for Yemen,566,SDRPY,Unknown
+agency_code,99,Miscellaneous,566,MISC,Unknown
+agency_code,2,Abu Dhabi Department of Finance,576,FIN,Main Aid Agencies (in terms of budget)
+agency_code,3,Abu Dhabi Fund for Development,576,ADFD,Main Aid Agencies (in terms of budget)
+agency_code,5,Abu Dhabi Future Energy Co.,576,MASDAR,Main Aid Agencies (in terms of budget)
+agency_code,7,International Humanitarian City,576,IHC,Other Extending Aid Agencies
+agency_code,8,Mohamed Bin Zayed Species Conservation Fund,576,MBZ,Other Extending Aid Agencies
+agency_code,9,Ministry of International Cooperation and Development,576,MICAD,Main Aid Agencies (in terms of budget)
+agency_code,17,Khalifa Bin Zayed Al Nahyan Foundation,576,KBZ,Other Extending Aid Agencies
+agency_code,18,Mohammed Bin Rashid Al Maktoum Humanitarian and Charity Establishment,576,MBR,Other Extending Aid Agencies
+agency_code,19,Zayed Bin Sultan Al Nahyan Charitable and Humanitarian Foundation,576,ZBS,Other Extending Aid Agencies
+agency_code,20,Al Maktoum Foundation,576,MF,Other Extending Aid Agencies
+agency_code,21,Dubai Cares,576,DC,Other Extending Aid Agencies
+agency_code,22,UAE Red Crescent Authority,576,RCA,Main Aid Agencies (in terms of budget)
+agency_code,23,Noor Dubai,576,ND,Other Extending Aid Agencies
+agency_code,25,Other Government Entities,576,GOV,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,576,MISC,Unknown
+agency_code,1,Government of Azerbaijan,611,GOV,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Foreign Affairs,611,MFA,Other Extending Aid Agencies
+agency_code,3,Ministry of Emergency Situations,611,,Main Aid Agencies (in terms of budget)
+agency_code,4,MFA/Azerbaijan International Development Agency,611,,Main Aid Agencies (in terms of budget)
+agency_code,5,State Customs Committee,611,,Other Extending Aid Agencies
+agency_code,6,Ministry of Culture and Tourism,611,,Other Extending Aid Agencies
+agency_code,7,Ministry of Youth and Sport,611,,Other Extending Aid Agencies
+agency_code,8,Ministry of Health,611,MoH,Other Extending Aid Agencies
+agency_code,9,Ministry of Ecology and Natural Resources,611,,Other Extending Aid Agencies
+agency_code,10,Ministry of Defence,611,,Other Extending Aid Agencies
+agency_code,1,Ministry of Foreign Affairs,613,MFA,Main Aid Agencies (in terms of budget)
+agency_code,2,Government of the Republic of Kazakhstan,613,GOV,Other Extending Aid Agencies
+agency_code,3,Ministry of Education and Science,613,EDUC,Other Extending Aid Agencies
+agency_code,4,Sovereign Wealth Fund (Samruk-Kazyna),613,,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,613,MISC,Unknown
+agency_code,1,"Ministry of Agriculture, Forestry and Fisheries",701,MAFF,Other Extending Aid Agencies
+agency_code,2,Ministry of Foreign Affairs,701,MOFA,Main Aid Agencies (in terms of budget)
+agency_code,4,EXIM BANK,701,EXIM BANK,Unknown
+agency_code,5,OECF,701,OECF,Unknown
+agency_code,6,FOOD AID,701,FOOD AID,Unknown
+agency_code,7,Overseas Fishery Co-operation Foundation,701,OFCF,Other Extending Aid Agencies
+agency_code,8,Japanese International Co-operation Agency,701,JICA,Main Aid Agencies (in terms of budget)
+agency_code,10,Japan Overseas Development Co-operation,701,JODC,Other Extending Aid Agencies
+agency_code,11,Japan Bank for International Co-operation,701,JBIC,Export Credit Agencies
+agency_code,12,Other Ministries,701,Oth. MIN,Other Extending Aid Agencies
+agency_code,13,Public Corporations,701,PC,Other Extending Aid Agencies
+agency_code,14,Prefectures,701,PRF,Local Governments
+agency_code,15,Ordinance-designed Cities,701,ODC,Local Governments
+agency_code,16,Japan Agency for Medical Research and Development,701,AMED,"Other agencies (research, etc.)"
+agency_code,71,Nippon Export and Investment Insurance,701,NEXI,Export Credit Agencies
+agency_code,99,Miscellaneous,701,MISC,Other Extending Aid Agencies
+agency_code,1,Chinese Taipei,732,,Main Aid Agencies (in terms of budget)
+agency_code,2,International Cooperation and Development Fund,732,ICDF,Main Aid Agencies (in terms of budget)
+agency_code,1,Ministry of Foreign Affairs,738,,Unknown
+agency_code,2,Ministry of National Development Planning,738,,Unknown
+agency_code,3,Ministry of Finance,738,,Unknown
+agency_code,4,Ministry of State Secretariat ,738,,Unknown
+agency_code,5,"Meteorological, Climatological, and Geophysical Agency",738,,Unknown
+agency_code,6,Ministry for Women Empowerment and Child Protection ,738,,Unknown
+agency_code,7,Ministry of Health,738,,Unknown
+agency_code,8,Ministry of Industry,738,,Unknown
+agency_code,9,Ministry of Agriculture,738,,Unknown
+agency_code,10,Ministry of Communication and Information Technology,738,,Unknown
+agency_code,11,Indonesian National Police,738,,Unknown
+agency_code,12,Ministry of Public Works and Housing,738,,Unknown
+agency_code,13,"Infrastructure Planning Center, Regional Infrastructure Development Agency",738,,Unknown
+agency_code,14,Ministry of Maritime Affairs and Fisheries ,738,,Unknown
+agency_code,15,Ministry of Trade ,738,,Unknown
+agency_code,16,Ministry of Education and Culture,738,,Unknown
+agency_code,17,National Agency of Drug and Food Control ,738,,Unknown
+agency_code,18,Ministry of Research and Technology,738,,Unknown
+agency_code,19,Eximbank,738,,Development Finance Institutions
+agency_code,20,Indonesian Agency for International Development,738,Indonesian AID,Unknown
+agency_code,99,miscellaneous,738,,Unknown
+agency_code,1,Ministry of Strategy and Finance,742,MOSF,Main Aid Agencies (in terms of budget)
+agency_code,2,Export-Import Bank of Korea,742,KEXIM,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of Foreign Affairs and Trade,742,MOFAT,Main Aid Agencies (in terms of budget)
+agency_code,4,Korea International Cooperation Agency,742,KOICA,Main Aid Agencies (in terms of budget)
+agency_code,99,Miscellaneous,742,MISC,Unknown
+agency_code,1,Thailand,764,,Main Aid Agencies (in terms of budget)
+agency_code,2,Ministry of Finance,764,,Main Aid Agencies (in terms of budget)
+agency_code,3,Ministry of Foreign Affairs,764,,Main Aid Agencies (in terms of budget)
+agency_code,4,Ministry of Agriculture and Cooperatives,764,,Other Extending Aid Agencies
+agency_code,5,Ministry of Commerce,764,,Other Extending Aid Agencies
+agency_code,6,Ministry of Culture,764,,Other Extending Aid Agencies
+agency_code,7,Ministry of Digital Economy and Society,764,,Other Extending Aid Agencies
+agency_code,8,Ministry of Education,764,,Other Extending Aid Agencies
+agency_code,9,Ministry of Energy,764,,Other Extending Aid Agencies
+agency_code,10,Ministry of Industry,764,,Other Extending Aid Agencies
+agency_code,11,Ministry of Interior,764,,Other Extending Aid Agencies
+agency_code,12,Ministry of Justice,764,,Other Extending Aid Agencies
+agency_code,13,Ministry of Labour,764,,Other Extending Aid Agencies
+agency_code,14,Ministry of natural Resources and Environment,764,,Other Extending Aid Agencies
+agency_code,15,Ministry of Public Health,764,,Other Extending Aid Agencies
+agency_code,16,Ministry of Social Development and Human Security,764,,Other Extending Aid Agencies
+agency_code,17,Ministry of Tourism and Sports,764,,Other Extending Aid Agencies
+agency_code,18,Ministry of Transport,764,,Other Extending Aid Agencies
+agency_code,19,The Office of the Royal Development Project Board,764,,Other Extending Aid Agencies
+agency_code,20,The Prime Minister's Office,764,,Other Extending Aid Agencies
+agency_code,21,"Ministry of Higher Education, Science, Research and Innovation",764,,Local Governments
+agency_code,22,Bank of Thailand,764,,Unknown
+agency_code,1,Timor Leste,765,,Main Aid Agencies (in terms of budget)
+agency_code,2,Attorney-General,801,AG,Other Extending Aid Agencies
+agency_code,5,Australian Government,801,GOV,Main Aid Agencies (in terms of budget)
+agency_code,72,Export Finance and Insurance Corporation,801,EFIC,Export Credit Agencies
+agency_code,99,Miscellaneous,801,MISC,Other Extending Aid Agencies
+agency_code,1,Assessed contributions - UN regular budget,807,UNEP - Assessed Contributions,Unknown
+agency_code,2,Environment Fund,807,UNEP - EF,Main Aid Agencies (in terms of budget)
+agency_code,3,Multilateral Fund under the Montreal Protocol on Substances that Deplete the Ozone Layer,807,UNEP - MFMP,Other Extending Aid Agencies
+agency_code,4,Convention on International Trade in Endangered Species of Wild Fauna and Flora (CITES) - Assessed contributions,807,CITES POW Assessed Contributions,Other Extending Aid Agencies
+agency_code,5,Convention on International Trade in Endangered Species of Wild Fauna and Flora (CITES) - Voluntary Contributions Non-core - developmental,807,CITES POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,6,Convention on International Trade in Endangered Species of Wild Fauna and Flora (CITES) - Voluntary Contributions Non-Core - TOSSD only,807,CITES POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,7,UNEP programme support,807,UNEP programme support,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,8,Other Support to UNEP POW,807,Other Support - developmental,Voluntary non-core funding - developmental
+agency_code,9,Other Support to UNEP POW,807,Other Support - TOSSD-only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,10,"Basel, Rotterdam and Stockholm conventions (BRS)- assessed contributions",807,BRS POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,11,"Basel, Rotterdam and Stockholm conventions (BRS) - Voluntary Contributions Non-core - developmental",807,BRS POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,12,"Basel, Rotterdam and Stockholm conventions (BRS) - Voluntary Contributions Non-core TOSSD only",807,BRS POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,13,Convention on Migratory Species (CMS) - assessed contributions,807,CMS POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,14,Convention on Migratory Species (CMS) - Voluntary Contributions Non-core developmental,807,CMS POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,15,Convention on Migratory Species (CMS) - Voluntary Contributions Non-core TOSSD only,807,CMS POW No-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,16,Bamako Convention - Assessed Contribution,807,Bamako POW Assessed Contributions,Voluntary non-core funding - developmental
+agency_code,17,Bamako Convention - Voluntary Non-Core Contributions,807,Bamako POW Non-core,Voluntary non-core funding - developmental
+agency_code,18,Carpathian Convention - assessed,807,CAP POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,19,Carpathian Convention - Voluntary Contributions Non-core developmental,807,CAP POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,20,Carpathian Convention - Voluntary Contributions Non-Core - TOSSD only,807,CAP POWNon-core - TOSSD oonly,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,21,Action Plan for the Caribbean Environment Programme - assessed,807,CAR RCU POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,22,Action Plan for the Caribbean Environment Programme - Voluntary Contributions Non-core - developmental,807,CAR RCU POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,23,Action Plan for the Caribbean Environment Programme - Voluntary Contributions Non-Core - TOSSD only,807,CAR RCU POWNon-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,24,Intergovernmental Science-Policy Platform on Biodiversity and Ecosystem Services (IPBES) - Voluntary Contributions Non-core - developmental,807,IPBES POWNon-core - developmental,Voluntary non-core funding - developmental
+agency_code,25,Intergovernmental Science-Policy Platform on Biodiversity and Ecosystem Services - (IPBES) Voluntary Contributions Non-core - TOSSD only,807,IPBES POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,26,Mediterranean Action Plan (MAP) - Assessed contributions - developmental,807,MAP POW Assessed- developmental,Voluntary non-core funding - developmental
+agency_code,27,Mediterranean Action Plan (MAP) - Voluntary Contributions Non-core - TOSSD only,807,MAP POW Assessed - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,28,Mediterranean Action Plan (MAP) - Voluntary Contributions Non-core - developmental,807,MAP POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,29,Mediterranean Action Plan (MAP) - Voluntary Contributions Non-core - TOSSD only,807,MAP POWs Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,30,Minamata Convention on Mercury (MCV) - Assessed Contributions,807,MCV POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,31,Minamata Convention on Mercury (MCV) - Voluntary Contributions Non-core - developmental,807,MCV POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,32,Minamata Convention on Mercury (MCV) - Voluntary Contributions Non-core - TOSSD only,807,MCV POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,33,Northwest Pacific Action Plan (NOWPAP) - Assessed Contributions - developmental,807,NOWPAP POW Assessed - developmental,Voluntary non-core funding - developmental
+agency_code,34,Northwest Pacific Action Plan (NOWPAP) - Assessed Contributions - TOSSD only,807,NOWPAP POW Assessed - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,35,Northwest Pacific Action Plan (NOWPAP) - Voluntary Contributions Non-core - developmental,807,NOWPAP POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,36,Northwest Pacific Action Plan (NOWPAP) - Voluntary Contributions Non-core - TOSSD only,807,NOWPAP POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,37,Ozone Treaties (Montreal Protocol and Vienna Convention) - Assessed Contributions - developmental,807,Ozone POW Assessed - developmental,Voluntary non-core funding - developmental
+agency_code,38,Ozone Treaties (Montreal Protocol and Vienna Convention) - Assessed Contributions - TOSSD only,807,Ozone POW Assessed - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,39,Ozone Treaties (Montreal Protocol and Vienna Convention)  - Voluntary Contributions Non-core - developmental,807,Ozone POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,40,Ozone Treaties (Montreal Protocol and Vienna Convention)  - Voluntary Contributions Non-core - TOSSD only,807,Ozone POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,41,"Convention for the Marine and Coastal Environment of the Atlantic Coast of the West, Central and Southern Africa Region - Assessed Contributions",807,RSAS POW Assessed Contributions,Voluntary non-core funding - developmental
+agency_code,42,"Convention for the Marine and Coastal Environment of the Atlantic Coast of the West, Central and Southern Africa Region - Non-core",807,RSAS POW Non-core,Voluntary non-core funding - developmental
+agency_code,43,Convention on Biological Diversity (CBD) - Assessed Contributions,807,SCBD POW Assessed Contributions,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,44,Convention on Biological Diversity (CBD) - Voluntary Contributions Non-core - developmental,807,SCBD POW Non-core - developmental,Voluntary non-core funding - developmental
+agency_code,45,Convention on Biological Diversity (CBD) - Voluntary Contributions Non-core - TOSSD only,807,SCBD POW Non-core - TOSSD only,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,46,"UNEP, core and earmarked, developmental",807,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,48,Global Environment Facility,807,GEF,GEF
+agency_code,1,GEF (general),811,GEF,Unknown
+agency_code,11,GEF Trust Fund,811,,Unknown
+agency_code,12,Least Developed Countries Trust Fund (LDCF),811,LDCF,Unknown
+agency_code,13,Special Climate Change Trust Fund (SCCF),811,SCCF,Unknown
+agency_code,14,Nagoya Protocol Implementation Fund (NPIF),811,NPIF,Unknown
+agency_code,15,GEF Capacity Building Initiative for Transparency,811,CBIT,Unknown
+agency_code,16,GEF Multi-Trust Funds,811,MTF,Unknown
+agency_code,17,GEF - regional and global,811,,GEF
+agency_code,18,GEF - earmarked,811,,GEF
+agency_code,19,Global Biodiversity Framework Fund (GBFF),811,GBFF,Unknown
+agency_code,1,Montreal Protocol,812,,Unknown
+agency_code,1,Ministry of Foreign Affairs and Trade,820,NZG,Other Extending Aid Agencies
+agency_code,2,New Zealand International Aid and Development Agency,820,NZAid,Main Aid Agencies (in terms of budget)
+agency_code,99,Miscellaneous,820,MISC,Other Extending Aid Agencies
+agency_code,1,International Bank for Reconstruction and Development,901,,Unknown
+agency_code,2,Multilateral Investment Guarantee Agency,901,,Unknown
+agency_code,3,International Finance Corporation,901,,Main Aid Agencies (in terms of budget)
+agency_code,4,International Development Association,901,,Unknown
+agency_code,1,Caribbean Development Bank,906,CarDB,Unknown
+agency_code,2,EU Sustainable Energy for the Eastern Caribbean Fund,906,,Voluntary non-core funding - developmental
+agency_code,3,UK Sustainable Energy for the Eastern Caribbean Fund,906,,Voluntary non-core funding - developmental
+agency_code,4,United Kingdom Infrastructure Fund,906,,Voluntary non-core funding - developmental
+agency_code,5,Canadian Support to the Energy Sector in the Caribbean Fund,906,,Voluntary non-core funding - developmental
+agency_code,6,EIB Climate Action Line of Credit,906,,Voluntary non-core funding - developmental
+agency_code,7,CDB-administered Deutsche Gesellschaft fuer Internationale Zusammenarbeit,906,,Voluntary non-core funding - developmental
+agency_code,8,Canada - CARICOM Climate Adaptation Fund,906,,Voluntary non-core funding - developmental
+agency_code,9,EU Caribbean Infrastructure Fund,906,,Voluntary non-core funding - developmental
+agency_code,10,Other non-core resources,906,,Voluntary non-core funding - developmental
+agency_code,11,11th European Development Fund Economic Partnership Agreement and CARICOM Single Market and Economy,906,,Voluntary non-core funding - developmental
+agency_code,99,"semi-aggregates, non-core ",906,,Voluntary non-core funding - developmental
+agency_code,1,IMF,907,IMF,Unknown
+agency_code,1,Inter-American Development Bank Group,909,,Main Aid Agencies (in terms of budget)
+agency_code,2,Fund for Special Operations,909,FSO,Main Aid Agencies (in terms of budget)
+agency_code,3,Fund for Special Operations-Ordinary Capital,909,FSO-ORC,Other Extending Aid Agencies
+agency_code,4,Ordinary Capital,909,ORC,Other Extending Aid Agencies
+agency_code,5,Multilateral Investment Fund,909,MIF,Other Extending Aid Agencies
+agency_code,6,Grant Facility,909,GRF,Other Extending Aid Agencies
+agency_code,11,Clean Technology Fund,909,CTF,Unknown
+agency_code,13,Global Agriculture & Food Security Program Trust Fund,909,GAF,Voluntary non-core funding - developmental
+agency_code,14,Strategic Climate Fund,909,SCX,Unknown
+agency_code,15,Small Enterprise Development Facility,909,MSE,Other Extending Aid Agencies
+agency_code,16,Small Enterprise Investment Fund,909,MSF,Other Extending Aid Agencies
+agency_code,17,Human Resource Facility,909,MHR,Other Extending Aid Agencies
+agency_code,18,IDB Grant Facility,909,GRF,Other Extending Aid Agencies
+agency_code,20,Fund for Increasing Productivity and Promoting Inclusive Economic Growth,909,MPF,Other Extending Aid Agencies
+agency_code,21,Transparency Trust Fund,909,,Voluntary non-core funding - developmental
+agency_code,22,NDC Pipeline Accelerator Multidonor Trust Fund,909,,Voluntary non-core funding - developmental
+agency_code,23,Ad Hoc Contributions,909,ADH,Voluntary non-core funding - developmental
+agency_code,24,Aid for Trade Strategic Thematic Fund,909,AFT,Voluntary non-core funding - developmental
+agency_code,25,Partnership Trust Fund for Poverty Reduction in Latin America,909,AUS,Voluntary non-core funding - developmental
+agency_code,26,Brazilian Cofinancing Account,909,,Voluntary non-core funding - developmental
+agency_code,27,Canada Cooperation Framework,909,,Voluntary non-core funding - developmental
+agency_code,28,Compete Caribbean Partnership Facility ,909,,Voluntary non-core funding - developmental
+agency_code,29,Canadian Fund for Universal Legal Identity in Latin America and the Caribbean,909,CCR,Voluntary non-core funding - developmental
+agency_code,30,Canadian Fund,909,,Voluntary non-core funding - developmental
+agency_code,31,China Co-Financing Fund for Latin America and the Caribbean,909,,Voluntary non-core funding - developmental
+agency_code,32,Canadian Joint Financing Programs,909,CJF,Voluntary non-core funding - developmental
+agency_code,33,Cofinancing Special Grants,909,,Voluntary non-core funding - developmental
+agency_code,34,Sustainable Colombia Facility,909,,Voluntary non-core funding - developmental
+agency_code,35,Canadian Climate Fund for the Private Sector in the Americas,909,CPS,Voluntary non-core funding - developmental
+agency_code,36,DEFRA Cofinancing Account,909,DEF,Voluntary non-core funding - developmental
+agency_code,37,Early Childhood Development Innovation Multidonor Fund,909,,Voluntary non-core funding - developmental
+agency_code,38,European Commission Amended and Restated Framework Agreement,909,,Voluntary non-core funding - developmental
+agency_code,39,European Commission Framework Account,909,,Voluntary non-core funding - developmental
+agency_code,40,Sustainable Emerging Cities Multidonor Trust Fund,909,ESC,Voluntary non-core funding - developmental
+agency_code,41,Readiness Fund of the Forest Carbon Partnership Facility,909,,Voluntary non-core funding - developmental
+agency_code,42,Spanish Trust Fund for the Entrepreneurship Program,909,,Voluntary non-core funding - developmental
+agency_code,43,Spanish General Cooperation Fund,909,,Voluntary non-core funding - developmental
+agency_code,44,Global Infrastructure Facility,909,,Voluntary non-core funding - developmental
+agency_code,45,Finnish Technical Assistance Program,909,FTA,Voluntary non-core funding - developmental
+agency_code,46,Guyana REDD+ Investment Fund,909,GIF,Voluntary non-core funding - developmental
+agency_code,47,Haiti Reconstruction Fund,909,,Voluntary non-core funding - developmental
+agency_code,48,Italian Trust Fund for Regional Competitiveness,909,,Voluntary non-core funding - developmental
+agency_code,49,Institutional Capacity Strengthening Thematic Fund,909,,Voluntary non-core funding - developmental
+agency_code,50,INTAL,909,INT,Voluntary non-core funding - developmental
+agency_code,51,Italian Fund for Technical Cooperation Projects,909,,Voluntary non-core funding - developmental
+agency_code,52,Italian Trust Fund for the Preparation of MIF Projects,909,ITM,Voluntary non-core funding - developmental
+agency_code,53,Japanese Consultants Fund,909,JCF,Voluntary non-core funding - developmental
+agency_code,54,Japan Special Fund Poverty Reduction Program,909,,Voluntary non-core funding - developmental
+agency_code,55,Japan Private Public Partnership Financing Account,909,,Voluntary non-core funding - developmental
+agency_code,56,Japan Special Fund,909,,Voluntary non-core funding - developmental
+agency_code,57,Knowledge Multidonor Economy Fund,909,KEF,Voluntary non-core funding - developmental
+agency_code,58,Korea Infrastructure Development Co-Financing Facility for Latin America and the Caribbean,909,,Voluntary non-core funding - developmental
+agency_code,59,Public Capacity Building Korea Fund for Economic Development,909,,Voluntary non-core funding - developmental
+agency_code,60,Knowledge Partnership Korea Fund for Technology and Innovation,909,,Voluntary non-core funding - developmental
+agency_code,61,Korea Poverty Reduction Fund,909,,Voluntary non-core funding - developmental
+agency_code,62,Korea Private Sector Development and Innovation Fund,909,,Voluntary non-core funding - developmental
+agency_code,63,LAIF grant to CC and W&S,909,,Voluntary non-core funding - developmental
+agency_code,64,Low Carbon Agriculture for Avoided Deforestation and Poverty Reduction,909,,Voluntary non-core funding - developmental
+agency_code,65,Multidonor AquaFund,909,,Voluntary non-core funding - developmental
+agency_code,66,AgroLAC 2025 Multidonor Trust Fund,909,,Voluntary non-core funding - developmental
+agency_code,67,Multidonor Fund for Biodiversity and Ecosystem Services,909,,Voluntary non-core funding - developmental
+agency_code,68,Multidonor Fund for Citizen Security,909,,Voluntary non-core funding - developmental
+agency_code,69,Multidonor Disaster Prevention Fund ,909,,Voluntary non-core funding - developmental
+agency_code,70,Malaria Elimination Blending Facility,909,,Voluntary non-core funding - developmental
+agency_code,71,Multi-Donor Regional Integration Fund,909,,Voluntary non-core funding - developmental
+agency_code,72,Gender and Diversity Multidonor Fund,909,,Voluntary non-core funding - developmental
+agency_code,73,Mesoamerica Health Facility,909,,Voluntary non-core funding - developmental
+agency_code,74,Sustainable Energy and Climate Change Multi-donor Trust Fund,909,,Voluntary non-core funding - developmental
+agency_code,75,Portuguese Technical Cooperation Trust Fund,909,,Voluntary non-core funding - developmental
+agency_code,76,Regional Fund for Agriculture Technology,909,,Voluntary non-core funding - developmental
+agency_code,77,Technical Cooperation and Small Projects Swiss Fund,909,,Voluntary non-core funding - developmental
+agency_code,78,Spanish Fund for Water and Sanitation,909,,Voluntary non-core funding - developmental
+agency_code,79,United Kingdom Sustainable Infrastructure Program,909,,Voluntary non-core funding - developmental
+agency_code,80,Government of Spain - Quincentennial Fund,909,,Voluntary non-core funding - developmental
+agency_code,81,Social Progress Trust Fund,909,SPT,Voluntary non-core funding - developmental
+agency_code,82,Swiss Technical Cooperation Fund for Consulting Services and Training,909,STC,Voluntary non-core funding - developmental
+agency_code,83,Specialized Financial Intermediary Development Fund,909,TDF,Voluntary non-core funding - developmental
+agency_code,84,Specialized Financial Intermediary Development Fund,909,FMM,Voluntary non-core funding - developmental
+agency_code,85,Green Climate Fund,909,GRN,Voluntary non-core funding - developmental
+agency_code,86,MIF- Clinton Bush Haiti Fund,909,MCB,Voluntary non-core funding - developmental
+agency_code,87,Nordic Development Fund,909,NDV,Voluntary non-core funding - developmental
+agency_code,88,Special Climate Change Fund,909,SCC,Voluntary non-core funding - developmental
+agency_code,89,Amazon Bioeconomy and Forest Management Fund,909,AMZ,Voluntary non-core funding - developmental
+agency_code,90,UK Blue Carbon Fund,909,BLU,Voluntary non-core funding - developmental
+agency_code,91,Capacity Building Initiative for Transparency Trust Fund,909,CBT,Voluntary non-core funding - developmental
+agency_code,92,Global Concessional Financing Facility Trust Fund,909,CFF,Voluntary non-core funding - developmental
+agency_code,93,Multidonor Trust Fund for the Development of Sustainable Cities in Latin America and the Caribbean,909,CIT,Voluntary non-core funding - developmental
+agency_code,94,Fostering Fiscal Policy for Climate Change in Latin America and the Caribbean,909,FFP,Voluntary non-core funding - developmental
+agency_code,95,French Climate Fund for Latin America and the Caribbean,909,FRC,Voluntary non-core funding - developmental
+agency_code,96,Development Fund for the Ecuador-Colombia Border Integration Zone,909,ICE,Voluntary non-core funding - developmental
+agency_code,97,Development Fund for the Colombia-Peru Border Integration Zone,909,ICP,Voluntary non-core funding - developmental
+agency_code,98,Low Carbon Energy Fund for People and Planet,909,LCE,Voluntary non-core funding - developmental
+agency_code,99,France-IDB Natural Capital Lab Fund,909,NCL,Voluntary non-core funding - developmental
+agency_code,100,Norwegian Grant for Guyana,909,NGG,Voluntary non-core funding - developmental
+agency_code,101,Nama Facility Account,909,NMA,Voluntary non-core funding - developmental
+agency_code,102,Multi-Donor Fund for the Transformation of Technical and Vocational Education and Training,909,TVT,Voluntary non-core funding - developmental
+agency_code,103,Women Entrepreneurs Finance Initiative (We-Fi),909,WEF,Voluntary non-core funding - developmental
+agency_code,104,Pandemic Prevention Response Fund,909,PPF,Voluntary non-core funding - developmental
+agency_code,105,Framework Readiness Preparatory Support,909,GRP,Voluntary non-core funding - developmental
+agency_code,106,Global Partnership for Education Fund,909,GPE,Voluntary non-core funding - developmental
+agency_code,107,Project Specific Contribution Account,909,PSC,Voluntary non-core funding - developmental
+agency_code,108,Global Environment Facility (GEF),909,GEF,GEF
+agency_code,1,Ordinary capital,910,ORC,Unknown
+agency_code,2,CABEI - non-core funding ,910,,Unknown
+agency_code,3,Central American Bank for EconomicKorea-CABEI Partnership Single Donor Trust Fund,910,,Voluntary non-core funding - developmental
+agency_code,1,AfDB Ordinary Capital,913,AfDB Ordinary Capital,Unknown
+agency_code,11,AfDB Middle Income Country Fund,913,,Unknown
+agency_code,12,AfDB Special Relief Fund,913,,Core & earmarked (blended)
+agency_code,14,AfDB NEPAD/IPPF,913,,Unknown
+agency_code,15,AfDB African Water Facility Fund,913,,Core & earmarked (blended)
+agency_code,16,Fund for African Private Sector Assistance,913,,Core & earmarked (blended)
+agency_code,20,Rural Water Supply & Sanitation,913,,Voluntary non-core funding - developmental
+agency_code,21,Zimbabwe Multi Donor Trust Fund,913,,Voluntary non-core funding - developmental
+agency_code,22,Africa Digital Financial Inclusion Facility,913,ADFI,Voluntary non-core funding - developmental
+agency_code,23,The Sustainable Energy Fund for Africa,913,SEFA,Voluntary non-core funding - developmental
+agency_code,24,Canada AfDB Climate Fund,913,,Voluntary non-core funding - developmental
+agency_code,25,Clean Technology Fund,913,CTF,Voluntary non-core funding - developmental
+agency_code,26,Strategic Climat Fund,913,SCF,Voluntary non-core funding - developmental
+agency_code,27,Global Environment Facility,913,GEF,GEF
+agency_code,1,AfDF,914,AfDF,Unknown
+agency_code,2,NTF,914,NTF,Unknown
+agency_code,13,AfDB Fragile States Facility,914,,Core & earmarked (blended)
+agency_code,1,Asian Development Bank,915,AsDB,Unknown
+agency_code,2,Asia Pacific Disaster Response Fund,915,APDRF,Core & earmarked (blended)
+agency_code,3,Climate Change Fund,915,CCF,Core & earmarked (blended)
+agency_code,4,Pakistan Earthquake Fund,915,PEF,Unknown
+agency_code,5,Japan Special Fund,915,JSF,Core & earmarked (blended)
+agency_code,6,Japan Fund for Prosperous and Resilient Asia and the Pacific,915,,Voluntary non-core funding - developmental
+agency_code,11,Technical Assistance Special Fund (TASF),915,TASF,Core & earmarked (blended)
+agency_code,12,Regional Cooperation and Integration Fund (RCIF),915,RCIF,Core & earmarked (blended)
+agency_code,13,Financial Sector Development Partnership Special Fund,915,FSDPSF,Core & earmarked (blended)
+agency_code,14,Clean Technology Fund,915,CTF,Voluntary non-core funding - developmental
+agency_code,15,Strategic Climate Fund,915,SCF,Voluntary non-core funding - developmental
+agency_code,16,Strategic Climate Fund - Forest Investment Program,915,SCF-FIP,Voluntary non-core funding - developmental
+agency_code,17,Strategic Climate Fund - Scaling Up Renewable Energy in LICs Program,915,SCF-SURELICP,Voluntary non-core funding - developmental
+agency_code,19,ASEAN Infrastructure Fund,915,AIF,Voluntary non-core funding - developmental
+agency_code,20,Canadian Climate Fund For The Private Sector In Asia,915,CCF-PSA,Voluntary non-core funding - developmental
+agency_code,21,Canadian Climate Fund For The Private Sector In Asia II,915,CCF-PSAII,Voluntary non-core funding - developmental
+agency_code,22,Global Environment Facility,915,GEF,GEF
+agency_code,23,Green Climate Fund,915,GCF,Voluntary non-core funding - developmental
+agency_code,24,Leading Asia's Private Sector Infrastructure Fund,915,LAPSIF,Voluntary non-core funding - developmental
+agency_code,25,Other non-core resources,915,,Voluntary non-core funding - developmental
+agency_code,30,Afghanistan Infrastructure Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,31,ASEAN Australia Smart Cities Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,32,Asia Pacific Project Preparation Facility,915,,Voluntary non-core funding - developmental
+agency_code,33,Asia-Pacific Climate Finance Fund,915,,Voluntary non-core funding - developmental
+agency_code,34,Asian Clean Energy Fund,915,,Voluntary non-core funding - developmental
+agency_code,35,Australian Technical Assistance Grant,915,,Voluntary non-core funding - developmental
+agency_code,36,Carbon Capture and Storage Fund,915,,Voluntary non-core funding - developmental
+agency_code,37,Cities Development Initiative for Asia,915,,Voluntary non-core funding - developmental
+agency_code,38,Clean Energy Fund,915,,Voluntary non-core funding - developmental
+agency_code,39,Cooperation Fund for Project Preparation in the Greater Mekong Subregion and in Other Specific Asian Countries,915,,Voluntary non-core funding - developmental
+agency_code,40,Cooperation Fund in Support of Managing for Development Results,915,,Voluntary non-core funding - developmental
+agency_code,41,Gender and Development Cooperation Fund,915,,Voluntary non-core funding - developmental
+agency_code,42,Governance Cooperation Fund,915,,Voluntary non-core funding - developmental
+agency_code,43,High-Level Technology Fund,915,,Voluntary non-core funding - developmental
+agency_code,44,Integrated Disaster Risk Management Fund,915,,Voluntary non-core funding - developmental
+agency_code,45,Investment Climate Facilitation Fund,915,,Voluntary non-core funding - developmental
+agency_code,46,Ireland Trust Fund for Building Climate Change and Disaster Resilience in Small Island Developing States,915,,Voluntary non-core funding - developmental
+agency_code,47,Japan Fund for Information and Communication Technology,915,,Voluntary non-core funding - developmental
+agency_code,48,Japan Fund for the Joint Crediting Mechanism,915,,Voluntary non-core funding - developmental
+agency_code,49,Water Innovation Trust Fund under the Water Financing Partnership Facility,915,,Voluntary non-core funding - developmental
+agency_code,50,People's Republic of China (PRC) Poverty Reduction and Regional Cooperation Fund (formerly PRC Regional Cooperation and Poverty Reduction Fund) ,915,,Voluntary non-core funding - developmental
+agency_code,51,Project Readiness Improvement Trust Fund ,915,,Voluntary non-core funding - developmental
+agency_code,52,Republic of Korea e-Asia and Knowledge Partnership Fund,915,,Voluntary non-core funding - developmental
+agency_code,53,Sanitation Financing Partnership Trust Fund under the Water Financing Partnership Facility,915,,Voluntary non-core funding - developmental
+agency_code,54,Urban Climate Change Resilience Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,55,Urban Environmental Infrastructure Fund,915,,Voluntary non-core funding - developmental
+agency_code,56,Pakistan Economic Corridors Programme,915,,Voluntary non-core funding - developmental
+agency_code,57,Global Agriculture and Food Security Program,915,,Voluntary non-core funding - developmental
+agency_code,58,Global Partnership for Education Fund,915,,Voluntary non-core funding - developmental
+agency_code,59,United Kingdom Fund for Asia Regional Trade and Connectivity,915,,Voluntary non-core funding - developmental
+agency_code,60,ADB Ventures Investment Fund 1,915,,Voluntary non-core funding - developmental
+agency_code,61,ADB Co-financed Assistance Fund,915,,Voluntary non-core funding - developmental
+agency_code,62,Climate Innovation and Development Fund,915,,Voluntary non-core funding - developmental
+agency_code,63,Women Entrepreneurs Finance Initiative,915,We-Fi,Voluntary non-core funding - developmental
+agency_code,64,Pandemic Prevention Response Fund,915,PPRF,Voluntary non-core funding - developmental
+agency_code,65,Norwegian Grant (Other Projects),915,,Voluntary non-core funding - developmental
+agency_code,66,Smart Energy Innovation Fund,915,SEIF,Voluntary non-core funding - developmental
+agency_code,67,United Kingdom-ASEAN Catalytic Green Finance Facility Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,68,ASEAN Infrastructure Fund - ASEAN Catalytic Green Finance Facility,915,,Voluntary non-core funding - developmental
+agency_code,69,Australian Climate Finance Partnership,915,,Voluntary non-core funding - developmental
+agency_code,70,Canadian Climate and Nature Fund for the Private Sector in Asia,915,,Voluntary non-core funding - developmental
+agency_code,71,Community Resilience Partnership Program Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,72,Domestic Resource Mobilization Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,73,Energy Transition Mechanism Partnership Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,74,European Union-ASEAN Catalytic Green Finance Facility Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,75,GEAPP Energy Access and Transition Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,76,GEF Least Developed Countries Fund ,915,,GEF
+agency_code,77,GEF Special Climate Change Fund ,915,,GEF
+agency_code,78,Green Climate Fund for the ASEAN Catalytic Green Finance Facility - Green Recovery Program,915,,Voluntary non-core funding - developmental
+agency_code,79,Green Climate Fund for the Community Resilience Partnership Program Investment Fund,915,,Voluntary non-core funding - developmental
+agency_code,80,Leading Asia's Private Infrastructure Fund 2,915,,Voluntary non-core funding - developmental
+agency_code,81,Nonsovereign Revolving Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,82,Ocean Resilience and Coastal Adaptation Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,83,Project Preparation and Implementation Support Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,84,Spanish Cooperation Fund for Technical Assistance,915,,Voluntary non-core funding - developmental
+agency_code,85,Water Resilience Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,86,Urban Resilience Trust Fund,915,,Voluntary non-core funding - developmental
+agency_code,1,European Commission,918,EC,Main Aid Agencies (in terms of budget)
+agency_code,2,European Development Fund,918,EDF,Main Aid Agencies (in terms of budget)
+agency_code,3,European Investment Bank,918,EIB,Other Extending Aid Agencies
+agency_code,4,Humanitarian Aid Office of the European Commission,918,ECHO,Other Extending Aid Agencies
+agency_code,5,Macro-Financial Assistance,918,MFA,Other Extending Aid Agencies
+agency_code,99,Miscellaneous,918,MISC,Other Extending Aid Agencies
+agency_code,1,Arab Fund ,921,AFESD,Unknown
+agency_code,1,UNPBF,923,UNPBF,Unknown
+agency_code,1,Council of Europe (CoE),926,CoE,Unknown
+agency_code,1,WHO,928,WHO,Unknown
+agency_code,2,WHO Assessed contributions,928,AC,Main Aid Agencies (in terms of budget)
+agency_code,3,WHO Core Voluntary contributions,928,CVCA,Main Aid Agencies (in terms of budget)
+agency_code,4,In-kind contributions,928,,Voluntary non-core funding - developmental
+agency_code,5,Voluntary contributions,928,,Voluntary non-core funding - developmental
+agency_code,6,WHO - regional and global (non-developmental),928,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,7,WHO Assessed contributions - regional and global (non-developmental),928,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,8,WHO Core Voluntary contributions - regional and global (non-developmental),928,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,9,In-kind contributions - regional and global (non-developmental),928,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,10,Voluntary contributions - regional and global (non-developmental),928,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,11,WHO Framework Convention on Tobacco Control,928,FCTC,Voluntary non-core funding - developmental
+agency_code,12,WHO Framework Convention on Tobacco Control – non-developmental,928,FCTC – ND,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,13,European Observatory of Health Systems,928,EOHS,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,14,"Partnership for Maternal, Newborn & Child Health",928,PMNCH,Voluntary non-core funding - developmental
+agency_code,15,Alliance for Health Policy and Systems Research,928,AHPSR,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,16,Expanded Special Project for Elimination of Neglected Tropical Disease,928,ESPEN,Voluntary non-core funding - developmental
+agency_code,1,Core resources - developmental,932,,Main aid agency & global
+agency_code,2,Voluntary earmarked contributions – developmental,932,,Voluntary non-core funding - developmental
+agency_code,3,Core resources - global and TOSSD-only activities,932,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,Voluntary earmarked contributions - global and TOSSD-only activities,932,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,5,Global Environment Facility,932,GEF,GEF
+agency_code,1,Regular Budget,940,RB,Main Aid Agencies (in terms of budget)
+agency_code,2,Regular Budget Technical Cooperation,940,RBTC,Main Aid Agencies (in terms of budget)
+agency_code,3,Regular Budget Supplementary Account,940,RBSA,Main Aid Agencies (in terms of budget)
+agency_code,4,Voluntary non-core funding - developmental,940,,Voluntary non-core funding - developmental
+agency_code,5,Regular Budget - regional and global (non-developmental part),940,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,6,Regular Budget Technical Cooperation - regional and global (non-developmental part),940,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,7,Voluntary non-core funding – regional and global (non developmental part),940,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,IAEA,944,,Main Aid Agencies (in terms of budget)
+agency_code,1,UNECE,948,UNECE,Unknown
+agency_code,2,Voluntary non-core,948,,Voluntary non-core funding - developmental
+agency_code,1,OPEC Fund,951,OPEC Fund,Unknown
+agency_code,1,Arab Bank for Economic Development in Africa,953,BADEA,Unknown
+agency_code,1,IMF concessional,958,,Unknown
+agency_code,1,UNDP,959,UNDP,Unknown
+agency_code,2,Voluntary non-core funding,959,,Voluntary non-core funding - developmental
+agency_code,3,UNDP- Global and regional activities,959,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,Global Environment Facility,959,GEF,GEF
+agency_code,1,Voluntary earmarked resources,962,,Voluntary non-core funding - developmental
+agency_code,2,United Nations Conference on Trade and Development - Regular budget,962,UNCTAD,Unknown
+agency_code,1,UNICEF,963,UNICEF,Main Aid Agencies (in terms of budget)
+agency_code,2,Voluntary non-core funding,963,,Voluntary non-core funding - developmental
+agency_code,1,UNRWA,964,UNRWA,Unknown
+agency_code,2,Voluntary non-core funding,964,,Voluntary non-core funding - developmental
+agency_code,1,WFP,966,WFP,Unknown
+agency_code,2,Voluntary non-core funding,966,,Voluntary non-core funding - developmental
+agency_code,1,United Nations High Commissioner for Refugees,967,UNHCR,Unknown
+agency_code,2,Voluntary non-core funding,967,,Voluntary non-core funding - developmental
+agency_code,1,UNAIDS,971,UNAIDS,Unknown
+agency_code,2,Voluntary non-core funding,971,,Voluntary non-core funding - developmental
+agency_code,3,Core resources  - global and TOSSD only,971,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,Voluntary non-core funding - global and TOSSD-only,971,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,UNFPA,974,UNFPA,Unknown
+agency_code,2,Voluntary non-core funding,974,,Voluntary non-core funding - developmental
+agency_code,3,Core resources  - global and TOSSD only recipients,974,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,Voluntary non-core funding - global and TOSSD-only recipients,974,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,Ordinary Capital Resources,976,OCR,Main Aid Agencies (in terms of budget)
+agency_code,2,Awqaf Properties Investment Fund,976,APIF,Other Extending Aid Agencies
+agency_code,3,Islamic Corporation for the Development of the Private Sector,976,ICD,Other Extending Aid Agencies
+agency_code,4,Islamic solidarity fund for Development,976,ISFD,Other Extending Aid Agencies
+agency_code,5,International Islamic Trade Finance Corporation,976,ITFC,Other Extending Aid Agencies
+agency_code,6,Special Assistance,976,,Other Extending Aid Agencies
+agency_code,7,IsDB Group Science Technology and Innovation,976,STI,Other Extending Aid Agencies
+agency_code,8,Trust Fund,976,,Other Extending Aid Agencies
+agency_code,9,WAQF,976,WAQF,Other Extending Aid Agencies
+agency_code,1,Organisation for Security and Co-operation in Europe,978,OSCE,Main Aid Agencies (in terms of budget)
+agency_code,1,BSTDB Ordinary capital,981,BSTDB,Unknown
+agency_code,1,IFAD,988,IFAD,Unknown
+agency_code,2,China-IFAD South-South and Triangular Cooperation Facility,988,,Voluntary non-core funding - developmental
+agency_code,3,Enhanced Adaptation for Smallholder Agriculture Programme (ASAP+),988,ASAP+,Voluntary non-core funding - developmental
+agency_code,1,EBRD,990,EBRD,Unknown
+agency_code,2,Global Environment Facility,990,GEF,GEF
+agency_code,1,FTI,997,FTI,Unknown
+agency_code,10,Clean Technology Fund,1011,CTF,Unknown
+agency_code,20,Strategic Climate Fund,1011,SCF,Unknown
+agency_code,21,Strategic Climate Fund - FIP,1011,SCF - FIP,Unknown
+agency_code,22,Strategic Climate Fund - PPCR,1011,SCF - PPCR,Unknown
+agency_code,23,Strategic Climate Fund - SREP,1011,SCF - SREP,Unknown
+agency_code,1,Adaptation Fund,1012,,Unknown
+agency_code,1,Council of Europe Development Bank (CEB),1013,,Unknown
+agency_code,2,Migrant and Refugee Fund,1013,,Unknown
+agency_code,3,Social Impact Account,1013,,Unknown
+agency_code,4,Migrant and Refugee Fund,1013,,Voluntary non-core funding - developmental
+agency_code,5,Regional Housing Programme,1013,,Voluntary non-core funding - developmental
+agency_code,6,Regional Housing Programme EU,1013,,Voluntary non-core funding - developmental
+agency_code,7,Western Balkans Investment Framework,1013,,Voluntary non-core funding - developmental
+agency_code,8,Italian Fund for Innovative Projects,1013,,Voluntary non-core funding - developmental
+agency_code,9,Spanish Social Cohesion Account ,1013,,Voluntary non-core funding - developmental
+agency_code,10,EU Facility for Refugees in Turkey,1013,,Voluntary non-core funding - developmental
+agency_code,11,Regional Housing Programme USA,1013,,Voluntary non-core funding - developmental
+agency_code,12,Slovak Inclusive Growth Account,1013,,Voluntary non-core funding - developmental
+agency_code,13,Eastern Europe Energy Efficiency and Environmental Partnership,1013,,Voluntary non-core funding - developmental
+agency_code,14,Strengthening Healthcare Infrastructure for All (SHIFA),1013,,Voluntary non-core funding - developmental
+agency_code,15,Ukraine Solidarity Fund,1013,,Voluntary non-core funding - developmental
+agency_code,1,Infrastructure Crisis Facility – Debt Pool,1014,ICF - DP,Main Aid Agencies (in terms of budget)
+agency_code,2,Emerging Africa Infrastructure Fund,1014,EAIF,Main Aid Agencies (in terms of budget)
+agency_code,3,GuarantCo,1014,,Main Aid Agencies (in terms of budget)
+agency_code,4,InfraCo Asia,1014,,Main Aid Agencies (in terms of budget)
+agency_code,5,InfraCo Africa,1014,,Main Aid Agencies (in terms of budget)
+agency_code,6,GAP,1014,,Main Aid Agencies (in terms of budget)
+agency_code,7,Technical Assistance Facility,1014,TAF,Main Aid Agencies (in terms of budget)
+agency_code,1,Development Bank of Latin America,1015,CAF,Unknown
+agency_code,1,Green Climate Fund,1016,GCF,Unknown
+agency_code,2,Private Sector Facility,1016,GCF,Unknown
+agency_code,3,Division of Mitigation and Adaptation,1016,GCF,Unknown
+agency_code,1,Credit Guarantee and Investment Facility,1017,CGIF,Unknown
+agency_code,1,Global Energy Efficiency and Renewable Energy Fund,1018,GEEREF,Unknown
+agency_code,1,IDB Invest,1019,,Unknown
+agency_code,1,Rapid Response,1020,,Unknown
+agency_code,2,Under Funded,1020,,Unknown
+agency_code,1,MPTFO,1022,,Voluntary non-core funding - developmental
+agency_code,2,OCHA,1022,,Voluntary non-core funding - developmental
+agency_code,3,UNFPA,1022,,Voluntary non-core funding - developmental
+agency_code,4,UNICEF,1022,,Voluntary non-core funding - developmental
+agency_code,5,UNWOMEN,1022,,Voluntary non-core funding - developmental
+agency_code,6,ILO,1022,,Voluntary non-core funding - developmental
+agency_code,7,UNOPS,1022,,Voluntary non-core funding - developmental
+agency_code,8,WFP,1022,,Voluntary non-core funding - developmental
+agency_code,9,FAO,1022,,Voluntary non-core funding - developmental
+agency_code,10,IOM,1022,,Voluntary non-core funding - developmental
+agency_code,1,UNWTO-Regular Budget,1023,UNWTO-RB,Unknown
+agency_code,2,UNWTO-Extra-Budgetary Project,1023,UNWTO-XBP,Voluntary non-core funding - developmental
+agency_code,3,UNWTO-Extra-Budgetary Project In-Kind,1023,UNWTO-XBPI,Voluntary non-core funding - developmental
+agency_code,4,Voluntary non-core funding,1023,,Voluntary non-core funding - developmental
+agency_code,1,Asian Infrastructure Investment Bank,1024,AIIB,Unknown
+agency_code,2,Internal Special Funds,1024,,Unknown
+agency_code,3,External Special Funds,1024,,Voluntary non-core funding - developmental
+agency_code,1,Center of Excellence in Finance,1025,CEF,Unknown
+agency_code,1,SESRIC,1026,,Unknown
+agency_code,1,UN Secretariat,1036,,Unknown
+agency_code,1,International Investment Bank,1037,IIB,Main Aid Agencies (in terms of budget)
+agency_code,1,UNIDIR Trust Fund (core resources),1038,UNIDIR,Main Aid Agencies (in terms of budget)
+agency_code,2,UNIDIR Trust Fund (non-core resources),1038,,Voluntary non-core funding - developmental
+agency_code,3,UNIDIR Trust Fund (core resources) - non-developmental,1038,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,UNIDIR Trust Fund (non-core resources) - non-developmental,1038,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,Non-core resources,1039,,Voluntary non-core funding - developmental
+agency_code,2,UNCDF,1039,UNCDF,Main Aid Agencies (in terms of budget)
+agency_code,1,Voluntary non-core funding (developmental),1040,,Voluntary non-core funding - developmental
+agency_code,2,Voluntary non-core funding (non-developmental),1040,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,3,Regular budget (developmental),1040,,Main Aid Agencies (in terms of budget)
+agency_code,4,Regular budget (TOSSD only),1040,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,Eurasian Fund for Stabilization and Development,1041,EFSD,Unknown
+agency_code,1,Voluntary contributions (earmarked funding) – developmental,1042,,Voluntary non-core funding - developmental
+agency_code,2,Voluntary contributions (earmarked and unearmarked) – non-developmental,1042,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,Core resources,1043,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,2,Non-core resources - developmental,1043,,Voluntary non-core funding - developmental
+agency_code,3,Non-core resources - other,1043,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,New Development Bank,1044,NDB,Main Aid Agencies (in terms of budget)
+agency_code,2,Projection Preparation Fund,1044,,Voluntary non-core funding - developmental
+agency_code,1,North American Development Bank,1045,NADB,Main Aid Agencies (in terms of budget)
+agency_code,2,Community Assistance Program,1045,CAP,Main Aid Agencies (in terms of budget)
+agency_code,3,Border Environment Infrastructure Fund,1045,BEIF,Voluntary non-core funding - developmental
+agency_code,1,UN Women,1046,UN Women,Unknown
+agency_code,2,Voluntary non-core,1046,,Voluntary non-core funding - developmental
+agency_code,3,Single-agency thematic funds,1046,,Voluntary non-core funding - developmental
+agency_code,4,Voluntary core – global and TOSSD-only recipients,1046,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,5,Voluntary Non-Core – global and TOSSD-only recipients,1046,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,6,Single-agency thematic funds - global and TOSSD-only recipients,1046,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,COVID-19 Response and Recovery Multi-Partner Trust Fund,1047,UN COVID-1,Unknown
+agency_code,2,TOSSD-only recipients,1047,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,Joint Sustainable Development Goals Fund,1048,Joint SDG ,Unknown
+agency_code,2,TOSSD-only recipients,1048,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,ICMP core resources,1049,ICMP,Unknown
+agency_code,2,ICMP Non-core resources,1049,,Voluntary non-core funding - developmental
+agency_code,1,SPRP–Developmental,1050,SPRP,Main Aid Agencies (in terms of budget)
+agency_code,2,"SPRP Developmental, earmarked resources",1050,,Voluntary non-core funding - developmental
+agency_code,3,SPRP - Developmental TOSSD recipients only,1050,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,SPRP – Global and regional activities,1050,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,United Nations Office for Disarmament Affairs ,1051,,Unknown
+agency_code,1,"ICGEB Core, developmental",1052,ICGEB,Main Aid Agencies (in terms of budget)
+agency_code,2,"ICGEB Core, global activities",1052,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,AFoCO core resources,1053,AFoCO,Unknown
+agency_code,2,AFoCO non-core resources,1053,,Voluntary non-core funding - developmental
+agency_code,1,Statutory contribution (General budget) - Developmental,1054,,Main Aid Agencies (in terms of budget)
+agency_code,2,Statutory contribution and voluntary contributions from host country (WOAH Regional Representations) - Developmental,1054,,Main Aid Agencies (in terms of budget)
+agency_code,3,World Animal Health and Welfare Fund (World Fund),1054,,Voluntary non-core funding - developmental
+agency_code,4,Statutory contribution (General Budget) – Global,1054,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,5,Statutory contribution and voluntary contribution from WOAH Regional Representations – Global,1054,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,CGIAR,1055,,Unknown
+agency_code,1,Executive Secretariat for Integral Development,1056,OAS/SEDI,Unknown
+agency_code,2,Directorate of Human Development Education and Employment,1056,OAS/DHDEE,Unknown
+agency_code,3,Directorate of Economic Development,1056,OAS/DED,Unknown
+agency_code,4,Directorate of Sustainable Development,1056,OAS/DSD,Unknown
+agency_code,5,Inter-American Committee on Ports,1056,CIP,Unknown
+agency_code,6,Secretariat for Strengthening of Democracy,1056,SSM,Unknown
+agency_code,7,Secretariat for Hemispheric Affairs,1056,SHA,Unknown
+agency_code,1,UNDCO core resources,1057,,Unknown
+agency_code,2,Non-core resources - TOSSD only,1057,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,IMF Resilience and Sustainability Trust,1058,,Unknown
+agency_code,1,Arab Monetary Fund,1059,,Unknown
+agency_code,1,GAVI,1311,GAVI,Main Aid Agencies (in terms of budget)
+agency_code,2,International Finance Facility for Immunisation ,1311,IFFIm,Main Aid Agencies (in terms of budget)
+agency_code,3,"COVAX, non-core",1311,,Voluntary non-core funding - developmental
+agency_code,4,non-core (other than COVAX),1311,,Voluntary non-core funding - developmental
+agency_code,1,Global Fund,1312,Global Fund,Unknown
+agency_code,1,Green Growth Planning and Implementation,1313,GGPI,Unknown
+agency_code,2,Investment and Policy Solutions Division,1313,IPSD,Unknown
+agency_code,3,Thought Leadership,1313,TL,Unknown
+agency_code,4,Green Investment Services,1313,GIS,Unknown
+agency_code,5,Green Growth Planning and Implementation,1313,,Voluntary non-core funding - developmental
+agency_code,6,Investment and Policy Solutions Division,1313,,Voluntary non-core funding - developmental
+agency_code,1,International Trade Centre - Regular budget,1401,ITC,Unknown
+agency_code,2,Voluntary non-core funding,1401,,Voluntary non-core funding - developmental
+agency_code,3,VC unearmarked ,1401,,Unknown
+agency_code,4,"Voluntary non-core funding, TOSSD-only activities",1401,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,5,"VC unearmarked, TOSSD-only activities",1401,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,ESCWA - United Nations Economic and Social Commission for Western Asia,1403,ESCWA,Unknown
+agency_code,2,UNESCWA extra-budgetary non-core funding – developmental,1403,,Voluntary non-core funding - developmental
+agency_code,3,UNESCWA extra-budgetary non-core funding – non-developmental,1403,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,1,WTO - World Trade Organization,1404,WTO,Unknown
+agency_code,2,WTO – non-core resources,1404,,Voluntary non-core funding - developmental
+agency_code,3,WTO – TOSSD only recipient (core and non-core),1404,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,WTO Global Trust Fund,1404,,Main Aid Agencies (in terms of budget)
+agency_code,1,UNIDO,1406,UNIDO,Unknown
+agency_code,2,Extrabudgetary non-core resources,1406,,Voluntary non-core funding - developmental
+agency_code,3,Extrabudgetary non-core resources – global and TOSSD only,1406,,Core and non-core funding / global activities and TOSSD-only recipients
+agency_code,4,Global Environment Facility,1406,GEF,GEF
+agency_code,1,Bill & Melinda Gates Foundation,1601,BMGF,Unknown
+agency_code,1,Dutch Postcode Lottery,1602,,Unknown
+agency_code,1,Swedish Postcode Lottery,1603,,Unknown
+agency_code,1,People's Postcode Lottery,1604,,Unknown
+agency_code,1,MetLife Foundation,1605,MetLife,Unknown
+agency_code,1,MasterCard Foundation,1606,,Unknown
+agency_code,1,IKEA Foundation,1608,,Unknown
+agency_code,1,Bernard van Leer Foundation,1609,,Unknown
+agency_code,1,MAVA Foundation,1610,,Unknown
+agency_code,1,Oak Foundation,1611,,Unknown
+agency_code,1,H&M Foundation,1612,,Unknown
+agency_code,1,Laudes Foundation,1613,,Unknown
+agency_code,1,Charity Projects Ltd,1614,,Unknown
+agency_code,1,Children's Investment Fund Foundation,1615,CIFF,Unknown
+agency_code,1,Gatsby Charitable Foundation,1616,,Unknown
+agency_code,1,Conrad N. Hilton Foundation,1617,,Unknown
+agency_code,1,David & Lucile Packard Foundation,1618,,Unknown
+agency_code,1,John & Catherine MacArthur Foundation,1619,,Unknown
+agency_code,1,Carnegie Corporation of New York,1620,,Unknown
+agency_code,1,Michael & Susan Dell Foundation,1621,,Unknown
+agency_code,1,"Omidyar Network Fund, Inc.",1622,,Unknown
+agency_code,1,Rockefeller Foundation,1623,,Unknown
+agency_code,1,William & Flora Hewlett Foundation,1624,,Unknown
+agency_code,1,Arcus Foundation,1625,,Unknown
+agency_code,1,Gordon and Betty Moore Foundation,1626,,Unknown
+agency_code,1,Ford Foundation,1627,,Unknown
+agency_code,1,Wellcome Trust,1628,,Unknown
+agency_code,1,UBS Optimus Foundation,1629,,Unknown
+agency_code,1,World Diabetes Foundation,1630,,Unknown
+agency_code,1,McKnight Foundation,1631,,Unknown
+agency_code,1,Citi Foundation,1632,,Unknown
+agency_code,1,LEGO Foundation,1633,,Unknown
+agency_code,1,Norwegian Postcode Lottery,1634,,Unknown
+agency_code,1,Jacobs Foundation,1636,,Unknown
+agency_code,1,Arcadia Fund,1637,,Unknown
+agency_code,1,Margaret A. Cargill Foundation,1638,,Unknown
+agency_code,1,La Caixa Banking Foundation,1639,,Unknown
+agency_code,1,Bloomberg Family Foundation,1640,,Unknown
+agency_code,1,Susan T. Buffett Foundation,1641,,Unknown
+agency_code,1,Howard G. Buffett Foundation,1642,,Unknown
+agency_code,1,Open Society Foundations,1643,,Unknown
+agency_code,1,Botnar Foundation,1644,,Unknown
+agency_code,1,CHANEL Foundation,1645,,Unknown
+agency_code,1,Bezos Earth Fund,1646,,Unknown
+agency_code,1,German Postcode Lottery,1647,,Unknown
+agency_code,1,Leona M. and Harry B. Helmsley Charitable Trust,1648,,Unknown
+agency_code,1,Novo Nordisk Foundation,1649,,Unknown
+agency_code,1,Good Ventures Foundation,1650,,Unknown

@@ -1,0 +1,31 @@
+version: 2
+
+seeds:
+  - name: license_types
+    description: >
+      Licence types the platform's sources publish under that base Data Commons
+      does not define.
+    config:
+      column_types:
+        dcid: string
+        name: string
+        description: string
+        url: string
+    columns:
+      - name: dcid
+        description: DCID of the licence type node
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: Name of the licence
+        data_tests:
+          - not_null
+      - name: description
+        description: One-line description of the licence
+        data_tests:
+          - not_null
+      - name: url
+        description: URL of the licence terms
+        data_tests:
+          - not_null

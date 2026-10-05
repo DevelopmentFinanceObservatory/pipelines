@@ -1,0 +1,5 @@
+code,role,unit,measurement_qualifier,denominator_series_code,denominator_dcid
+CD,unit,dcid:CurrencyUSD,dcid:Nominal,,
+ZS,unit,dcid:Percent,,,
+DT,denominator,,,DT.DOD.DECT.CD,
+PC,denominator,,,,dcid:Count_Person
