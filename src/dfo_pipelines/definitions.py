@@ -3,7 +3,11 @@ from pathlib import Path
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 
-from dfo_pipelines.defs.resources import KnowledgeGraphResource, UPathFileStoreResource
+from dfo_pipelines.defs.resources import (
+    KnowledgeGraphResource,
+    SkillsRepositoryResource,
+    UPathFileStoreResource,
+)
 
 
 @dg.definitions
@@ -22,6 +26,9 @@ def defs():
                     bucket_name=dg.EnvVar("DCP_BUCKET_NAME"),
                     prep_job_name=dg.EnvVar("DCP_PREP_JOB_NAME"),
                     workflow_name=dg.EnvVar("DCP_WORKFLOW_NAME"),
+                ),
+                "skills_repository": SkillsRepositoryResource(
+                    url=dg.EnvVar("DFO_SKILLS_REPOSITORY_URL"),
                 ),
             }
         ),

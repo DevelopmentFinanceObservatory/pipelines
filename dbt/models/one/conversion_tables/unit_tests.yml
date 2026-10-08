@@ -64,7 +64,7 @@ unit_tests:
           - {imf_area_code: DEU, iso4217_code: EUR}
       - input: ref('code_mapping')
         rows:
-          - {list: "dcid:Country", code: DEU, dcid: "dcid:country/DEU", property: imfAreaCode}
+          - {list: "dcid:Country", code: DEU, dcid: "dcid:country/DEU", property: imfEconomyCode}
           - {list: "dcid:CurrencyUnit", code: EUR, dcid: "dcid:CurrencyEUR", property: iso4217AlphaCode}
       - input: ref('currency_rate_reference')
         rows:
@@ -91,7 +91,7 @@ unit_tests:
           - {imf_area_code: KEN, iso4217_code: KES}
       - input: ref('code_mapping')
         rows:
-          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfEconomyCode}
           - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
     expect:
       rows:

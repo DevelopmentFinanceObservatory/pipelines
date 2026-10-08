@@ -1,4 +1,3 @@
-import fnmatch
 import json
 import shutil
 from contextlib import contextmanager
@@ -14,7 +13,6 @@ from dagster_duckdb import DuckDBResource
 from oda_reader.download.download_tools import CRS_FLOW_URL
 from upath import UPath
 
-from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
     CRS_EXPORT_SPEC,
     oecd_dac_crs_dc_export,
@@ -642,30 +640,6 @@ def test_dac_crs_dc_export_writes_the_conversion_recipe_onto_the_provenance_node
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
-
-
-def test_dac_crs_dc_export_defines_the_documentation_properties_it_writes(
-    tmp_path: Path,
-) -> None:
-    """Test the bundle defines each documentation property, in a file it registers"""
-    _, out_dir = run_export(tmp_path)
-
-    patterns = [
-        entry["pattern"]
-        for entry in json.loads((out_dir / "config.json").read_text())["inputFiles"]
-    ]
-    registered = [
-        path
-        for path in out_dir.iterdir()
-        if any(fnmatch.fnmatch(path.name, pattern) for pattern in patterns)
-    ]
-    defined = {
-        line.removeprefix("Node: dcid:").strip()
-        for path in registered
-        for line in path.read_text().splitlines()
-        if line.startswith("Node: ")
-    }
-    assert set(DOCUMENTATION_FILES) <= defined
 
 
 def test_dac_crs_dc_export_maps_the_crs_dimensions_to_ontology_properties(

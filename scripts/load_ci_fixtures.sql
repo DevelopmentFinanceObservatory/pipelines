@@ -46,3 +46,19 @@ CREATE OR REPLACE TABLE oecd_dac1.raw_dac1_metadata AS
     SELECT
         TIMESTAMPTZ '2026-09-15 09:14:22+00' AS downloaded_at,
         DATE '2026-07-07' AS source_release_date;
+
+CREATE SCHEMA IF NOT EXISTS oecd_dac2a;
+CREATE OR REPLACE TABLE oecd_dac2a.raw_dac2a AS
+    SELECT * FROM read_parquet('tests/oecd/dac2a/fixtures/raw_dac2a.parquet');
+CREATE OR REPLACE TABLE oecd_dac2a.raw_dac2a_metadata AS
+    SELECT
+        TIMESTAMPTZ '2026-09-17 09:14:22+00' AS downloaded_at,
+        DATE '2026-07-07' AS source_release_date;
+
+CREATE SCHEMA IF NOT EXISTS oecd_dac2b;
+CREATE OR REPLACE TABLE oecd_dac2b.raw_dac2b AS
+    SELECT * FROM read_parquet('tests/oecd/dac2b/fixtures/raw_dac2b.parquet');
+CREATE OR REPLACE TABLE oecd_dac2b.raw_dac2b_metadata AS
+    SELECT
+        TIMESTAMPTZ '2026-09-24 09:14:22+00' AS downloaded_at,
+        DATE '2026-07-07' AS source_release_date;

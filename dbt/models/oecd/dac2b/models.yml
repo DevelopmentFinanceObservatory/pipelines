@@ -1,0 +1,481 @@
+version: 2
+
+models:
+  - name: stg_dac2b
+    description: DAC2b amounts by recipient, donor, part, aid type, amount type and year.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac2b_row_per_recipient_donor_part_aid_type_amount_type_and_year
+          description: >
+            Fails if DAC2b publishes the same cell twice, which every model
+            downstream would otherwise count twice. The part is part of the
+            key, since a regional total can report both parts in one year.
+          arguments:
+            combination_of_columns:
+              - recipient_code
+              - donor_code
+              - part
+              - aid_type
+              - amount_type
+              - year
+    columns:
+      - name: recipient_code
+        data_type: string
+        description: DAC code of the recipient
+        data_tests:
+          - not_null
+      - name: donor_code
+        data_type: string
+        description: DAC code of the donor
+        data_tests:
+          - not_null
+      - name: part
+        data_type: string
+        description: >
+          Part of the DAC List the recipient was on that year: 1 for developing
+          countries, 2 for countries in transition
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["1", "2"]
+      - name: aid_type
+        data_type: string
+        description: DAC2b aid type code
+        data_tests:
+          - not_null
+      - name: amount_type
+        data_type: string
+        description: A for current US dollars, D for constant US dollars of the DAC base year
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["A", "D"]
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Amount as DAC2b reports it, in millions of US dollars
+        data_tests:
+          - not_null
+
+  - name: int_dac2b_resolved
+    description: >
+      DAC2b amounts to Part I recipients, with each recipient and donor
+      replaced by the DCID of its node. Flows to Part II recipients are not
+      yet published.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          name: every_staged_dac2b_row_is_resolved
+          description: Fails if a recipient or donor join drops or duplicates rows.
+          arguments:
+            compare_model: ref('stg_dac2b')
+            compare_row_condition: "part = '1'"
+    columns:
+      - name: recipient_code
+        data_type: string
+        description: DAC code of the recipient, kept to tell apart codes that resolve to one node
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: >
+          DCID of the recipient, a country, organisation, group of recipients or
+          spending not allocated to a country
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the donor, a country, organisation or group of donors
+        data_tests:
+          - not_null
+      - name: aid_type
+        data_type: string
+        description: DAC2b aid type code
+        data_tests:
+          - not_null
+      - name: amount_type
+        data_type: string
+        description: A or D, as in stg_dac2b
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Amount as DAC2b reports it, in millions of US dollars
+        data_tests:
+          - not_null
+
+  - name: int_dac2b_unified
+    description: >
+      DAC2b values the import publishes, in current US dollars, one row per
+      recipient, donor, aid type and year.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac2b_value_per_recipient_donor_aid_type_and_year
+          arguments:
+            combination_of_columns:
+              - recipient
+              - donor
+              - aid_type
+              - year
+    columns:
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the donor
+        data_tests:
+          - not_null
+      - name: aid_type
+        data_type: string
+        description: DAC2b aid type code
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Amount in millions of current US dollars
+        data_tests:
+          - not_null
+
+  - name: int_dac2b_mapped
+    description: DAC2b values with their StatVar, mapped onto the DC vocabulary.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          name: every_unified_dac2b_row_is_mapped
+          description: Fails if a mapping join drops or duplicates rows.
+          arguments:
+            compare_model: ref('int_dac2b_unified')
+    columns:
+      - name: statvar_dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: Name of the StatVar
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: DCID of the population type
+      - name: measured_property
+        data_type: string
+        description: DCID of the measured property
+      - name: stat_type
+        data_type: string
+        description: DCID of the stat type
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID of the measurement qualifier
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited constraint properties the StatVar sets
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the financialFlowType constraint
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the nettingBasis constraint
+      - name: dac_type_of_finance
+        data_type: string
+        description: DCID of the dacTypeOfFinance constraint
+      - name: dac2b_aid_type
+        data_type: string
+        description: >
+          DCID of the dac2bAidType constraint, which a net total shares with
+          its gross total
+        data_tests:
+          - not_null
+      - name: aid_type
+        data_type: string
+        description: >
+          DAC2b aid type code the value was published under, which differs from
+          the dac2bAidType constraint for a net total
+        data_tests:
+          - not_null
+      - name: recipient
+        data_type: string
+        description: DCID of the recipient
+        data_tests:
+          - not_null
+      - name: donor
+        data_type: string
+        description: DCID of the donor
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the value refers to
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,6)
+        description: Amount in current US dollars rounded to cents
+        data_tests:
+          - not_null
+
+  - name: dc_dac2b_statvars
+    description: >
+      The StatVar nodes the import defines, one row per variable. Materialized
+      because it dedupes variables from the mapped values, and data tests would
+      each repeat that.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        data_type: string
+        description: DCID of the population measured
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: DCID of the property measured
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type, measuredValue throughout DAC2b
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID qualifying how the value is measured, nominal throughout
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+        data_tests:
+          - not_null
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type, a disbursement for every aid type
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis
+      - name: dac_type_of_finance
+        data_type: string
+        description: DCID of the type of finance, null for an aid type that mixes grants and non-grants
+      - name: dac2b_aid_type
+        data_type: string
+        description: DCID of the DAC2b aid type, which a net total shares with its gross total
+        data_tests:
+          - not_null
+      - name: observation_properties
+        data_type: string
+        description: >
+          Comma-delimited properties an observation carries rather than the
+          variable, so one variable covers every provider and recipient
+        data_tests:
+          - not_null
+
+  - name: dc_dac2b_observations
+    description: >
+      One row per observation, naming the StatVar it measures, the provider and
+      the recipient. Materialized because the export reads it once per year
+      partition.
+    config:
+      contract: {enforced: true}
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac2b_observation_per_variable_entities_and_date
+          description: >
+            Data Commons keys an observation on its variable, entities and date,
+            so a duplicate would be rejected on ingest.
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_dac2b_statvars')
+                field: dcid
+      - name: date
+        data_type: integer
+        description: Year the observation is reported against
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the recipient
+        data_tests:
+          - not_null
+      - name: unit
+        data_type: string
+        description: DCID of the unit, US dollars throughout
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,6)
+        description: Amount in US dollars
+        data_tests:
+          - not_null
+
+  - name: dc_dac2b_provenance
+    description: Provenance node for DAC2b data.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_dac2b_provenance_row
+          description: Fails if the metadata join fans out.
+          arguments:
+            value: 1
+    columns:
+      - name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: description
+        data_type: string
+        description: What DAC2b is and what it covers
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the OECD source node, which exists in Data Commons already
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the landing page for the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: URL of the source data file
+        data_tests:
+          - not_null
+      - name: license
+        data_type: string
+        description: URL of the terms the source data is published under
+        data_tests:
+          - not_null
+      - name: license_type
+        data_type: string
+        description: DCID of the licence type node the source data is published under
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('license_types')
+                field: dcid
+      - name: source_release_frequency
+        data_type: string
+        description: >
+          How often the source publishes, as an ISO 8601 duration. OECD
+          publishes four times a year at uneven gaps the single-unit duration
+          format cannot express, so this is their mean.
+          next_source_release_date carries the exact month.
+        data_tests:
+          - not_null
+      - name: last_data_refresh_date
+        data_type: string
+        description: >
+          Date the raw file was downloaded, as an ISO 8601 date in UTC, read
+          from the extraction metadata.
+        data_tests:
+          - not_null
+      - name: next_source_release_date
+        data_type: string
+        description: >
+          Month of the next expected release, as YYYY-MM: the first of April,
+          June, September or December after the release held. Falls into the
+          past while a release is overdue.
+        data_tests:
+          - not_null
+      - name: next_data_refresh_date
+        data_type: string
+        description: When the data is next expected to be refreshed, as ISO 8601 year and month
+        data_tests:
+          - not_null
+      - name: earliest_observation_date
+        data_type: string
+        description: Earliest year the observations cover, read from them, as an ISO 8601 year
+        data_tests:
+          - not_null
+      - name: latest_observation_date
+        data_type: string
+        description: Latest year the observations cover, read from them, as an ISO 8601 year
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation the OECD terms require, naming the release the data came
+          from and the date it was taken.
+        data_tests:
+          - not_null
