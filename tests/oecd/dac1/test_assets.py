@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
-import httpx
 import pytest
 import requests
 from dagster_duckdb import DuckDBResource
@@ -16,7 +15,6 @@ from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac1.assets import (
     OECD_DAC1_EXPORT_SPEC,
-    fetch_dac1_release_date,
     oecd_dac1_dc_export,
     oecd_dac1_dc_ingestion,
     oecd_dac1_raw_file,
@@ -76,54 +74,12 @@ def patch_release_lookup():
             return_value=(DAC1_TEST_URL, "0x8DEDC2882EAC20B"),
         ),
         patch(
-            "dfo_pipelines.defs.oecd.dac1.assets.fetch_dac1_release_date",
+            "dfo_pipelines.defs.oecd.dac1.assets.fetch_bulk_file_release_date",
             autospec=True,
             return_value=SOURCE_RELEASE_DATE,
         ) as release_lookup,
     ):
         yield release_lookup
-
-
-def _release_date_response(headers: dict[str, str], status_code: int = 206):
-    """Patch the ranged GET the release date lookup makes"""
-    return patch(
-        "dfo_pipelines.defs.oecd.dac1.assets.httpx.get",
-        autospec=True,
-        return_value=httpx.Response(
-            status_code,
-            headers=headers,
-            request=httpx.Request("GET", DAC1_TEST_URL),
-        ),
-    )
-
-
-def test_fetch_dac1_release_date_reads_the_last_modified_date() -> None:
-    """Test the release date is the bulk file's Last-Modified date, read by a ranged GET"""
-    with _release_date_response(
-        {"Last-Modified": "Tue, 07 Jul 2026 13:06:08 GMT"}
-    ) as get:
-        assert fetch_dac1_release_date(DAC1_TEST_URL) == SOURCE_RELEASE_DATE
-
-    assert get.call_args.args == (DAC1_TEST_URL,)
-    assert get.call_args.kwargs["headers"]["Range"] == "bytes=0-0"
-
-
-def test_fetch_dac1_release_date_raises_without_last_modified() -> None:
-    """Test a response with no Last-Modified header raises rather than guessing"""
-    with (
-        _release_date_response({}),
-        pytest.raises(ValueError, match="no Last-Modified header"),
-    ):
-        fetch_dac1_release_date(DAC1_TEST_URL)
-
-
-def test_fetch_dac1_release_date_raises_on_http_error() -> None:
-    """Test a refused request surfaces rather than recording a date"""
-    with (
-        _release_date_response({}, status_code=403),
-        pytest.raises(httpx.HTTPStatusError),
-    ):
-        fetch_dac1_release_date(DAC1_TEST_URL)
 
 
 def test_dac1_source_observe_fn_returns_metadata_and_data_version() -> None:
@@ -219,7 +175,7 @@ class _DAC1Automation(AutomationHarness):
         )
         self._stack.enter_context(
             patch(
-                "dfo_pipelines.defs.oecd.dac1.assets.fetch_dac1_release_date",
+                "dfo_pipelines.defs.oecd.dac1.assets.fetch_bulk_file_release_date",
                 autospec=True,
                 return_value=SOURCE_RELEASE_DATE,
             )

@@ -3,21 +3,23 @@ import socket
 import subprocess
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import dagster as dg
 import pytest
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.dfo.ontology.assets import ONTOLOGY_MCF
 from dfo_pipelines.defs.dfo.skills.assets import (
     IMPORT_NAME,
     MAX_FILE_BYTES,
     MAX_PATH_CHARACTERS,
     MAX_REFERENCES,
-    SKILLS_BRANCH,
     dfo_skills_dc_export,
     dfo_skills_dc_ingestion,
     dfo_skills_raw_directory,
@@ -26,11 +28,16 @@ from dfo_pipelines.defs.dfo.skills.assets import (
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
+    SkillsRepositoryResource,
     UPathFileStoreResource,
 )
 from tests.helpers import AutomationHarness, meta
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+REPOSITORY_URL = "https://github.com/example-org/example-skills"
+# The repository the export fixtures' links were written for.
+SKILLS_REPOSITORY = SkillsRepositoryResource(url=REPOSITORY_URL)
 
 
 def git(repository: Path, *args: str) -> str:
@@ -44,17 +51,30 @@ def git(repository: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-def commit(repository: Path, files: dict[str, str]) -> str:
-    """Replace the repository's `skills/` with the given files and commit it"""
-    git(repository, "rm", "-rq", "--ignore-unmatch", "skills")
-    for name, text in files.items():
-        path = repository / "skills" / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text)
+def commit(
+    repository: Path, files: dict[str, str], *, internal: dict[str, str] | None = None
+) -> str:
+    """Replace the repository's skills with the given files and commit it
+
+    `files` go under `skills/` and `internal` under `internal/skills/`, which
+    the repository lacks when none are given.
+    """
+    git(repository, "rm", "-rq", "--ignore-unmatch", "skills", "internal")
+    roots = {"skills": files, "internal/skills": internal or {}}
+    for root, root_files in roots.items():
+        for name, text in root_files.items():
+            path = repository / root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
     git(repository, "add", "-A")
     git(repository, "commit", "-qm", "update skills")
     return git(repository, "rev-parse", "HEAD")
 
+
+INTERNAL_SKILLS = {
+    "dfo-faq/SKILL.md": "---\nname: dfo-faq\ndescription: test\n---\n",
+    "dfo-faq/attachments.yaml": "",
+}
 
 SKILLS = {
     "oda-concepts/SKILL.md": "---\nname: oda-concepts\ndescription: test\n---\n",
@@ -64,25 +84,31 @@ SKILLS = {
 }
 
 
+def redirect_repository(monkeypatch: pytest.MonkeyPatch, location: str) -> None:
+    """Have git fetch REPOSITORY_URL from another location, through its own config"""
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{location}.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", REPOSITORY_URL)
+
+
 @pytest.fixture
-def upstream(tmp_path: Path) -> Iterator[Path]:
-    """A local repository standing in for dfo-skills, cloned in its place"""
+def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A local repository that git fetches in place of the skills repository"""
     repository = tmp_path / "dfo-skills"
     repository.mkdir()
-    git(repository, "init", "-q", f"--initial-branch={SKILLS_BRANCH}")
+    git(repository, "init", "-q", "--initial-branch=main")
     commit(repository, SKILLS)
-    with patch(
-        "dfo_pipelines.defs.dfo.skills.assets.SKILLS_REPOSITORY_URL",
-        repository.as_uri(),
-    ):
-        yield repository
+    redirect_repository(monkeypatch, repository.as_uri())
+    return repository
 
 
 def materialize_raw_directory(tmp_path: Path) -> Any:
     """Run the raw directory asset against a file store under tmp_path"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     return dfo_skills_raw_directory(
-        context=dg.build_asset_context(), raw_file_store=file_store
+        context=dg.build_asset_context(),
+        raw_file_store=file_store,
+        skills_repository=SKILLS_REPOSITORY,
     )
 
 
@@ -95,13 +121,22 @@ def files_under(directory: Path) -> dict[str, str]:
     }
 
 
+def raw_files(
+    skills: dict[str, str], internal: dict[str, str] | None = None
+) -> dict[str, str]:
+    """The files a raw directory holds for a repository's two roots"""
+    return {f"skills/{name}": text for name, text in skills.items()} | {
+        f"internal/skills/{name}": text for name, text in (internal or {}).items()
+    }
+
+
 def test_raw_directory_copies_the_skills_at_the_head_of_main(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the published skills arrive unchanged, traced to their commit"""
     result = materialize_raw_directory(tmp_path)
 
-    assert files_under(Path(str(result.value))) == SKILLS
+    assert files_under(Path(str(result.value))) == raw_files(SKILLS)
     assert meta(result, "commit", dg.TextMetadataValue).value == git(
         upstream, "rev-parse", "HEAD"
     )
@@ -129,6 +164,7 @@ def test_raw_directory_check_fails_when_only_the_template_exists(
             "export_file_store": UPathFileStoreResource(
                 base_path=str(tmp_path / "processed")
             ),
+            "skills_repository": SKILLS_REPOSITORY,
         },
         raise_on_error=False,
     )
@@ -142,43 +178,38 @@ def test_raw_directory_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a rerun replaces the day's copy rather than adding to it"""
+    commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
     materialize_raw_directory(tmp_path)
     replaced = {"oda-channels/SKILL.md": "---\nname: oda-channels\n---\n"}
     commit(upstream, replaced)
 
     result = materialize_raw_directory(tmp_path)
 
-    assert files_under(Path(str(result.value))) == replaced
+    assert files_under(Path(str(result.value))) == raw_files(replaced)
 
 
 def test_raw_directory_keeps_the_previous_copy_when_the_clone_fails(
-    tmp_path: Path, upstream: Path
+    tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a failed fetch leaves the day's earlier copy in place"""
     published = Path(str(materialize_raw_directory(tmp_path).value))
 
-    with (
-        patch(
-            "dfo_pipelines.defs.dfo.skills.assets.SKILLS_REPOSITORY_URL",
-            (tmp_path / "missing").as_uri(),
-        ),
-        pytest.raises(RuntimeError, match="git clone failed"),
-    ):
+    redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
+    with pytest.raises(RuntimeError, match="git clone failed"):
         materialize_raw_directory(tmp_path)
 
-    assert files_under(published) == SKILLS
+    assert files_under(published) == raw_files(SKILLS)
 
 
-def test_raw_directory_fails_when_git_stalls(tmp_path: Path) -> None:
+def test_raw_directory_fails_when_git_stalls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test a remote that never responds fails the run rather than hanging it"""
     # Connections queue in the backlog but are never accepted or answered.
     with socket.create_server(("127.0.0.1", 0)) as server:
         host, port = server.getsockname()
+        redirect_repository(monkeypatch, f"http://{host}:{port}/dfo-skills")
         with (
-            patch(
-                "dfo_pipelines.defs.dfo.skills.assets.SKILLS_REPOSITORY_URL",
-                f"http://{host}:{port}/dfo-skills",
-            ),
             patch("dfo_pipelines.defs.dfo.skills.assets.GIT_TIMEOUT_SECONDS", 1),
             pytest.raises(RuntimeError, match="git clone timed out after 1 seconds"),
         ):
@@ -194,8 +225,19 @@ def test_raw_directory_fails_when_git_stalls(tmp_path: Path) -> None:
             "oda-concepts/references/leak.md",
         ),
         ("skills", ".", "skills/ as a symlink"),
+        ("internal", ".", "internal/ as a symlink"),
+        (
+            "internal/skills/dfo-faq/references/leak.md",
+            "SKILL.md",
+            "under internal/skills/: ['dfo-faq/references/leak.md']",
+        ),
     ],
-    ids=["file_under_skills", "skills_directory"],
+    ids=[
+        "file_under_skills",
+        "skills_directory",
+        "parent_of_the_internal_root",
+        "file_under_internal_skills",
+    ],
 )
 def test_raw_directory_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
@@ -206,6 +248,7 @@ def test_raw_directory_rejects_a_symlink_and_keeps_the_previous_copy(
     secret.mkdir()
     (secret / "SKILL.md").write_text("not for the graph")
     git(upstream, "rm", "-rq", "--ignore-unmatch", link)
+    (upstream / link).parent.mkdir(parents=True, exist_ok=True)
     (upstream / link).symlink_to(secret / target)
     git(upstream, "add", "-A")
     git(upstream, "commit", "-qm", "add a symlink")
@@ -213,36 +256,33 @@ def test_raw_directory_rejects_a_symlink_and_keeps_the_previous_copy(
     with pytest.raises(RuntimeError, match=re.escape(error)):
         materialize_raw_directory(tmp_path)
 
-    assert files_under(published) == SKILLS
+    assert files_under(published) == raw_files(SKILLS)
 
 
 class _SkillsAutomation(AutomationHarness):
     """Drives the skills assets against an ephemeral instance, as the daemon does
 
-    The local repository stands in for dfo-skills for as long as the context is
-    open, so committing to it is what moves the observed version.
+    The local repository stands in for the skills repository, so committing to
+    it is what moves the observed version.
     """
 
-    def __init__(self, tmp_path: Path, upstream: Path) -> None:
+    def __init__(self, tmp_path: Path) -> None:
         super().__init__(
-            tmp_path, source=dfo_skills_source, raw_assets=[dfo_skills_raw_directory]
+            tmp_path,
+            source=dfo_skills_source,
+            raw_assets=[dfo_skills_raw_directory],
+            resources={"skills_repository": SKILLS_REPOSITORY},
         )
-        self.upstream = upstream
 
     def _start_mocks(self) -> None:
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.dfo.skills.assets.SKILLS_REPOSITORY_URL",
-                self.upstream.as_uri(),
-            )
-        )
+        """The upstream fixture redirects git, so there is nothing to patch"""
 
 
 def test_source_is_requested_once_per_daily_cron_tick(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the source's condition requests one observation per UTC day"""
-    with _SkillsAutomation(tmp_path, upstream) as automation:
+    with _SkillsAutomation(tmp_path) as automation:
         # A baseline tick: every condition is reset on its initial evaluation,
         # so the first tick requests nothing whatever the time is.
         automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
@@ -256,7 +296,7 @@ def test_raw_directory_is_not_rerun_when_main_is_unchanged(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a repeat observation of the same commit requests no rerun"""
-    with _SkillsAutomation(tmp_path, upstream) as automation:
+    with _SkillsAutomation(tmp_path) as automation:
         automation.observe()
         automation.materialize(dfo_skills_raw_directory)
         # A baseline tick, not evidence: every condition is reset on its initial
@@ -272,7 +312,7 @@ def test_raw_directory_is_rerun_once_when_main_moves(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a new commit on main requests the raw directory, and only once"""
-    with _SkillsAutomation(tmp_path, upstream) as automation:
+    with _SkillsAutomation(tmp_path) as automation:
         automation.observe()
         automation.materialize(dfo_skills_raw_directory)
         automation.tick()  # baseline, as above
@@ -296,7 +336,8 @@ def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
     result = dfo_skills_dc_export(
         context=dg.build_asset_context(),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path)),
-        dfo_skills_raw_directory=str(FIXTURES / "skills"),
+        skills_repository=SKILLS_REPOSITORY,
+        dfo_skills_raw_directory=str(FIXTURES),
         dfo_ontology_raw_directory=str(FIXTURES / "ontology"),
     )
 
@@ -308,7 +349,7 @@ def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
 @dg.asset(name="dfo_skills_raw_directory")
 def _stub_skills_raw_directory() -> str:
     """Raw skills, standing in for a clone of dfo-skills"""
-    return str(FIXTURES / "skills")
+    return str(FIXTURES)
 
 
 def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
@@ -338,6 +379,7 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
                     base_path=str(tmp_path / "processed")
                 ),
                 "knowledge_graph": knowledge_graph,
+                "skills_repository": SKILLS_REPOSITORY,
             },
         )
 
@@ -387,23 +429,144 @@ def write_ontology(ontology_root: Path, dcids: Iterable[str] = ()) -> Path:
 
 def export_skills(
     tmp_path: Path,
-    skills_root: Path,
     ontology_root: Path | None = None,
+    *,
+    raw_directory: Path | None = None,
+    skills_repository: SkillsRepositoryResource = SKILLS_REPOSITORY,
 ) -> tuple[dg.MaterializeResult, Path]:
     """Run the export asset against a raw skills and ontology directory
 
-    The ontology defaults to an empty one.
+    The raw directory defaults to tmp_path, whose `skills/` and
+    `internal/skills/` are then the roots, and the ontology to an empty one.
     """
     if ontology_root is None:
         ontology_root = write_ontology(tmp_path / "ontology")
     result = dfo_skills_dc_export(
         context=dg.build_asset_context(),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
-        dfo_skills_raw_directory=str(skills_root),
+        skills_repository=skills_repository,
+        dfo_skills_raw_directory=str(raw_directory or tmp_path),
         dfo_ontology_raw_directory=str(ontology_root),
     )
     assert isinstance(result, dg.MaterializeResult)
     return result, Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+
+
+def test_raw_directory_and_export_carry_a_skill_from_each_root(
+    tmp_path: Path, upstream: Path
+) -> None:
+    """Test both roots reach the raw directory and each skill links to its own"""
+    commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
+
+    raw_result = materialize_raw_directory(tmp_path)
+
+    raw_directory = Path(str(raw_result.value))
+    assert files_under(raw_directory) == raw_files(SKILLS, INTERNAL_SKILLS)
+    assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 2
+
+    export_result, out_dir = export_skills(tmp_path, raw_directory=raw_directory)
+
+    assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 2
+    nodes = (out_dir / "custom_nodes.mcf").read_text()
+    assert f'url: "{REPOSITORY_URL}/tree/main/skills/oda-concepts"\n' in nodes
+    assert f'url: "{REPOSITORY_URL}/tree/main/internal/skills/dfo-faq"\n' in nodes
+
+
+def test_dc_export_rejects_a_name_in_both_roots(tmp_path: Path) -> None:
+    """Test two skills that would share a graph id fail before anything is written"""
+    write_skill(tmp_path / "skills", "example-skill")
+    write_skill(tmp_path / "internal/skills", "example-skill")
+    write_skill(tmp_path / "internal/skills", "other-skill")
+
+    with pytest.raises(RuntimeError, match=r"\['example-skill'\] are in more than one"):
+        export_skills(tmp_path)
+
+    assert not (tmp_path / "processed").exists()
+
+
+def test_dc_export_fails_when_the_internal_root_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a store error on the internal root is not read as having no such root
+
+    The root is patched to behave as a remote store's does when a request for
+    it fails: listing it raises, and asking whether it is a directory answers
+    False.
+    """
+    write_skill(tmp_path / "skills", "example-skill")
+    write_skill(tmp_path / "internal/skills", "other-skill")
+    internal_root = UPath(tmp_path) / "internal/skills"
+    path_class = type(internal_root)
+    is_dir, iterdir = path_class.is_dir, path_class.iterdir
+
+    def failing_is_dir(self: UPath, **kwargs: Any) -> bool:
+        return self != internal_root and is_dir(self, **kwargs)
+
+    def failing_iterdir(self: UPath) -> Iterator[UPath]:
+        if self == internal_root:
+            raise PermissionError(f"cannot list {self}")
+        return iterdir(self)
+
+    monkeypatch.setattr(path_class, "is_dir", failing_is_dir)
+    monkeypatch.setattr(path_class, "iterdir", failing_iterdir)
+
+    with pytest.raises(PermissionError, match="cannot list"):
+        export_skills(tmp_path)
+
+    assert not (tmp_path / "processed").exists()
+
+
+@pytest.mark.parametrize(
+    "unreadable",
+    ["internal/skills/other-skill", "skills/example-skill/references/note.md"],
+    ids=["skill-directory", "reference-file"],
+)
+def test_dc_export_fails_when_a_listed_entry_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unreadable: str
+) -> None:
+    """Test a store error on a listed entry does not drop it from the export
+
+    The entry is patched to behave as a remote store's does when a request for
+    its metadata fails: reading its metadata raises, and asking whether it is a
+    directory or a file answers False.
+    """
+    write_skill(tmp_path / "skills", "example-skill", {"note.md": "A note.\n"})
+    write_skill(tmp_path / "internal/skills", "other-skill")
+    entry = UPath(tmp_path) / unreadable
+    path_class = type(entry)
+    is_dir, is_file, stat = path_class.is_dir, path_class.is_file, path_class.stat
+
+    def failing_is_dir(self: UPath, **kwargs: Any) -> bool:
+        return self != entry and is_dir(self, **kwargs)
+
+    def failing_is_file(self: UPath, **kwargs: Any) -> bool:
+        return self != entry and is_file(self, **kwargs)
+
+    def failing_stat(self: UPath, **kwargs: Any) -> Any:
+        if self == entry:
+            raise PermissionError(f"cannot read {self}")
+        return stat(self, **kwargs)
+
+    monkeypatch.setattr(path_class, "is_dir", failing_is_dir)
+    monkeypatch.setattr(path_class, "is_file", failing_is_file)
+    monkeypatch.setattr(path_class, "stat", failing_stat)
+
+    with pytest.raises(PermissionError):
+        export_skills(tmp_path)
+
+    assert not (tmp_path / "processed").exists()
+
+
+def test_dc_export_rejects_a_raw_directory_without_a_skills_root(
+    tmp_path: Path,
+) -> None:
+    """Test a raw directory holding skills at its top level is not read as empty"""
+    write_skill(tmp_path, "example-skill")
+
+    with pytest.raises(RuntimeError, match="has no skills/ directory"):
+        export_skills(tmp_path)
+
+    assert not (tmp_path / "processed").exists()
 
 
 def test_raw_directory_and_export_skip_a_draft_with_only_a_readme(
@@ -415,7 +578,9 @@ def test_raw_directory_and_export_skip_a_draft_with_only_a_readme(
     raw_result = materialize_raw_directory(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(tmp_path, Path(str(raw_result.value)))
+    export_result, _ = export_skills(
+        tmp_path, raw_directory=Path(str(raw_result.value))
+    )
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -431,7 +596,9 @@ def test_raw_directory_and_export_skip_a_draft_with_a_skill_file(
     raw_result = materialize_raw_directory(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(tmp_path, Path(str(raw_result.value)))
+    export_result, _ = export_skills(
+        tmp_path, raw_directory=Path(str(raw_result.value))
+    )
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -440,7 +607,7 @@ def test_dc_export_exports_a_nested_reference(tmp_path: Path) -> None:
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", {"sub/a.md": "nested content\n"})
 
-    result, out_dir = export_skills(tmp_path, skills_root)
+    result, out_dir = export_skills(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert 'Node: dcid:skill/example-skill/sub/a\nname: "references/sub/a.md"' in nodes
@@ -455,7 +622,7 @@ def test_dc_export_disambiguates_references_sharing_a_stem(tmp_path: Path) -> No
         skills_root, "example-skill", {"a/x.md": "from a\n", "b/x.md": "from b\n"}
     )
 
-    result, out_dir = export_skills(tmp_path, skills_root)
+    result, out_dir = export_skills(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert "Node: dcid:skill/example-skill/a/x" in nodes
@@ -465,7 +632,6 @@ def test_dc_export_disambiguates_references_sharing_a_stem(tmp_path: Path) -> No
 
 def assert_export_fails(
     tmp_path: Path,
-    skills_root: Path,
     skill_name: str,
     file: str,
     problem: str = "",
@@ -476,24 +642,109 @@ def assert_export_fails(
     The export must write nothing.
     """
     with pytest.raises(RuntimeError) as error:
-        export_skills(tmp_path, skills_root, ontology_root)
+        export_skills(tmp_path, ontology_root)
 
     assert f"skill {skill_name}: {file}: {problem}" in str(error.value)
     assert not (tmp_path / "processed").exists()
 
 
-def test_dc_export_writes_the_skills_directory_url(tmp_path: Path) -> None:
-    """Test a skill node's url points at its directory on the skills branch"""
+def test_dc_export_links_to_the_configured_repository_and_branch(
+    tmp_path: Path,
+) -> None:
+    """Test the provenance and each skill link to the repository the resource names"""
+    skills_root = tmp_path / "skills"
+    write_skill(skills_root, "example-skill")
+    url = "https://github.com/another-org/skills"
+
+    _, out_dir = export_skills(
+        tmp_path,
+        skills_repository=SkillsRepositoryResource(url=url, branch="release"),
+    )
+
+    assert f'url: "{url}"\n' in (out_dir / "provenance.mcf").read_text()
+    assert (
+        f'url: "{url}/tree/release/skills/example-skill"\n'
+        in (out_dir / "custom_nodes.mcf").read_text()
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"{REPOSITORY_URL}/",
+        f"{REPOSITORY_URL}.git",
+        "git@github.com:example-org/example-skills",
+        "",
+        f"{REPOSITORY_URL} ",
+        "example-org/example-skills",
+        "--upload-pack=example",
+    ],
+    ids=[
+        "trailing_slash",
+        "dot_git",
+        "ssh",
+        "empty",
+        "trailing_space",
+        "owner_and_repository_only",
+        "git_option",
+    ],
+)
+def test_assets_refuse_a_url_that_is_not_a_github_repository_page(
+    tmp_path: Path, url: str
+) -> None:
+    """Test a URL that would publish broken skill links stops the export"""
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill")
 
-    _, out_dir = export_skills(tmp_path, skills_root)
+    with pytest.raises(dg.DagsterResourceFunctionError) as error:
+        export_skills(tmp_path, skills_repository=SkillsRepositoryResource(url=url))
 
-    nodes = (out_dir / "custom_nodes.mcf").read_text()
-    assert (
-        f'url: "https://github.com/ONEcampaign/dfo-skills/tree/{SKILLS_BRANCH}'
-        '/skills/example-skill"'
-    ) in nodes
+    assert isinstance(error.value.__cause__, ValueError)
+    assert repr(url) in str(error.value.__cause__)
+    assert not (tmp_path / "processed").exists()
+
+
+@cache
+def _project_skills_repository() -> object:
+    """The skills repository resource as the project's definitions wire it
+
+    Cached because loading the project's definitions takes several seconds.
+    """
+    project_resources = defs().resources
+    assert project_resources is not None
+    return project_resources["skills_repository"]
+
+
+def _observe_project_source() -> dg.ExecuteInProcessResult:
+    """Observe the skills source with the resource the project's definitions wire"""
+    project = dg.Definitions(
+        assets=[dfo_skills_source],
+        jobs=[dg.define_asset_job("observe", selection=[dfo_skills_source.key])],
+        resources={"skills_repository": _project_skills_repository()},
+    )
+    return project.resolve_job_def("observe").execute_in_process()
+
+
+def test_project_reads_the_repository_from_the_environment(
+    upstream: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test the deployment's variable decides which repository is observed"""
+    monkeypatch.setenv("DFO_SKILLS_REPOSITORY_URL", REPOSITORY_URL)
+
+    result = _observe_project_source()
+
+    [observation] = result.asset_observations_for_node("dfo_skills_source")
+    assert observation.metadata["commit"].value == git(upstream, "rev-parse", "HEAD")
+
+
+def test_project_fails_a_skills_run_at_launch_without_the_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test an unset variable fails the run before any step, naming the variable"""
+    monkeypatch.delenv("DFO_SKILLS_REPOSITORY_URL", raising=False)
+
+    with pytest.raises(dg.DagsterInvalidConfigError, match="DFO_SKILLS_REPOSITORY_URL"):
+        _observe_project_source()
 
 
 @pytest.mark.parametrize(
@@ -520,7 +771,7 @@ def test_dc_export_rejects_a_file_outside_the_bundle_layout(
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", files={path: "stray"})
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", path)
+    assert_export_fails(tmp_path, "example-skill", path)
 
 
 def test_dc_export_rejects_a_front_matter_name_that_differs_from_the_directory(
@@ -533,7 +784,7 @@ def test_dc_export_rejects_a_front_matter_name_that_differs_from_the_directory(
         "---\nname: other-skill\ndescription: test\n---\n"
     )
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "SKILL.md")
+    assert_export_fails(tmp_path, "example-skill", "SKILL.md")
 
 
 @pytest.mark.parametrize(
@@ -572,7 +823,7 @@ def test_dc_export_rejects_what_the_reader_would_drop(
     write_skill(skills_root, skill_name)
     (skills_root / skill_name / "SKILL.md").write_text(skill_file)
 
-    assert_export_fails(tmp_path, skills_root, skill_name, "SKILL.md")
+    assert_export_fails(tmp_path, skill_name, "SKILL.md")
 
 
 def test_dc_export_rejects_a_reserved_skill_id(tmp_path: Path) -> None:
@@ -580,9 +831,7 @@ def test_dc_export_rejects_a_reserved_skill_id(tmp_path: Path) -> None:
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "healthz")
 
-    assert_export_fails(
-        tmp_path, skills_root, "healthz", "SKILL.md", "directory name is a skill id"
-    )
+    assert_export_fails(tmp_path, "healthz", "SKILL.md", "directory name is a skill id")
 
 
 def test_dc_export_keeps_the_carriage_returns_of_a_crlf_skill_file(
@@ -595,7 +844,7 @@ def test_dc_export_keeps_the_carriage_returns_of_a_crlf_skill_file(
         b"---\r\nname: example-skill\r\ndescription: test\r\n---\r\nBody\r\n"
     )
 
-    _, out_dir = export_skills(tmp_path, skills_root)
+    _, out_dir = export_skills(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert "description: test\\r\\n---\\r\\nBody\\r\\n" in nodes
@@ -609,11 +858,11 @@ def test_dc_export_rejects_a_skill_file_over_the_size_limit(tmp_path: Path) -> N
     skill_file = skills_root / "example-skill" / "SKILL.md"
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter)))
 
-    export_skills(tmp_path / "at_limit", skills_root)
+    export_skills(tmp_path / "at_limit", raw_directory=tmp_path)
 
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter) + 1))
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "SKILL.md")
+    assert_export_fails(tmp_path, "example-skill", "SKILL.md")
 
 
 def test_dc_export_rejects_a_reference_over_the_size_limit(tmp_path: Path) -> None:
@@ -621,7 +870,7 @@ def test_dc_export_rejects_a_reference_over_the_size_limit(tmp_path: Path) -> No
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", {"big.md": "a" * (MAX_FILE_BYTES + 1)})
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "references/big.md")
+    assert_export_fails(tmp_path, "example-skill", "references/big.md")
 
 
 def test_dc_export_measures_the_size_limit_in_encoded_bytes(tmp_path: Path) -> None:
@@ -631,7 +880,7 @@ def test_dc_export_measures_the_size_limit_in_encoded_bytes(tmp_path: Path) -> N
         skills_root, "example-skill", {"wide.md": "\u00e9" * (MAX_FILE_BYTES // 2 + 1)}
     )
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "references/wide.md")
+    assert_export_fails(tmp_path, "example-skill", "references/wide.md")
 
 
 def test_dc_export_rejects_a_reference_that_is_not_utf8(tmp_path: Path) -> None:
@@ -640,7 +889,7 @@ def test_dc_export_rejects_a_reference_that_is_not_utf8(tmp_path: Path) -> None:
     write_skill(skills_root, "example-skill", {"latin.md": ""})
     (skills_root / "example-skill/references/latin.md").write_bytes(b"caf\xe9\n")
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "references/latin.md")
+    assert_export_fails(tmp_path, "example-skill", "references/latin.md")
 
 
 def test_dc_export_rejects_more_than_the_reference_limit(tmp_path: Path) -> None:
@@ -652,12 +901,12 @@ def test_dc_export_rejects_more_than_the_reference_limit(tmp_path: Path) -> None
         {f"ref-{i}.md": "content\n" for i in range(MAX_REFERENCES)},
     )
 
-    result, _ = export_skills(tmp_path / "at_limit", skills_root)
+    result, _ = export_skills(tmp_path / "at_limit", raw_directory=tmp_path)
     assert meta(result, "reference_count", dg.IntMetadataValue).value == MAX_REFERENCES
 
     (skills_root / "example-skill/references/extra.md").write_text("content\n")
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "references/")
+    assert_export_fails(tmp_path, "example-skill", "references/")
 
 
 def test_dc_export_rejects_a_path_over_the_length_limit(tmp_path: Path) -> None:
@@ -669,7 +918,7 @@ def test_dc_export_rejects_a_path_over_the_length_limit(tmp_path: Path) -> None:
     assert len(path) > MAX_PATH_CHARACTERS
     write_skill(skills_root, "example-skill", files={path: "content\n"})
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", path)
+    assert_export_fails(tmp_path, "example-skill", path)
 
 
 def test_dc_export_rejects_a_skill_directory_without_a_skill_file(
@@ -679,7 +928,7 @@ def test_dc_export_rejects_a_skill_directory_without_a_skill_file(
     skills_root = tmp_path / "skills"
     (skills_root / "example-skill").mkdir(parents=True)
 
-    assert_export_fails(tmp_path, skills_root, "example-skill", "SKILL.md")
+    assert_export_fails(tmp_path, "example-skill", "SKILL.md")
 
 
 @pytest.mark.parametrize(
@@ -695,7 +944,7 @@ def test_dc_export_rejects_an_invalid_reference_filename(
     write_skill(skills_root, "example-skill", {filename: "content\n"})
 
     with pytest.raises(RuntimeError, match=re.escape(filename)):
-        export_skills(tmp_path, skills_root)
+        export_skills(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -710,7 +959,7 @@ def test_dc_export_writes_no_attachment_properties_for_empty_lists(
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", files={"attachments.yaml": attachments})
 
-    _, out_dir = export_skills(tmp_path, skills_root)
+    _, out_dir = export_skills(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert "skillAppliesTo: " not in nodes
@@ -725,9 +974,7 @@ def test_dc_export_rejects_a_skill_without_an_attachments_file(
     write_skill(skills_root, "example-skill")
     (skills_root / "example-skill" / "attachments.yaml").unlink()
 
-    assert_export_fails(
-        tmp_path, skills_root, "example-skill", "attachments.yaml", "is missing"
-    )
+    assert_export_fails(tmp_path, "example-skill", "attachments.yaml", "is missing")
 
 
 @pytest.mark.parametrize(
@@ -796,9 +1043,7 @@ def test_dc_export_rejects_a_malformed_attachments_file(
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", files={"attachments.yaml": attachments})
 
-    assert_export_fails(
-        tmp_path, skills_root, "example-skill", "attachments.yaml", problem
-    )
+    assert_export_fails(tmp_path, "example-skill", "attachments.yaml", problem)
 
 
 def test_dc_export_rejects_an_applies_to_target_missing_from_the_ontology(
@@ -819,7 +1064,6 @@ def test_dc_export_rejects_an_applies_to_target_missing_from_the_ontology(
 
     assert_export_fails(
         tmp_path,
-        skills_root,
         "example-skill",
         "attachments.yaml",
         "'applies_to' names nodes missing from the compiled ontology: ['dcid:Missing']",
@@ -840,7 +1084,6 @@ def test_dc_export_rejects_a_source_naming_no_exports_provenance(
 
     assert_export_fails(
         tmp_path,
-        skills_root,
         "example-skill",
         "attachments.yaml",
         "'sources' names no export's provenance: ['dcid:provenance/NotAnExport']",
@@ -861,7 +1104,7 @@ def test_dc_export_attaches_a_skill_to_any_exports_provenance(
         files={"attachments.yaml": f"sources: [{spec.minted_provenance_dcid}]\n"},
     )
 
-    _, out_dir = export_skills(tmp_path, skills_root)
+    _, out_dir = export_skills(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert f"skillAppliesToProvenance: {spec.minted_provenance_dcid}\n" in nodes
@@ -880,7 +1123,6 @@ def test_dc_export_attaches_a_skill_to_an_ontology_node_whose_dcid_has_a_slash(
 
     _, out_dir = export_skills(
         tmp_path,
-        skills_root,
         write_ontology(tmp_path / "ontology", ["dcid:country/PacificIslandsUS"]),
     )
 

@@ -88,10 +88,14 @@ DAC1_EXPORT_KEY = dg.AssetKey("oecd_dac1_dc_export")
 DAC2A_SOURCE_KEY = dg.AssetKey("oecd_dac2a_source")
 DAC2A_RAW_FILE_KEY = dg.AssetKey("oecd_dac2a_raw_file")
 DAC2A_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2a_raw_table")
+DAC2A_RAW_METADATA_KEY = dg.AssetKey("oecd_dac2a_raw_metadata")
+DAC2A_EXPORT_KEY = dg.AssetKey("oecd_dac2a_dc_export")
 
 DAC2B_SOURCE_KEY = dg.AssetKey("oecd_dac2b_source")
 DAC2B_RAW_FILE_KEY = dg.AssetKey("oecd_dac2b_raw_file")
 DAC2B_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2b_raw_table")
+DAC2B_RAW_METADATA_KEY = dg.AssetKey("oecd_dac2b_raw_metadata")
+DAC2B_EXPORT_KEY = dg.AssetKey("oecd_dac2b_dc_export")
 
 # The seven dbt models under models/oecd/dac_crs, keyed by dbt schema + name
 CRS_DBT_MODEL_NAMES = (
@@ -143,16 +147,58 @@ DAC1_PARENT_KEYS = SHARED_MAPPING_KEYS | {
     dg.AssetKey(["oecd_dac1", "dac1_indicator_mapping"]),
 }
 
+DAC2A_DBT_MODEL_NAMES = (
+    "stg_dac2a",
+    "int_dac2a_resolved",
+    "int_dac2a_unified",
+    "int_dac2a_mapped",
+    "dc_dac2a_observations",
+    "dc_dac2a_provenance",
+    "dc_dac2a_statvars",
+)
+DAC2A_DBT_MODEL_KEYS = {
+    dg.AssetKey(["oecd_dac2a", name]) for name in DAC2A_DBT_MODEL_NAMES
+}
+
 DAC2A_ASSET_KEYS = {
     DAC2A_SOURCE_KEY,
     DAC2A_RAW_FILE_KEY,
     DAC2A_RAW_TABLE_KEY,
+    DAC2A_RAW_METADATA_KEY,
+    DAC2A_EXPORT_KEY,
+} | DAC2A_DBT_MODEL_KEYS
+
+# What the DAC2a models wait on from outside the pipeline.
+DAC2A_PARENT_KEYS = SHARED_MAPPING_KEYS | {
+    DAC2A_RAW_METADATA_KEY,
+    dg.AssetKey(["oecd_dac2a", "dac2a_indicator_mapping"]),
+}
+
+DAC2B_DBT_MODEL_NAMES = (
+    "stg_dac2b",
+    "int_dac2b_resolved",
+    "int_dac2b_unified",
+    "int_dac2b_mapped",
+    "dc_dac2b_observations",
+    "dc_dac2b_provenance",
+    "dc_dac2b_statvars",
+)
+DAC2B_DBT_MODEL_KEYS = {
+    dg.AssetKey(["oecd_dac2b", name]) for name in DAC2B_DBT_MODEL_NAMES
 }
 
 DAC2B_ASSET_KEYS = {
     DAC2B_SOURCE_KEY,
     DAC2B_RAW_FILE_KEY,
     DAC2B_RAW_TABLE_KEY,
+    DAC2B_RAW_METADATA_KEY,
+    DAC2B_EXPORT_KEY,
+} | DAC2B_DBT_MODEL_KEYS
+
+# What the DAC2b models wait on from outside the pipeline.
+DAC2B_PARENT_KEYS = SHARED_MAPPING_KEYS | {
+    DAC2B_RAW_METADATA_KEY,
+    dg.AssetKey(["oecd_dac2b", "dac2b_indicator_mapping"]),
 }
 
 DFO_SKILLS_ASSET_KEYS = {
@@ -504,8 +550,10 @@ def test_automation_sensor_targets_the_automated_assets(
         (IMS_DBT_MODEL_KEYS, IMS_RAW_TABLE_KEY, IMS_PARENT_KEYS),
         (WEO_DBT_MODEL_KEYS, WEO_RAW_TABLE_KEY, WEO_PARENT_KEYS),
         (DAC1_DBT_MODEL_KEYS, DAC1_RAW_TABLE_KEY, DAC1_PARENT_KEYS),
+        (DAC2A_DBT_MODEL_KEYS, DAC2A_RAW_TABLE_KEY, DAC2A_PARENT_KEYS),
+        (DAC2B_DBT_MODEL_KEYS, DAC2B_RAW_TABLE_KEY, DAC2B_PARENT_KEYS),
     ],
-    ids=["crs", "ids", "ims", "weo", "dac1"],
+    ids=["crs", "ids", "ims", "weo", "dac1", "dac2a", "dac2b"],
 )
 def test_dbt_models_are_requested_when_the_raw_table_updates(
     dbt_model_keys: set[dg.AssetKey],
@@ -722,6 +770,8 @@ def test_dbt_translation_predicate_matches_intended_schemas() -> None:
     assert automated_dbt_schemas == {
         "world_bank_ids",
         "oecd_dac1",
+        "oecd_dac2a",
+        "oecd_dac2b",
         "oecd_dac_crs",
         "dfo_ontology",
         "one_imputed_multilateral_sectors",

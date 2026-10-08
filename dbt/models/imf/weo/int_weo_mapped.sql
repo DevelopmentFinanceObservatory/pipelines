@@ -98,7 +98,7 @@ currencies as (
         on
             area_currencies.iso4217_code = units.code
             and units.property = 'iso4217AlphaCode'
-    where areas.property = 'imfAreaCode'
+    where areas.property = 'imfEconomyCode'
 )
 
 select

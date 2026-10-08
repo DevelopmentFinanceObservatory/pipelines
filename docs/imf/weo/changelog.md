@@ -1,4 +1,4 @@
-## 2026-10-01 First release
+## 2026-10-06 First release
 
 ### Added
 

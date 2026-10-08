@@ -1,6 +1,5 @@
 import re
 from datetime import UTC, date, datetime
-from pathlib import Path
 
 import dagster as dg
 import pyarrow.parquet as pq
@@ -203,9 +202,6 @@ def oecd_dac_crs_raw_metadata(
     )
 
 
-# FIXME: Remove once the ontology defines these nodes
-CRS_SCHEMA_MCF = Path(__file__).parent / "schema.mcf"
-
 CRS_EXPORT_SPEC = ExportSpec(
     import_name="oecd_dac_crs",
     provenance_dcid="OECDCreditorReportingSystem",
@@ -260,7 +256,6 @@ def oecd_dac_crs_dc_export(
         export_metadata = export_bundle(
             CRS_EXPORT_SPEC, connection=connection, out_dir=out_dir, log=context.log
         )
-    (out_dir / CRS_SCHEMA_MCF.name).write_text(CRS_SCHEMA_MCF.read_text())
     return dg.MaterializeResult(
         value=str(out_dir),
         metadata={
