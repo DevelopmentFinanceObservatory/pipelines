@@ -72,20 +72,18 @@ models:
 
   - name: int_weo_resolved
     description: >
-      WEO observations with the area replaced by the DCID of its node. Country
-      groups are dropped until the ontology has nodes for them.
+      WEO observations with the area replaced by the DCID of its node.
     config:
       contract: {enforced: true}
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal_other_table:
-          name: every_staged_country_row_is_resolved
+          name: every_staged_row_is_resolved
           description: >
             Fails if a join drops or duplicates rows.
           arguments:
             compare_model: ref('stg_weo')
-            compare_row_condition: "ref_area_code not in {{ weo_excluded_areas() }}"
       - dbt_utils.unique_combination_of_columns:
-          name: one_row_per_country_indicator_year
+          name: one_row_per_area_indicator_year
           description: Fails if two area codes resolve to the same node.
           arguments:
             combination_of_columns:
@@ -100,7 +98,7 @@ models:
           - not_null
       - name: observation_about
         data_type: string
-        description: DCID of the country the observation is about
+        description: DCID of the country or country group the observation is about
         data_tests:
           - not_null
       - name: time_period
@@ -136,7 +134,7 @@ models:
           arguments:
             compare_model: ref('int_weo_resolved')
       - dbt_utils.unique_combination_of_columns:
-          name: one_unified_row_per_country_indicator_year
+          name: one_unified_row_per_area_indicator_year
           arguments:
             combination_of_columns:
               - observation_about
@@ -145,7 +143,7 @@ models:
     columns:
       - name: observation_about
         data_type: string
-        description: DCID of the country the observation is about
+        description: DCID of the country or country group the observation is about
         data_tests:
           - not_null
       - name: concept_code
@@ -225,7 +223,7 @@ models:
                   )
               )
       - dbt_utils.unique_combination_of_columns:
-          name: one_mapped_row_per_statvar_country_year_and_unit
+          name: one_mapped_row_per_statvar_area_year_and_unit
           arguments:
             combination_of_columns:
               - statvar_dcid
@@ -293,7 +291,7 @@ models:
         description: DCID of the StatVar this one is a share of
       - name: observation_about
         data_type: string
-        description: DCID of the country the observation is about
+        description: DCID of the country or country group the observation is about
         data_tests:
           - not_null
       - name: time_period
@@ -403,7 +401,7 @@ models:
           arguments:
             min_value: 1
       - dbt_utils.unique_combination_of_columns:
-          name: one_weo_observation_per_variable_country_date_and_unit
+          name: one_weo_observation_per_variable_area_date_and_unit
           arguments:
             combination_of_columns:
               - variable
@@ -427,7 +425,7 @@ models:
           - not_null
       - name: observation_about
         data_type: string
-        description: DCID of the country
+        description: DCID of the country or country group
         data_tests:
           - not_null
       - name: value

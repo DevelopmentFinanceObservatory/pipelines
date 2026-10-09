@@ -41,6 +41,16 @@ models:
         +meta:
           dagster:
             group: oecd_dac1
+      dac2a:
+        +schema: oecd_dac2a
+        +meta:
+          dagster:
+            group: oecd_dac2a
+      dac2b:
+        +schema: oecd_dac2b
+        +meta:
+          dagster:
+            group: oecd_dac2b
       dac_crs:
         +schema: oecd_dac_crs
         +meta:
@@ -114,6 +124,18 @@ seeds:
         +meta:
           dagster:
             group: oecd_dac1
+      dac2a:
+        +schema: oecd_dac2a
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: oecd_dac2a
+      dac2b:
+        +schema: oecd_dac2b
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: oecd_dac2b
       dac_codelists:
         +schema: oecd_dac_codelists
         +quote_columns: true

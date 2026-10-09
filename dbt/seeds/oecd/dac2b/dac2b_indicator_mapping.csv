@@ -1,0 +1,15 @@
+aid_type,population_type,measured_property,stat_type,measurement_qualifier,financial_flow_type,netting_basis,dac_type_of_finance,dac2b_aid_type,unit
+201,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Gross,dcid:DACTypeOfFinanceGrants,201,dcid:CurrencyUSD
+204,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Gross,dcid:DACTypeOfFinanceNonGrants,204,dcid:CurrencyUSD
+205,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,205,dcid:CurrencyUSD
+217,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,217,dcid:CurrencyUSD
+250,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,292,dcid:CurrencyUSD
+255,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,,972,dcid:CurrencyUSD
+260,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,,260,dcid:CurrencyUSD
+292,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Gross,dcid:DACTypeOfFinanceNonGrants,292,dcid:CurrencyUSD
+293,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,293,dcid:CurrencyUSD
+295,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,295,dcid:CurrencyUSD
+296,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,,296,dcid:CurrencyUSD
+297,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,297,dcid:CurrencyUSD
+298,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Net,dcid:DACTypeOfFinanceNonGrants,298,dcid:CurrencyUSD
+972,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,dcid:Gross,,972,dcid:CurrencyUSD

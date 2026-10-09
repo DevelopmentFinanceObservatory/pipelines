@@ -1447,7 +1447,6 @@ def test_dc_export_writes_the_import_config(tmp_path: Path) -> None:
             },
         ],
     }
-    assert not (out_dir / "schema.mcf").exists()
 
 
 def test_dc_export_maps_the_statvar_dimensions_to_ontology_properties(

@@ -10,7 +10,7 @@ with countries as (
         code as imf_area_code,
         dcid
     from {{ ref("code_mapping") }}
-    where property = 'imfAreaCode'
+    where property = 'imfEconomyCode'
 ),
 
 currency_units as (

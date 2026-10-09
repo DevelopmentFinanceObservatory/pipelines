@@ -1,0 +1,107 @@
+version: 2
+
+seeds:
+  - name: dac2b_indicator_mapping
+    description: >
+      Each DAC2b aid type the import publishes, with the properties of the
+      StatVar it measures. Each aid type is one StatVar.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac2b_aid_type_per_statvar_identity
+          description: >
+            Fails if two aid types set the same properties, which would mint
+            one StatVar DCID for both and publish two values under one
+            observation key.
+          arguments:
+            combination_of_columns:
+              - population_type
+              - measured_property
+              - stat_type
+              - measurement_qualifier
+              - financial_flow_type
+              - netting_basis
+              - dac_type_of_finance
+              - dac2b_aid_type
+      - dbt_utils.unique_combination_of_columns:
+          name: one_dac2b_aid_type_per_statvar_name
+          description: >
+            Fails if two aid types sharing a dac2bAidType constraint are named
+            alike, since the netting basis is all that tells their names apart.
+          arguments:
+            combination_of_columns:
+              - dac2b_aid_type
+              - netting_basis
+    config:
+      column_types:
+        aid_type: string
+        population_type: string
+        measured_property: string
+        stat_type: string
+        measurement_qualifier: string
+        financial_flow_type: string
+        netting_basis: string
+        dac_type_of_finance: string
+        dac2b_aid_type: string
+        unit: string
+    columns:
+      - name: aid_type
+        description: DAC2b aid type code
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        description: DCID of the population type
+        data_tests:
+          - not_null
+      - name: measured_property
+        description: DCID of the measured property
+        data_tests:
+          - not_null
+      - name: stat_type
+        description: DCID of the stat type
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        description: DCID of the measurement qualifier
+        data_tests:
+          - not_null
+      - name: financial_flow_type
+        description: >
+          DCID of the financialFlowType constraint. DAC2b records every line
+          on a disbursement basis, as DAC1 does, so every aid type is a
+          disbursement and the aid type alone says which line it is.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["dcid:Disbursement"]
+      - name: netting_basis
+        description: >
+          DCID of the nettingBasis constraint, as DAC1 counts lines of the
+          same kind: a grant or an amount extended is gross, and a repayment,
+          interest received or an offsetting entry is net. The StatVar name
+          brackets it after the aid type label, e.g. net disbursements.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["dcid:Gross", "dcid:Net"]
+      - name: dac_type_of_finance
+        description: >
+          DCID of the dacTypeOfFinance constraint, set where the aid type is
+          wholly grants or wholly non-grants
+      - name: dac2b_aid_type
+        description: >
+          DAC2b aid type code of the dac2bAidType constraint. A net total takes
+          the aid type of its gross total, 250 that of 292 and 255 that of
+          972, so the netting basis alone tells the pair apart.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dac2b_indicator_mapping')
+                field: aid_type
+      - name: unit
+        description: DCID of the unit
+        data_tests:
+          - not_null

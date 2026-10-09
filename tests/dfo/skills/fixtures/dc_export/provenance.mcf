@@ -1,6 +1,6 @@
 Node: dcid:provenance/DFOSkills
 name: "DFO Skills"
 typeOf: dcid:Provenance
-url: "https://github.com/ONEcampaign/dfo-skills"
+url: "https://github.com/example-org/example-skills"
 source: dcid:source/ONEData
 

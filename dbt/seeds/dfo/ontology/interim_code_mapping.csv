@@ -1,198 +1,198 @@
 list,code,dcid,label,property
-dcid:Country,ABW,dcid:country/ABW,Aruba,imfAreaCode
-dcid:Country,AFG,dcid:country/AFG,Afghanistan,imfAreaCode
-dcid:Country,AGO,dcid:country/AGO,Angola,imfAreaCode
-dcid:Country,ALB,dcid:country/ALB,Albania,imfAreaCode
-dcid:Country,AND,dcid:country/AND,Andorra,imfAreaCode
-dcid:Country,ARE,dcid:country/ARE,United Arab Emirates,imfAreaCode
-dcid:Country,ARG,dcid:country/ARG,Argentina,imfAreaCode
-dcid:Country,ARM,dcid:country/ARM,Armenia,imfAreaCode
-dcid:Country,ATG,dcid:country/ATG,Antigua and Barbuda,imfAreaCode
-dcid:Country,AUS,dcid:country/AUS,Australia,imfAreaCode
-dcid:Country,AUT,dcid:country/AUT,Austria,imfAreaCode
-dcid:Country,AZE,dcid:country/AZE,Azerbaijan,imfAreaCode
-dcid:Country,BDI,dcid:country/BDI,Burundi,imfAreaCode
-dcid:Country,BEL,dcid:country/BEL,Belgium,imfAreaCode
-dcid:Country,BEN,dcid:country/BEN,Benin,imfAreaCode
-dcid:Country,BFA,dcid:country/BFA,Burkina Faso,imfAreaCode
-dcid:Country,BGD,dcid:country/BGD,Bangladesh,imfAreaCode
-dcid:Country,BGR,dcid:country/BGR,Bulgaria,imfAreaCode
-dcid:Country,BHR,dcid:country/BHR,Bahrain,imfAreaCode
-dcid:Country,BHS,dcid:country/BHS,Bahamas,imfAreaCode
-dcid:Country,BIH,dcid:country/BIH,Bosnia and Herzegovina,imfAreaCode
-dcid:Country,BLR,dcid:country/BLR,Belarus,imfAreaCode
-dcid:Country,BLZ,dcid:country/BLZ,Belize,imfAreaCode
-dcid:Country,BOL,dcid:country/BOL,Bolivia,imfAreaCode
-dcid:Country,BRA,dcid:country/BRA,Brazil,imfAreaCode
-dcid:Country,BRB,dcid:country/BRB,Barbados,imfAreaCode
-dcid:Country,BRN,dcid:country/BRN,Brunei,imfAreaCode
-dcid:Country,BTN,dcid:country/BTN,Bhutan,imfAreaCode
-dcid:Country,BWA,dcid:country/BWA,Botswana,imfAreaCode
-dcid:Country,CAF,dcid:country/CAF,Central African Republic,imfAreaCode
-dcid:Country,CAN,dcid:country/CAN,Canada,imfAreaCode
-dcid:Country,CHE,dcid:country/CHE,Switzerland,imfAreaCode
-dcid:Country,CHL,dcid:country/CHL,Chile,imfAreaCode
-dcid:Country,CHN,dcid:country/CHN,China,imfAreaCode
-dcid:Country,CIV,dcid:country/CIV,Côte d'Ivoire,imfAreaCode
-dcid:Country,CMR,dcid:country/CMR,Cameroon,imfAreaCode
-dcid:Country,COD,dcid:country/COD,Congo [DRC],imfAreaCode
-dcid:Country,COG,dcid:country/COG,Congo [Republic],imfAreaCode
-dcid:Country,COL,dcid:country/COL,Colombia,imfAreaCode
-dcid:Country,COM,dcid:country/COM,Comoros,imfAreaCode
-dcid:Country,CPV,dcid:country/CPV,Cape Verde,imfAreaCode
-dcid:Country,CRI,dcid:country/CRI,Costa Rica,imfAreaCode
-dcid:Country,CYP,dcid:country/CYP,Cyprus,imfAreaCode
-dcid:Country,CZE,dcid:country/CZE,Czech Republic,imfAreaCode
-dcid:Country,DEU,dcid:country/DEU,Germany,imfAreaCode
-dcid:Country,DJI,dcid:country/DJI,Djibouti,imfAreaCode
-dcid:Country,DMA,dcid:country/DMA,Dominica,imfAreaCode
-dcid:Country,DNK,dcid:country/DNK,Denmark,imfAreaCode
-dcid:Country,DOM,dcid:country/DOM,Dominican Republic,imfAreaCode
-dcid:Country,DZA,dcid:country/DZA,Algeria,imfAreaCode
-dcid:Country,ECU,dcid:country/ECU,Ecuador,imfAreaCode
-dcid:Country,EGY,dcid:country/EGY,Egypt,imfAreaCode
-dcid:Country,ERI,dcid:country/ERI,Eritrea,imfAreaCode
-dcid:Country,ESP,dcid:country/ESP,Spain,imfAreaCode
-dcid:Country,EST,dcid:country/EST,Estonia,imfAreaCode
-dcid:Country,ETH,dcid:country/ETH,Ethiopia,imfAreaCode
-dcid:Country,FIN,dcid:country/FIN,Finland,imfAreaCode
-dcid:Country,FJI,dcid:country/FJI,Fiji,imfAreaCode
-dcid:Country,FRA,dcid:country/FRA,France,imfAreaCode
-dcid:Country,FSM,dcid:country/FSM,Federated States of Micronesia,imfAreaCode
-dcid:Country,GAB,dcid:country/GAB,Gabon,imfAreaCode
-dcid:Country,GBR,dcid:country/GBR,United Kingdom,imfAreaCode
-dcid:Country,GEO,dcid:country/GEO,Georgia,imfAreaCode
-dcid:Country,GHA,dcid:country/GHA,Ghana,imfAreaCode
-dcid:Country,GIN,dcid:country/GIN,Guinea,imfAreaCode
-dcid:Country,GMB,dcid:country/GMB,Gambia,imfAreaCode
-dcid:Country,GNB,dcid:country/GNB,Guinea-Bissau,imfAreaCode
-dcid:Country,GNQ,dcid:country/GNQ,Equatorial Guinea,imfAreaCode
-dcid:Country,GRC,dcid:country/GRC,Greece,imfAreaCode
-dcid:Country,GRD,dcid:country/GRD,Grenada,imfAreaCode
-dcid:Country,GTM,dcid:country/GTM,Guatemala,imfAreaCode
-dcid:Country,GUY,dcid:country/GUY,Guyana,imfAreaCode
-dcid:Country,HKG,dcid:country/HKG,Hong Kong,imfAreaCode
-dcid:Country,HND,dcid:country/HND,Honduras,imfAreaCode
-dcid:Country,HRV,dcid:country/HRV,Croatia,imfAreaCode
-dcid:Country,HTI,dcid:country/HTI,Haiti,imfAreaCode
-dcid:Country,HUN,dcid:country/HUN,Hungary,imfAreaCode
-dcid:Country,IDN,dcid:country/IDN,Indonesia,imfAreaCode
-dcid:Country,IND,dcid:country/IND,India,imfAreaCode
-dcid:Country,IRL,dcid:country/IRL,Ireland,imfAreaCode
-dcid:Country,IRN,dcid:country/IRN,Iran,imfAreaCode
-dcid:Country,IRQ,dcid:country/IRQ,Iraq,imfAreaCode
-dcid:Country,ISL,dcid:country/ISL,Iceland,imfAreaCode
-dcid:Country,ISR,dcid:country/ISR,Israel,imfAreaCode
-dcid:Country,ITA,dcid:country/ITA,Italy,imfAreaCode
-dcid:Country,JAM,dcid:country/JAM,Jamaica,imfAreaCode
-dcid:Country,JOR,dcid:country/JOR,Jordan,imfAreaCode
-dcid:Country,JPN,dcid:country/JPN,Japan,imfAreaCode
-dcid:Country,KAZ,dcid:country/KAZ,Kazakhstan,imfAreaCode
-dcid:Country,KEN,dcid:country/KEN,Kenya,imfAreaCode
-dcid:Country,KGZ,dcid:country/KGZ,Kyrgyzstan,imfAreaCode
-dcid:Country,KHM,dcid:country/KHM,Cambodia,imfAreaCode
-dcid:Country,KIR,dcid:country/KIR,Kiribati,imfAreaCode
-dcid:Country,KNA,dcid:country/KNA,Saint Kitts and Nevis,imfAreaCode
-dcid:Country,KOR,dcid:country/KOR,South Korea,imfAreaCode
-dcid:Country,KOS,dcid:country/XKS,Kosovo,imfAreaCode
-dcid:Country,KWT,dcid:country/KWT,Kuwait,imfAreaCode
-dcid:Country,LAO,dcid:country/LAO,Laos,imfAreaCode
-dcid:Country,LBN,dcid:country/LBN,Lebanon,imfAreaCode
-dcid:Country,LBR,dcid:country/LBR,Liberia,imfAreaCode
-dcid:Country,LBY,dcid:country/LBY,Libya,imfAreaCode
-dcid:Country,LCA,dcid:country/LCA,Saint Lucia,imfAreaCode
-dcid:Country,LIE,dcid:country/LIE,Liechtenstein,imfAreaCode
-dcid:Country,LKA,dcid:country/LKA,Sri Lanka,imfAreaCode
-dcid:Country,LSO,dcid:country/LSO,Lesotho,imfAreaCode
-dcid:Country,LTU,dcid:country/LTU,Lithuania,imfAreaCode
-dcid:Country,LUX,dcid:country/LUX,Luxembourg,imfAreaCode
-dcid:Country,LVA,dcid:country/LVA,Latvia,imfAreaCode
-dcid:Country,MAC,dcid:country/MAC,Macau,imfAreaCode
-dcid:Country,MAR,dcid:country/MAR,Morocco,imfAreaCode
-dcid:Country,MDA,dcid:country/MDA,Moldova,imfAreaCode
-dcid:Country,MDG,dcid:country/MDG,Madagascar,imfAreaCode
-dcid:Country,MDV,dcid:country/MDV,Maldives,imfAreaCode
-dcid:Country,MEX,dcid:country/MEX,Mexico,imfAreaCode
-dcid:Country,MHL,dcid:country/MHL,Marshall Islands,imfAreaCode
-dcid:Country,MKD,dcid:country/MKD,Macedonia [FYROM],imfAreaCode
-dcid:Country,MLI,dcid:country/MLI,Mali,imfAreaCode
-dcid:Country,MLT,dcid:country/MLT,Malta,imfAreaCode
-dcid:Country,MMR,dcid:country/MMR,Myanmar,imfAreaCode
-dcid:Country,MNE,dcid:country/MNE,Montenegro,imfAreaCode
-dcid:Country,MNG,dcid:country/MNG,Mongolia,imfAreaCode
-dcid:Country,MOZ,dcid:country/MOZ,Mozambique,imfAreaCode
-dcid:Country,MRT,dcid:country/MRT,Mauritania,imfAreaCode
-dcid:Country,MUS,dcid:country/MUS,Mauritius,imfAreaCode
-dcid:Country,MWI,dcid:country/MWI,Malawi,imfAreaCode
-dcid:Country,MYS,dcid:country/MYS,Malaysia,imfAreaCode
-dcid:Country,NAM,dcid:country/NAM,Namibia,imfAreaCode
-dcid:Country,NER,dcid:country/NER,Niger,imfAreaCode
-dcid:Country,NGA,dcid:country/NGA,Nigeria,imfAreaCode
-dcid:Country,NIC,dcid:country/NIC,Nicaragua,imfAreaCode
-dcid:Country,NLD,dcid:country/NLD,Netherlands,imfAreaCode
-dcid:Country,NOR,dcid:country/NOR,Norway,imfAreaCode
-dcid:Country,NPL,dcid:country/NPL,Nepal,imfAreaCode
-dcid:Country,NRU,dcid:country/NRU,Nauru,imfAreaCode
-dcid:Country,NZL,dcid:country/NZL,New Zealand,imfAreaCode
-dcid:Country,OMN,dcid:country/OMN,Oman,imfAreaCode
-dcid:Country,PAK,dcid:country/PAK,Pakistan,imfAreaCode
-dcid:Country,PAN,dcid:country/PAN,Panama,imfAreaCode
-dcid:Country,PER,dcid:country/PER,Peru,imfAreaCode
-dcid:Country,PHL,dcid:country/PHL,Philippines,imfAreaCode
-dcid:Country,PLW,dcid:country/PLW,Palau,imfAreaCode
-dcid:Country,PNG,dcid:country/PNG,Papua New Guinea,imfAreaCode
-dcid:Country,POL,dcid:country/POL,Poland,imfAreaCode
-dcid:Country,PRI,dcid:country/PRI,Puerto Rico,imfAreaCode
-dcid:Country,PRT,dcid:country/PRT,Portugal,imfAreaCode
-dcid:Country,PRY,dcid:country/PRY,Paraguay,imfAreaCode
-dcid:Country,QAT,dcid:country/QAT,Qatar,imfAreaCode
-dcid:Country,ROU,dcid:country/ROU,Romania,imfAreaCode
-dcid:Country,RUS,dcid:country/RUS,Russia,imfAreaCode
-dcid:Country,RWA,dcid:country/RWA,Rwanda,imfAreaCode
-dcid:Country,SAU,dcid:country/SAU,Saudi Arabia,imfAreaCode
-dcid:Country,SDN,dcid:country/SDN,Sudan,imfAreaCode
-dcid:Country,SEN,dcid:country/SEN,Senegal,imfAreaCode
-dcid:Country,SGP,dcid:country/SGP,Singapore,imfAreaCode
-dcid:Country,SLB,dcid:country/SLB,Solomon Islands,imfAreaCode
-dcid:Country,SLE,dcid:country/SLE,Sierra Leone,imfAreaCode
-dcid:Country,SLV,dcid:country/SLV,El Salvador,imfAreaCode
-dcid:Country,SMR,dcid:country/SMR,San Marino,imfAreaCode
-dcid:Country,SOM,dcid:country/SOM,Somalia,imfAreaCode
-dcid:Country,SRB,dcid:country/SRB,Serbia,imfAreaCode
-dcid:Country,SSD,dcid:country/SSD,South Sudan,imfAreaCode
-dcid:Country,STP,dcid:country/STP,São Tomé and Príncipe,imfAreaCode
-dcid:Country,SUR,dcid:country/SUR,Suriname,imfAreaCode
-dcid:Country,SVK,dcid:country/SVK,Slovakia,imfAreaCode
-dcid:Country,SVN,dcid:country/SVN,Slovenia,imfAreaCode
-dcid:Country,SWE,dcid:country/SWE,Sweden,imfAreaCode
-dcid:Country,SWZ,dcid:country/SWZ,Eswatini,imfAreaCode
-dcid:Country,SYC,dcid:country/SYC,Seychelles,imfAreaCode
-dcid:Country,SYR,dcid:country/SYR,Syria,imfAreaCode
-dcid:Country,TCD,dcid:country/TCD,Chad,imfAreaCode
-dcid:Country,TGO,dcid:country/TGO,Togo,imfAreaCode
-dcid:Country,THA,dcid:country/THA,Thailand,imfAreaCode
-dcid:Country,TJK,dcid:country/TJK,Tajikistan,imfAreaCode
-dcid:Country,TKM,dcid:country/TKM,Turkmenistan,imfAreaCode
-dcid:Country,TLS,dcid:country/TLS,East Timor,imfAreaCode
-dcid:Country,TON,dcid:country/TON,Tonga,imfAreaCode
-dcid:Country,TTO,dcid:country/TTO,Trinidad and Tobago,imfAreaCode
-dcid:Country,TUN,dcid:country/TUN,Tunisia,imfAreaCode
-dcid:Country,TUR,dcid:country/TUR,Turkey,imfAreaCode
-dcid:Country,TUV,dcid:country/TUV,Tuvalu,imfAreaCode
-dcid:Country,TWN,dcid:country/TWN,Taiwan,imfAreaCode
-dcid:Country,TZA,dcid:country/TZA,Tanzania,imfAreaCode
-dcid:Country,UGA,dcid:country/UGA,Uganda,imfAreaCode
-dcid:Country,UKR,dcid:country/UKR,Ukraine,imfAreaCode
-dcid:Country,URY,dcid:country/URY,Uruguay,imfAreaCode
-dcid:Country,USA,dcid:country/USA,United States,imfAreaCode
-dcid:Country,UZB,dcid:country/UZB,Uzbekistan,imfAreaCode
-dcid:Country,VCT,dcid:country/VCT,Saint Vincent and the Grenadines,imfAreaCode
-dcid:Country,VEN,dcid:country/VEN,Venezuela,imfAreaCode
-dcid:Country,VNM,dcid:country/VNM,Vietnam,imfAreaCode
-dcid:Country,VUT,dcid:country/VUT,Vanuatu,imfAreaCode
-dcid:Country,WBG,dcid:country/PSE,Palestinian Territories,imfAreaCode
-dcid:Country,WSM,dcid:country/WSM,Samoa,imfAreaCode
-dcid:Country,YEM,dcid:country/YEM,Yemen,imfAreaCode
-dcid:Country,ZAF,dcid:country/ZAF,South Africa,imfAreaCode
-dcid:Country,ZMB,dcid:country/ZMB,Zambia,imfAreaCode
-dcid:Country,ZWE,dcid:country/ZWE,Zimbabwe,imfAreaCode
+dcid:Country,ABW,dcid:country/ABW,Aruba,imfEconomyCode
+dcid:Country,AFG,dcid:country/AFG,Afghanistan,imfEconomyCode
+dcid:Country,AGO,dcid:country/AGO,Angola,imfEconomyCode
+dcid:Country,ALB,dcid:country/ALB,Albania,imfEconomyCode
+dcid:Country,AND,dcid:country/AND,Andorra,imfEconomyCode
+dcid:Country,ARE,dcid:country/ARE,United Arab Emirates,imfEconomyCode
+dcid:Country,ARG,dcid:country/ARG,Argentina,imfEconomyCode
+dcid:Country,ARM,dcid:country/ARM,Armenia,imfEconomyCode
+dcid:Country,ATG,dcid:country/ATG,Antigua and Barbuda,imfEconomyCode
+dcid:Country,AUS,dcid:country/AUS,Australia,imfEconomyCode
+dcid:Country,AUT,dcid:country/AUT,Austria,imfEconomyCode
+dcid:Country,AZE,dcid:country/AZE,Azerbaijan,imfEconomyCode
+dcid:Country,BDI,dcid:country/BDI,Burundi,imfEconomyCode
+dcid:Country,BEL,dcid:country/BEL,Belgium,imfEconomyCode
+dcid:Country,BEN,dcid:country/BEN,Benin,imfEconomyCode
+dcid:Country,BFA,dcid:country/BFA,Burkina Faso,imfEconomyCode
+dcid:Country,BGD,dcid:country/BGD,Bangladesh,imfEconomyCode
+dcid:Country,BGR,dcid:country/BGR,Bulgaria,imfEconomyCode
+dcid:Country,BHR,dcid:country/BHR,Bahrain,imfEconomyCode
+dcid:Country,BHS,dcid:country/BHS,Bahamas,imfEconomyCode
+dcid:Country,BIH,dcid:country/BIH,Bosnia and Herzegovina,imfEconomyCode
+dcid:Country,BLR,dcid:country/BLR,Belarus,imfEconomyCode
+dcid:Country,BLZ,dcid:country/BLZ,Belize,imfEconomyCode
+dcid:Country,BOL,dcid:country/BOL,Bolivia,imfEconomyCode
+dcid:Country,BRA,dcid:country/BRA,Brazil,imfEconomyCode
+dcid:Country,BRB,dcid:country/BRB,Barbados,imfEconomyCode
+dcid:Country,BRN,dcid:country/BRN,Brunei,imfEconomyCode
+dcid:Country,BTN,dcid:country/BTN,Bhutan,imfEconomyCode
+dcid:Country,BWA,dcid:country/BWA,Botswana,imfEconomyCode
+dcid:Country,CAF,dcid:country/CAF,Central African Republic,imfEconomyCode
+dcid:Country,CAN,dcid:country/CAN,Canada,imfEconomyCode
+dcid:Country,CHE,dcid:country/CHE,Switzerland,imfEconomyCode
+dcid:Country,CHL,dcid:country/CHL,Chile,imfEconomyCode
+dcid:Country,CHN,dcid:country/CHN,China,imfEconomyCode
+dcid:Country,CIV,dcid:country/CIV,Côte d'Ivoire,imfEconomyCode
+dcid:Country,CMR,dcid:country/CMR,Cameroon,imfEconomyCode
+dcid:Country,COD,dcid:country/COD,Congo [DRC],imfEconomyCode
+dcid:Country,COG,dcid:country/COG,Congo [Republic],imfEconomyCode
+dcid:Country,COL,dcid:country/COL,Colombia,imfEconomyCode
+dcid:Country,COM,dcid:country/COM,Comoros,imfEconomyCode
+dcid:Country,CPV,dcid:country/CPV,Cape Verde,imfEconomyCode
+dcid:Country,CRI,dcid:country/CRI,Costa Rica,imfEconomyCode
+dcid:Country,CYP,dcid:country/CYP,Cyprus,imfEconomyCode
+dcid:Country,CZE,dcid:country/CZE,Czech Republic,imfEconomyCode
+dcid:Country,DEU,dcid:country/DEU,Germany,imfEconomyCode
+dcid:Country,DJI,dcid:country/DJI,Djibouti,imfEconomyCode
+dcid:Country,DMA,dcid:country/DMA,Dominica,imfEconomyCode
+dcid:Country,DNK,dcid:country/DNK,Denmark,imfEconomyCode
+dcid:Country,DOM,dcid:country/DOM,Dominican Republic,imfEconomyCode
+dcid:Country,DZA,dcid:country/DZA,Algeria,imfEconomyCode
+dcid:Country,ECU,dcid:country/ECU,Ecuador,imfEconomyCode
+dcid:Country,EGY,dcid:country/EGY,Egypt,imfEconomyCode
+dcid:Country,ERI,dcid:country/ERI,Eritrea,imfEconomyCode
+dcid:Country,ESP,dcid:country/ESP,Spain,imfEconomyCode
+dcid:Country,EST,dcid:country/EST,Estonia,imfEconomyCode
+dcid:Country,ETH,dcid:country/ETH,Ethiopia,imfEconomyCode
+dcid:Country,FIN,dcid:country/FIN,Finland,imfEconomyCode
+dcid:Country,FJI,dcid:country/FJI,Fiji,imfEconomyCode
+dcid:Country,FRA,dcid:country/FRA,France,imfEconomyCode
+dcid:Country,FSM,dcid:country/FSM,Federated States of Micronesia,imfEconomyCode
+dcid:Country,GAB,dcid:country/GAB,Gabon,imfEconomyCode
+dcid:Country,GBR,dcid:country/GBR,United Kingdom,imfEconomyCode
+dcid:Country,GEO,dcid:country/GEO,Georgia,imfEconomyCode
+dcid:Country,GHA,dcid:country/GHA,Ghana,imfEconomyCode
+dcid:Country,GIN,dcid:country/GIN,Guinea,imfEconomyCode
+dcid:Country,GMB,dcid:country/GMB,Gambia,imfEconomyCode
+dcid:Country,GNB,dcid:country/GNB,Guinea-Bissau,imfEconomyCode
+dcid:Country,GNQ,dcid:country/GNQ,Equatorial Guinea,imfEconomyCode
+dcid:Country,GRC,dcid:country/GRC,Greece,imfEconomyCode
+dcid:Country,GRD,dcid:country/GRD,Grenada,imfEconomyCode
+dcid:Country,GTM,dcid:country/GTM,Guatemala,imfEconomyCode
+dcid:Country,GUY,dcid:country/GUY,Guyana,imfEconomyCode
+dcid:Country,HKG,dcid:country/HKG,Hong Kong,imfEconomyCode
+dcid:Country,HND,dcid:country/HND,Honduras,imfEconomyCode
+dcid:Country,HRV,dcid:country/HRV,Croatia,imfEconomyCode
+dcid:Country,HTI,dcid:country/HTI,Haiti,imfEconomyCode
+dcid:Country,HUN,dcid:country/HUN,Hungary,imfEconomyCode
+dcid:Country,IDN,dcid:country/IDN,Indonesia,imfEconomyCode
+dcid:Country,IND,dcid:country/IND,India,imfEconomyCode
+dcid:Country,IRL,dcid:country/IRL,Ireland,imfEconomyCode
+dcid:Country,IRN,dcid:country/IRN,Iran,imfEconomyCode
+dcid:Country,IRQ,dcid:country/IRQ,Iraq,imfEconomyCode
+dcid:Country,ISL,dcid:country/ISL,Iceland,imfEconomyCode
+dcid:Country,ISR,dcid:country/ISR,Israel,imfEconomyCode
+dcid:Country,ITA,dcid:country/ITA,Italy,imfEconomyCode
+dcid:Country,JAM,dcid:country/JAM,Jamaica,imfEconomyCode
+dcid:Country,JOR,dcid:country/JOR,Jordan,imfEconomyCode
+dcid:Country,JPN,dcid:country/JPN,Japan,imfEconomyCode
+dcid:Country,KAZ,dcid:country/KAZ,Kazakhstan,imfEconomyCode
+dcid:Country,KEN,dcid:country/KEN,Kenya,imfEconomyCode
+dcid:Country,KGZ,dcid:country/KGZ,Kyrgyzstan,imfEconomyCode
+dcid:Country,KHM,dcid:country/KHM,Cambodia,imfEconomyCode
+dcid:Country,KIR,dcid:country/KIR,Kiribati,imfEconomyCode
+dcid:Country,KNA,dcid:country/KNA,Saint Kitts and Nevis,imfEconomyCode
+dcid:Country,KOR,dcid:country/KOR,South Korea,imfEconomyCode
+dcid:Country,KOS,dcid:country/XKS,Kosovo,imfEconomyCode
+dcid:Country,KWT,dcid:country/KWT,Kuwait,imfEconomyCode
+dcid:Country,LAO,dcid:country/LAO,Laos,imfEconomyCode
+dcid:Country,LBN,dcid:country/LBN,Lebanon,imfEconomyCode
+dcid:Country,LBR,dcid:country/LBR,Liberia,imfEconomyCode
+dcid:Country,LBY,dcid:country/LBY,Libya,imfEconomyCode
+dcid:Country,LCA,dcid:country/LCA,Saint Lucia,imfEconomyCode
+dcid:Country,LIE,dcid:country/LIE,Liechtenstein,imfEconomyCode
+dcid:Country,LKA,dcid:country/LKA,Sri Lanka,imfEconomyCode
+dcid:Country,LSO,dcid:country/LSO,Lesotho,imfEconomyCode
+dcid:Country,LTU,dcid:country/LTU,Lithuania,imfEconomyCode
+dcid:Country,LUX,dcid:country/LUX,Luxembourg,imfEconomyCode
+dcid:Country,LVA,dcid:country/LVA,Latvia,imfEconomyCode
+dcid:Country,MAC,dcid:country/MAC,Macau,imfEconomyCode
+dcid:Country,MAR,dcid:country/MAR,Morocco,imfEconomyCode
+dcid:Country,MDA,dcid:country/MDA,Moldova,imfEconomyCode
+dcid:Country,MDG,dcid:country/MDG,Madagascar,imfEconomyCode
+dcid:Country,MDV,dcid:country/MDV,Maldives,imfEconomyCode
+dcid:Country,MEX,dcid:country/MEX,Mexico,imfEconomyCode
+dcid:Country,MHL,dcid:country/MHL,Marshall Islands,imfEconomyCode
+dcid:Country,MKD,dcid:country/MKD,Macedonia [FYROM],imfEconomyCode
+dcid:Country,MLI,dcid:country/MLI,Mali,imfEconomyCode
+dcid:Country,MLT,dcid:country/MLT,Malta,imfEconomyCode
+dcid:Country,MMR,dcid:country/MMR,Myanmar,imfEconomyCode
+dcid:Country,MNE,dcid:country/MNE,Montenegro,imfEconomyCode
+dcid:Country,MNG,dcid:country/MNG,Mongolia,imfEconomyCode
+dcid:Country,MOZ,dcid:country/MOZ,Mozambique,imfEconomyCode
+dcid:Country,MRT,dcid:country/MRT,Mauritania,imfEconomyCode
+dcid:Country,MUS,dcid:country/MUS,Mauritius,imfEconomyCode
+dcid:Country,MWI,dcid:country/MWI,Malawi,imfEconomyCode
+dcid:Country,MYS,dcid:country/MYS,Malaysia,imfEconomyCode
+dcid:Country,NAM,dcid:country/NAM,Namibia,imfEconomyCode
+dcid:Country,NER,dcid:country/NER,Niger,imfEconomyCode
+dcid:Country,NGA,dcid:country/NGA,Nigeria,imfEconomyCode
+dcid:Country,NIC,dcid:country/NIC,Nicaragua,imfEconomyCode
+dcid:Country,NLD,dcid:country/NLD,Netherlands,imfEconomyCode
+dcid:Country,NOR,dcid:country/NOR,Norway,imfEconomyCode
+dcid:Country,NPL,dcid:country/NPL,Nepal,imfEconomyCode
+dcid:Country,NRU,dcid:country/NRU,Nauru,imfEconomyCode
+dcid:Country,NZL,dcid:country/NZL,New Zealand,imfEconomyCode
+dcid:Country,OMN,dcid:country/OMN,Oman,imfEconomyCode
+dcid:Country,PAK,dcid:country/PAK,Pakistan,imfEconomyCode
+dcid:Country,PAN,dcid:country/PAN,Panama,imfEconomyCode
+dcid:Country,PER,dcid:country/PER,Peru,imfEconomyCode
+dcid:Country,PHL,dcid:country/PHL,Philippines,imfEconomyCode
+dcid:Country,PLW,dcid:country/PLW,Palau,imfEconomyCode
+dcid:Country,PNG,dcid:country/PNG,Papua New Guinea,imfEconomyCode
+dcid:Country,POL,dcid:country/POL,Poland,imfEconomyCode
+dcid:Country,PRI,dcid:country/PRI,Puerto Rico,imfEconomyCode
+dcid:Country,PRT,dcid:country/PRT,Portugal,imfEconomyCode
+dcid:Country,PRY,dcid:country/PRY,Paraguay,imfEconomyCode
+dcid:Country,QAT,dcid:country/QAT,Qatar,imfEconomyCode
+dcid:Country,ROU,dcid:country/ROU,Romania,imfEconomyCode
+dcid:Country,RUS,dcid:country/RUS,Russia,imfEconomyCode
+dcid:Country,RWA,dcid:country/RWA,Rwanda,imfEconomyCode
+dcid:Country,SAU,dcid:country/SAU,Saudi Arabia,imfEconomyCode
+dcid:Country,SDN,dcid:country/SDN,Sudan,imfEconomyCode
+dcid:Country,SEN,dcid:country/SEN,Senegal,imfEconomyCode
+dcid:Country,SGP,dcid:country/SGP,Singapore,imfEconomyCode
+dcid:Country,SLB,dcid:country/SLB,Solomon Islands,imfEconomyCode
+dcid:Country,SLE,dcid:country/SLE,Sierra Leone,imfEconomyCode
+dcid:Country,SLV,dcid:country/SLV,El Salvador,imfEconomyCode
+dcid:Country,SMR,dcid:country/SMR,San Marino,imfEconomyCode
+dcid:Country,SOM,dcid:country/SOM,Somalia,imfEconomyCode
+dcid:Country,SRB,dcid:country/SRB,Serbia,imfEconomyCode
+dcid:Country,SSD,dcid:country/SSD,South Sudan,imfEconomyCode
+dcid:Country,STP,dcid:country/STP,São Tomé and Príncipe,imfEconomyCode
+dcid:Country,SUR,dcid:country/SUR,Suriname,imfEconomyCode
+dcid:Country,SVK,dcid:country/SVK,Slovakia,imfEconomyCode
+dcid:Country,SVN,dcid:country/SVN,Slovenia,imfEconomyCode
+dcid:Country,SWE,dcid:country/SWE,Sweden,imfEconomyCode
+dcid:Country,SWZ,dcid:country/SWZ,Eswatini,imfEconomyCode
+dcid:Country,SYC,dcid:country/SYC,Seychelles,imfEconomyCode
+dcid:Country,SYR,dcid:country/SYR,Syria,imfEconomyCode
+dcid:Country,TCD,dcid:country/TCD,Chad,imfEconomyCode
+dcid:Country,TGO,dcid:country/TGO,Togo,imfEconomyCode
+dcid:Country,THA,dcid:country/THA,Thailand,imfEconomyCode
+dcid:Country,TJK,dcid:country/TJK,Tajikistan,imfEconomyCode
+dcid:Country,TKM,dcid:country/TKM,Turkmenistan,imfEconomyCode
+dcid:Country,TLS,dcid:country/TLS,East Timor,imfEconomyCode
+dcid:Country,TON,dcid:country/TON,Tonga,imfEconomyCode
+dcid:Country,TTO,dcid:country/TTO,Trinidad and Tobago,imfEconomyCode
+dcid:Country,TUN,dcid:country/TUN,Tunisia,imfEconomyCode
+dcid:Country,TUR,dcid:country/TUR,Turkey,imfEconomyCode
+dcid:Country,TUV,dcid:country/TUV,Tuvalu,imfEconomyCode
+dcid:Country,TWN,dcid:country/TWN,Taiwan,imfEconomyCode
+dcid:Country,TZA,dcid:country/TZA,Tanzania,imfEconomyCode
+dcid:Country,UGA,dcid:country/UGA,Uganda,imfEconomyCode
+dcid:Country,UKR,dcid:country/UKR,Ukraine,imfEconomyCode
+dcid:Country,URY,dcid:country/URY,Uruguay,imfEconomyCode
+dcid:Country,USA,dcid:country/USA,United States,imfEconomyCode
+dcid:Country,UZB,dcid:country/UZB,Uzbekistan,imfEconomyCode
+dcid:Country,VCT,dcid:country/VCT,Saint Vincent and the Grenadines,imfEconomyCode
+dcid:Country,VEN,dcid:country/VEN,Venezuela,imfEconomyCode
+dcid:Country,VNM,dcid:country/VNM,Vietnam,imfEconomyCode
+dcid:Country,VUT,dcid:country/VUT,Vanuatu,imfEconomyCode
+dcid:Country,WBG,dcid:country/PSE,Palestinian Territories,imfEconomyCode
+dcid:Country,WSM,dcid:country/WSM,Samoa,imfEconomyCode
+dcid:Country,YEM,dcid:country/YEM,Yemen,imfEconomyCode
+dcid:Country,ZAF,dcid:country/ZAF,South Africa,imfEconomyCode
+dcid:Country,ZMB,dcid:country/ZMB,Zambia,imfEconomyCode
+dcid:Country,ZWE,dcid:country/ZWE,Zimbabwe,imfEconomyCode

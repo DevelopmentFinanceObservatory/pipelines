@@ -1,13 +1,22 @@
 name: CI
 
-on: push
+# Runs on every pull request, including a stacked one whose base is another
+# feature branch, and skips while the pull request is a draft. `ready_for_review` is in the types so that marking it ready starts
+# the run: without it the skipped jobs would stand as passing required checks
+# on the commit and nothing would have tested it. `lint` and `test` are the
+# required checks on both branches, which require the head to be up to date
+# with its base, so the tree a merge produces is the tree these jobs tested and
+# a push run would repeat them.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   lint:
     # Mints a dfo-reader token, which prod keeps only in main-limited
     # environments, so this runs in ONEcampaign only. The identical tree
     # ran it here before it was synced.
-    if: github.repository_owner == 'ONEcampaign'
+    if: github.repository_owner == 'ONEcampaign' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -76,7 +85,7 @@ jobs:
     # Mints a dfo-reader token, which prod keeps only in main-limited
     # environments, so this runs in ONEcampaign only. The identical tree
     # ran it here before it was synced.
-    if: github.repository_owner == 'ONEcampaign'
+    if: github.repository_owner == 'ONEcampaign' && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

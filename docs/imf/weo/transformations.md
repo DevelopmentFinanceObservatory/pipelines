@@ -10,11 +10,11 @@ WEO covers national accounts, prices, employment, the balance of payments, gover
 finance and commodity prices. The indicators included cover gross domestic product
 (GDP), gross national savings, gross capital formation and the output gap.
 
-## Standardise countries
+## Standardise countries and country groups
 
-Country codes are standardised to Data Commons IDs used across the platform, so data
-can be compared across datasets. Country groups, such as the world, regions and the
-euro area, are not included.
+Country and country group codes are standardised to Data Commons IDs used across the
+platform, so data can be compared across datasets. Country groups include the world,
+regions and the euro area.
 
 ## Convert to whole units
 
@@ -34,5 +34,6 @@ are divided by population.
 WEO includes the IMF's projections for the years after the last year the IMF reports
 for each series. These values are marked as estimated, so they are kept apart from
 reported values. The purchasing power parity series take the last reported year of GDP
-in US dollars. The output gap is marked as modelled in every year, since potential
-output is never observed.
+in US dollars. Country groups other than the euro area have no last reported year, so
+their values are marked as estimated from the year the release is published. The output
+gap is marked as modelled in every year, since potential output is never observed.

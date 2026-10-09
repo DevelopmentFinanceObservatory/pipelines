@@ -551,9 +551,30 @@ dcid:CurrencyUnit,YER,dcid:CurrencyYER,Yemeni Rial,iso4217AlphaCode
 dcid:CurrencyUnit,ZAR,dcid:CurrencyZAR,Rand,iso4217AlphaCode
 dcid:CurrencyUnit,ZMW,dcid:CurrencyZMW,Zambian Kwacha,iso4217AlphaCode
 dcid:CurrencyUnit,ZWG,dcid:CurrencyZWG,Zimbabwe Gold,iso4217AlphaCode
+dcid:Organization,917,dcid:EuropeanCommission,European Commission,dacCode
 dcid:Organization,918,dcid:EuropeanUnionInstitutions,European Union institutions,dacCode
 dcid:DACGroup,20001,dcid:DACCountriesTotal,DAC countries,dacCode
 dcid:Grouping,20003,dcid:GroupOfSeven,Group of Seven,dacCode
 dcid:DAC1AidTypeEnum,1010,dcid:DAC1AidType1010,official development assistance (DAC 1 aid type),classificationCode
 dcid:DAC1AidTypeEnum,1015,dcid:DAC1AidType1015,bilateral ODA (DAC 1 aid type),classificationCode
 dcid:DAC1AidTypeEnum,8864,dcid:DAC1AidType8864,humanitarian aid to the West Bank and Gaza Strip (DAC 1 aid type),classificationCode
+dcid:GeoGrouping,G001,dcid:IMFWorld,World (IMF),imfEconomyCode
+dcid:DACGroup,10001,dcid:DACAfrica,Africa (DAC),dacCode
+dcid:DAC2aAidTypeEnum,106,dcid:DAC2aAidType106,imputed multilateral ODA (DAC 2a aid type),classificationCode
+dcid:DAC2aAidTypeEnum,201,dcid:DAC2aAidType201,ODA grant (DAC 2a aid type),classificationCode
+dcid:DAC2aAidTypeEnum,205,dcid:DAC2aAidType205,repayment on ODA loans and other long-term capital (DAC 2a aid type),classificationCode
+dcid:DAC2aAidTypeEnum,206,dcid:DAC2aAidType206,"official development assistance, net (DAC 2a aid type)",classificationCode
+dcid:DAC2aAidTypeEnum,209,dcid:DAC2aAidType209,interest received on ODA lending (DAC 2a aid type),classificationCode
+dcid:DAC2aAidTypeEnum,215,dcid:DAC2aAidType215,offsetting entry for debt relief on ODA claims (DAC 2a aid type),classificationCode
+dcid:DAC2bAidTypeEnum,201,dcid:DAC2bAidType201,OOF grant (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,204,dcid:DAC2bAidType204,OOF loans and other long-term capital (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,205,dcid:DAC2bAidType205,repayment on OOF loans and other long-term capital (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,217,dcid:DAC2bAidType217,OOF equity investment (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,260,dcid:DAC2bAidType260,private sector instrument flow (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,292,dcid:DAC2bAidType292,officially supported export credit (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,293,dcid:DAC2bAidType293,repayment on officially supported export credits (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,295,dcid:DAC2bAidType295,offsetting entry for debt relief on export credit claims (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,296,dcid:DAC2bAidType296,official non-concessional flow (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,297,dcid:DAC2bAidType297,interest received on OOF and export credits (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,298,dcid:DAC2bAidType298,offsetting entry for debt relief on OOF claims (DAC 2b aid type),classificationCode
+dcid:DAC2bAidTypeEnum,972,dcid:DAC2bAidType972,other official flow (DAC 2b aid type),classificationCode

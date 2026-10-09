@@ -113,7 +113,7 @@ seeds:
               arguments:
                 to: ref('code_mapping')
                 field: code
-                to_condition: "property = 'imfAreaCode'"
+                to_condition: "property = 'imfEconomyCode'"
       - name: iso4217_code
         description: ISO 4217 code of the currency
         data_tests:

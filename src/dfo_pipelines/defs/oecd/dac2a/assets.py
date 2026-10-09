@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import dagster as dg
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
@@ -6,19 +8,36 @@ from oda_reader.download.download_tools import (
     DAC2A_FLOW_URL,
     get_bulk_file_url_with_version,
 )
+from upath import UPath
 
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.defs.resources import UPathFileStoreResource
-
-
-@dg.observable_source_asset(
-    group_name="oecd_dac2a",
-    automation_condition=dg.AutomationCondition.on_cron("@daily"),
+from dfo_pipelines.data_commons.export import (
+    DOCS_ROOT,
+    ConversionRecipe,
+    ExportSpec,
+    ObservationInput,
+    export_bundle,
 )
-def oecd_dac2a_source() -> dg.ObserveResult:
-    """Observed OECD DAC2a data version.
+from dfo_pipelines.data_commons.ingestion import ingest_bundle
+from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
+from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
+)
+from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
+from dfo_pipelines.extraction.metadata import (
+    load_extraction_metadata,
+    write_extraction_metadata,
+)
+from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 
-    The source is observed daily via calls to the OECD API.
+
+def resolve_dac2a_bulk_file() -> tuple[str, str]:
+    """The URL and version token of the DAC2a bulk file
+
+    Raises:
+        ValueError: If the lookup returns no version token.
     """
     # bypass_annotation_cache defeats oda_reader's 7-day on-disk HTTP cache,
     # which would otherwise let a daily observation serve a version token up to
@@ -30,9 +49,21 @@ def oecd_dac2a_source() -> dg.ObserveResult:
         label="DAC2A full dataset (dotStat format)",
         bypass_annotation_cache=True,
     )
-
     if version is None:
         raise ValueError(f"DAC2a version check: could not get version for {url}")
+    return url, version
+
+
+@dg.observable_source_asset(
+    group_name="oecd_dac2a",
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
+)
+def oecd_dac2a_source() -> dg.ObserveResult:
+    """Observed OECD DAC2a data version.
+
+    The source is observed daily via calls to the OECD API.
+    """
+    url, version = resolve_dac2a_bulk_file()
 
     data_version = dg.DataVersion(";".join([url, version]))
 
@@ -59,15 +90,23 @@ def oecd_dac2a_source() -> dg.ObserveResult:
 def oecd_dac2a_raw_file(
     context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
 ):
-    """Raw OECD DAC2a bulk download file"""
-    directory = raw_file_store.build_date_partitioned_path("oecd_dac2a/dac2a")
+    """Raw OECD DAC2a bulk download file and metadata"""
+    downloaded_at = datetime.now(UTC)
+    directory = raw_file_store.build_date_partitioned_path(
+        "oecd_dac2a/dac2a", partition_date=downloaded_at.date()
+    )
     directory.mkdir(parents=True, exist_ok=True)
     file_path = directory / "data.parquet"
     tmp_path = directory / "table2a_data.parquet"
+    url, _ = resolve_dac2a_bulk_file()
+    release_date = fetch_bulk_file_release_date(url)
     bulk_download_dac2a(save_to_path=str(directory), use_raw_cache=False)
     tmp_path.rename(file_path)
     rows = pq.read_metadata(file_path).num_rows
     file_size = file_path.stat().st_size
+    write_extraction_metadata(
+        directory, downloaded_at=downloaded_at, release_dates={"source": release_date}
+    )
     context.log.info(f"Wrote OECD DAC2a data to {file_path}")
     return dg.MaterializeResult(
         value=str(file_path),
@@ -124,4 +163,139 @@ def oecd_dac2a_raw_table(
         check_results=[
             dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
         ],
+    )
+
+
+@dg.asset(
+    group_name="oecd_dac2a",
+    kinds={"duckdb"},
+    automation_condition=EAGER_WHEN_CHECKS_PASS,
+)
+def oecd_dac2a_raw_metadata(
+    duckdb: DuckDBResource, oecd_dac2a_raw_file: str
+) -> dg.MaterializeResult:
+    """Extraction metadata for the OECD DAC2a raw data"""
+    schema = "oecd_dac2a"
+    table = "raw_dac2a_metadata"
+    with duckdb.get_connection() as connection:
+        rows = load_extraction_metadata(
+            connection,
+            directory=UPath(oecd_dac2a_raw_file).parent,
+            schema=schema,
+            table=table,
+            release_names=("source",),
+        )
+    return dg.MaterializeResult(
+        metadata={
+            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+        },
+    )
+
+
+OECD_DAC2A_EXPORT_SPEC = ExportSpec(
+    import_name="oecd_dac2a",
+    provenance_dcid="OECDDAC2A",
+    provenance_model="oecd_dac2a.dc_dac2a_provenance",
+    conversion_recipe=ConversionRecipe.DAC,
+    statvar_model="oecd_dac2a.dc_dac2a_statvars",
+    observation_inputs=(
+        ObservationInput(
+            model="oecd_dac2a.dc_dac2a_observations",
+            property_to_column={
+                "variable": "variable",
+                "date": "date",
+                "value": "value",
+                "unit": "unit",
+                "measurementMethod": "measurement_method",
+                "custom:financingProvider": "financing_provider",
+                "custom:financingRecipient": "financing_recipient",
+            },
+        ),
+    ),
+    statvar_column_to_property={
+        "name": "name",
+        "financial_flow_type": "financialFlowType",
+        "netting_basis": "nettingBasis",
+        "dac_type_of_finance": "dacTypeOfFinance",
+        "dac2a_aid_type": "dac2aAidType",
+    },
+    docs_dir=DOCS_ROOT / "oecd" / "dac2a",
+    constant_observation_properties={"observationPeriod": "P1Y"},
+)
+
+
+@dg.asset(
+    group_name="oecd_dac2a",
+    automation_condition=EAGER_WHEN_CHECKS_PASS,
+    deps=[
+        dg.AssetKey(["oecd_dac2a", "dc_dac2a_observations"]),
+        dg.AssetKey(["oecd_dac2a", "dc_dac2a_provenance"]),
+        dg.AssetKey(["oecd_dac2a", "dc_dac2a_statvars"]),
+    ],
+)
+def oecd_dac2a_dc_export(
+    context: dg.AssetExecutionContext,
+    duckdb: DuckDBResource,
+    export_file_store: UPathFileStoreResource,
+) -> dg.MaterializeResult:
+    """Data Commons export for OECD DAC2a"""
+    out_dir = export_file_store.build_date_partitioned_path(
+        OECD_DAC2A_EXPORT_SPEC.import_name
+    )
+    with duckdb.get_connection() as connection:
+        export_metadata = export_bundle(
+            OECD_DAC2A_EXPORT_SPEC,
+            connection=connection,
+            out_dir=out_dir,
+            log=context.log,
+        )
+    return dg.MaterializeResult(
+        value=str(out_dir),
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
+            "observation_count": dg.MetadataValue.int(
+                export_metadata.observation_count
+            ),
+            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
+            "observation_file_count": dg.MetadataValue.int(
+                export_metadata.observation_file_count
+            ),
+        },
+    )
+
+
+# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
+# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
+@dg.asset(
+    group_name="oecd_dac2a",
+    kinds={"gcs"},
+    deps=[
+        dfo_ontology_dc_ingestion,
+        dfo_shared_dc_ingestion,
+        # A share of GNI divides by the GNI StatVar the IDS import defines.
+        world_bank_ids_dc_ingestion,
+    ],
+)
+def oecd_dac2a_dc_ingestion(
+    context: dg.AssetExecutionContext,
+    knowledge_graph: KnowledgeGraphResource,
+    oecd_dac2a_dc_export: str,
+) -> dg.MaterializeResult:
+    """OECD DAC2a bundle ingested into the Data Commons knowledge graph
+
+    Materialized by hand only: an ingestion rewrites the shared graph and runs
+    for as long as it takes after the workflow is started.
+    """
+    destination = ingest_bundle(
+        UPath(oecd_dac2a_dc_export),
+        import_name=OECD_DAC2A_EXPORT_SPEC.import_name,
+        settings=knowledge_graph.settings,
+        log=context.log,
+    )
+    return dg.MaterializeResult(
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(OECD_DAC2A_EXPORT_SPEC.import_name),
+        },
     )

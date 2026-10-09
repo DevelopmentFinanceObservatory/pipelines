@@ -1,14 +1,11 @@
-from datetime import UTC, date, datetime
-from email.utils import parsedate_to_datetime
+from datetime import UTC, datetime
 
 import dagster as dg
-import httpx
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_dac1
 from oda_reader.download.download_tools import (
     DAC1_FLOW_URL,
-    DEFAULT_HEADERS,
     get_bulk_file_url_with_version,
 )
 from upath import UPath
@@ -33,8 +30,7 @@ from dfo_pipelines.extraction.metadata import (
     load_extraction_metadata,
     write_extraction_metadata,
 )
-
-RELEASE_DATE_TIMEOUT_SECONDS = 30
+from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 
 
 def resolve_dac1_bulk_file() -> tuple[str, str]:
@@ -56,28 +52,6 @@ def resolve_dac1_bulk_file() -> tuple[str, str]:
     if version is None:
         raise ValueError(f"DAC1 version check: could not get version for {url}")
     return url, version
-
-
-def fetch_dac1_release_date(url: str) -> date:
-    """The date OECD last published the DAC1 bulk file, from its Last-Modified
-
-    The DAC1 version token carries no date, unlike the CRS one. A one-byte
-    ranged GET reads the header, since the host refuses HEAD requests.
-
-    Raises:
-        ValueError: If the response carries no Last-Modified header.
-    """
-    response = httpx.get(
-        url,
-        headers={**DEFAULT_HEADERS, "Range": "bytes=0-0"},
-        timeout=RELEASE_DATE_TIMEOUT_SECONDS,
-        follow_redirects=True,
-    )
-    response.raise_for_status()
-    last_modified = response.headers.get("Last-Modified")
-    if last_modified is None:
-        raise ValueError(f"DAC1 release date: no Last-Modified header for {url}")
-    return parsedate_to_datetime(last_modified).date()
 
 
 @dg.observable_source_asset(
@@ -125,7 +99,7 @@ def oecd_dac1_raw_file(
     file_path = directory / "data.parquet"
     tmp_path = directory / "table1_data.parquet"
     url, _ = resolve_dac1_bulk_file()
-    release_date = fetch_dac1_release_date(url)
+    release_date = fetch_bulk_file_release_date(url)
     bulk_download_dac1(save_to_path=str(directory), use_raw_cache=False)
     tmp_path.rename(file_path)
     rows = pq.read_metadata(file_path).num_rows

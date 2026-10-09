@@ -6,6 +6,9 @@ unit_tests:
         rows:
           - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, obs_value: 1.5, scale_code: 1000000000, last_actual_year: 2024}
           - {observation_about: "dcid:country/KEN", concept_code: NGSD_NGDP, time_period: 2024, obs_value: 25.3, scale_code: 1, last_actual_year: 2024}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2026-04-20 09:00:00+00", source_release_date: "2026-04-14"}
     expect:
       rows:
         - {concept_code: NGDPD, value: 1500000000}
@@ -18,6 +21,9 @@ unit_tests:
         rows:
           - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: 2024}
           - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: 2024}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2026-04-20 09:00:00+00", source_release_date: "2026-04-14"}
     expect:
       rows:
         - {time_period: 2024, is_estimate: false}
@@ -35,12 +41,37 @@ unit_tests:
           - {observation_about: "dcid:country/GBR", concept_code: NGDPD, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: 2025}
           - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: null}
           - {observation_about: "dcid:country/KEN", concept_code: PPPPC, time_period: 2024, obs_value: 1, scale_code: 1, last_actual_year: null}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2026-04-20 09:00:00+00", source_release_date: "2026-04-14"}
     expect:
       rows:
         - {observation_about: "dcid:country/KEN", concept_code: NGDPD, is_estimate: false}
         - {observation_about: "dcid:country/GBR", concept_code: NGDPD, is_estimate: false}
         - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, is_estimate: true}
         - {observation_about: "dcid:country/KEN", concept_code: PPPPC, is_estimate: false}
+
+  - name: unified_dates_group_estimates_from_the_release_year
+    model: int_weo_unified
+    description: >
+      Country groups other than the euro area carry no last actual year, on any
+      series, so each takes the year before the release.
+    given:
+      - input: ref('int_weo_resolved')
+        rows:
+          - {observation_about: "dcid:IMFWorld", concept_code: NGDPD, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: null}
+          - {observation_about: "dcid:IMFWorld", concept_code: NGDPD, time_period: 2026, obs_value: 1, scale_code: 1, last_actual_year: null}
+          - {observation_about: "dcid:IMFWorld", concept_code: PPPGDP, time_period: 2026, obs_value: 1, scale_code: 1, last_actual_year: null}
+          - {observation_about: "dcid:EuroArea", concept_code: NGDPD, time_period: 2025, obs_value: 1, scale_code: 1, last_actual_year: 2024}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {downloaded_at: "2026-04-20 09:00:00+00", source_release_date: "2026-04-14"}
+    expect:
+      rows:
+        - {observation_about: "dcid:IMFWorld", concept_code: NGDPD, time_period: 2025, is_estimate: false}
+        - {observation_about: "dcid:IMFWorld", concept_code: NGDPD, time_period: 2026, is_estimate: true}
+        - {observation_about: "dcid:IMFWorld", concept_code: PPPGDP, time_period: 2026, is_estimate: true}
+        - {observation_about: "dcid:EuroArea", concept_code: NGDPD, time_period: 2025, is_estimate: true}
 
   - name: mapped_names_statvars_from_the_label_without_its_currency
     model: int_weo_mapped
@@ -147,7 +178,7 @@ unit_tests:
           - {imf_area_code: KEN, iso4217_code: KES}
       - input: ref('code_mapping')
         rows:
-          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfEconomyCode}
           - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
       - input: ref('int_weo_dollar_countries')
         rows: []
@@ -189,8 +220,8 @@ unit_tests:
           - {imf_area_code: ECU, iso4217_code: USD}
       - input: ref('code_mapping')
         rows:
-          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
-          - {list: "dcid:Country", code: ECU, dcid: "dcid:country/ECU", property: imfAreaCode}
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfEconomyCode}
+          - {list: "dcid:Country", code: ECU, dcid: "dcid:country/ECU", property: imfEconomyCode}
           - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
           - {list: "dcid:CurrencyUnit", code: USD, dcid: "dcid:CurrencyUSD", property: iso4217AlphaCode}
       - input: ref('int_weo_dollar_countries')
@@ -229,7 +260,7 @@ unit_tests:
           - {imf_area_code: KEN, iso4217_code: KES}
       - input: ref('code_mapping')
         rows:
-          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfAreaCode}
+          - {list: "dcid:Country", code: KEN, dcid: "dcid:country/KEN", property: imfEconomyCode}
           - {list: "dcid:CurrencyUnit", code: KES, dcid: "dcid:CurrencyKES", property: iso4217AlphaCode}
       - input: ref('int_weo_dollar_countries')
         rows: []
