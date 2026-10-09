@@ -1,0 +1,127 @@
+unit_tests:
+  - name: stg_dac2a_drops_rows_with_no_value
+    model: stg_dac2a
+    description: A row DAC2a publishes with no value is not staged.
+    given:
+      - input: source('oecd_dac2a', 'raw_dac2a')
+        rows:
+          - {recipient_code: 248, donor_code: 4, part_code: 1, AIDTYPE: 206, DATATYPE: A, Year: 2024, Value: 10.5}
+          - {recipient_code: 248, donor_code: 4, part_code: 1, AIDTYPE: 206, DATATYPE: D, Year: 2024, Value: null}
+    expect:
+      rows:
+        - {recipient_code: "248", donor_code: "4", part: "1", aid_type: "206", amount_type: A, year: 2024, value: 10.5}
+
+  - name: resolved_replaces_each_recipient_and_donor_with_its_node
+    model: int_dac2a_resolved
+    description: >
+      A recipient or donor resolves through its DAC code to a country,
+      organisation or group. A currency sharing the DAC code is not either.
+      Recipient codes sharing a node keep their own code. Flows to Part II
+      recipients are left out.
+    given:
+      - input: ref('stg_dac2a')
+        rows:
+          - {recipient_code: "248", donor_code: "302", part: "1", aid_type: "206", amount_type: A, year: 2024, value: 1.0}
+          - {recipient_code: "10001", donor_code: "20001", part: "1", aid_type: "206", amount_type: A, year: 2024, value: 2.0}
+          - {recipient_code: "10001", donor_code: "20001", part: "2", aid_type: "206", amount_type: A, year: 2000, value: 3.0}
+          - {recipient_code: "904", donor_code: "302", part: "1", aid_type: "206", amount_type: A, year: 2024, value: 4.0}
+          - {recipient_code: "905", donor_code: "302", part: "1", aid_type: "206", amount_type: A, year: 2024, value: 5.0}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:Country", code: "248", dcid: "dcid:country/KEN", property: dacCode}
+          - {list: "dcid:Country", code: "302", dcid: "dcid:country/USA", property: dacCode}
+          - {list: "dcid:CurrencyUnit", code: "302", dcid: "dcid:CurrencyUSD", property: dacCode}
+          - {list: "dcid:DACGroup", code: "10001", dcid: "dcid:DACAfrica", property: dacCode}
+          - {list: "dcid:DACGroup", code: "20001", dcid: "dcid:DACCountriesTotal", property: dacCode}
+          - {list: "dcid:Organization", code: "904", dcid: "dcid:InternationalDevelopmentAssociation", property: dacCode}
+          - {list: "dcid:Organization", code: "905", dcid: "dcid:InternationalDevelopmentAssociation", property: dacCode}
+    expect:
+      rows:
+        - {recipient_code: "248", recipient: "dcid:country/KEN", donor: "dcid:country/USA", value: 1.0}
+        - {recipient_code: "10001", recipient: "dcid:DACAfrica", donor: "dcid:DACCountriesTotal", value: 2.0}
+        - {recipient_code: "904", recipient: "dcid:InternationalDevelopmentAssociation", donor: "dcid:country/USA", value: 4.0}
+        - {recipient_code: "905", recipient: "dcid:InternationalDevelopmentAssociation", donor: "dcid:country/USA", value: 5.0}
+
+  - name: unified_keeps_one_current_dollar_value_per_cell
+    model: int_dac2a_unified
+    description: >
+      Keeps current US dollars only, keeps one copy of a value two donor codes
+      repeat, and adds the values of two recipient codes that resolve to one
+      node.
+    given:
+      - input: ref('int_dac2a_resolved')
+        rows:
+          - {recipient_code: "10010", recipient: "dcid:DACEurope", donor: "dcid:country/FRA", aid_type: "206", amount_type: A, year: 2000, value: 1.0}
+          - {recipient_code: "10010", recipient: "dcid:DACEurope", donor: "dcid:country/FRA", aid_type: "206", amount_type: D, year: 2000, value: 3.0}
+          - {recipient_code: "248", recipient: "dcid:country/KEN", donor: "dcid:AsianDevelopmentBank", aid_type: "206", amount_type: A, year: 2020, value: 4.0}
+          - {recipient_code: "248", recipient: "dcid:country/KEN", donor: "dcid:AsianDevelopmentBank", aid_type: "206", amount_type: A, year: 2020, value: 4.0}
+          - {recipient_code: "905", recipient: "dcid:InternationalDevelopmentAssociation", donor: "dcid:country/FRA", aid_type: "206", amount_type: A, year: 2020, value: 5.0}
+          - {recipient_code: "904", recipient: "dcid:InternationalDevelopmentAssociation", donor: "dcid:country/FRA", aid_type: "206", amount_type: A, year: 2020, value: 2.0}
+    expect:
+      rows:
+        - {recipient: "dcid:DACEurope", donor: "dcid:country/FRA", aid_type: "206", value: 1.0}
+        - {recipient: "dcid:country/KEN", donor: "dcid:AsianDevelopmentBank", aid_type: "206", value: 4.0}
+        - {recipient: "dcid:InternationalDevelopmentAssociation", donor: "dcid:country/FRA", aid_type: "206", value: 7.0}
+
+  - name: mapped_mints_statvars_and_scales_amounts_only
+    model: int_dac2a_mapped
+    description: >
+      An amount is scaled up from millions and rounded to cents. A gross total
+      takes its net total's aid type, and its netting basis tells the two
+      apart in the DCID and the name. A ratio keeps its reported
+      value, measures its numerator's aid type, and names its denominator in
+      its DCID and its name. A measurement method is kept.
+    given:
+      - input: ref('int_dac2a_unified')
+        rows:
+          - {recipient: "dcid:country/KEN", donor: "dcid:country/FRA", aid_type: "206", year: 2023, value: 1.2345678}
+          - {recipient: "dcid:country/KEN", donor: "dcid:country/FRA", aid_type: "240", year: 2023, value: 2.5}
+          - {recipient: "dcid:country/KEN", donor: "dcid:country/FRA", aid_type: "286", year: 2023, value: 1.227}
+          - {recipient: "dcid:country/KEN", donor: "dcid:country/FRA", aid_type: "296", year: 2023, value: 23.545}
+          - {recipient: "dcid:country/KEN", donor: "dcid:country/FRA", aid_type: "106", year: 2023, value: 0.5}
+      - input: ref('dac2a_indicator_mapping')
+        rows:
+          - {aid_type: "206", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", measurement_method: null, financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", dac_type_of_finance: null, dac2a_aid_type: "206", measurement_denominator: null, unit: "dcid:CurrencyUSD"}
+          - {aid_type: "240", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", measurement_method: null, financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Gross", dac_type_of_finance: null, dac2a_aid_type: "206", measurement_denominator: null, unit: "dcid:CurrencyUSD"}
+          - {aid_type: "286", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", measurement_method: null, financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", dac_type_of_finance: null, dac2a_aid_type: "206", measurement_denominator: "dcid:PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal", unit: "dcid:Percent"}
+          - {aid_type: "296", population_type: "dcid:FinancialFlow", measured_property: "dcid:amount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", measurement_method: null, financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Net", dac_type_of_finance: null, dac2a_aid_type: "206", measurement_denominator: "dcid:Count_Person", unit: "dcid:CurrencyUSD"}
+          - {aid_type: "106", population_type: "dcid:FinancialFlow", measured_property: "dcid:attributedAmount", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", measurement_method: "dcid:Modelled", financial_flow_type: "dcid:Disbursement", netting_basis: "dcid:Gross", dac_type_of_finance: null, dac2a_aid_type: "106", measurement_denominator: null, unit: "dcid:CurrencyUSD"}
+      - input: ref('code_mapping')
+        rows:
+          - {list: "dcid:DAC2aAidTypeEnum", code: "206", dcid: "dcid:DAC2aAidType206", label: "official development assistance, net (DAC 2a aid type)", property: classificationCode}
+          - {list: "dcid:DAC2aAidTypeEnum", code: "106", dcid: "dcid:DAC2aAidType106", label: "imputed multilateral ODA (DAC 2a aid type)", property: classificationCode}
+      - input: ref('stat_type_mapping')
+        rows:
+          - {stat_type: "dcid:measuredValue", dcid_segment: null}
+    expect:
+      rows:
+        - aid_type: "206"
+          statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_DAC2aAidType206_Nominal"
+          statvar_name: "Official development assistance (net disbursements)"
+          measurement_method: null
+          unit: "dcid:CurrencyUSD"
+          value: 1234567.80
+        - aid_type: "240"
+          statvar_dcid: "dcid:Amount_FinancialFlow_Gross_Disbursement_DAC2aAidType206_Nominal"
+          statvar_name: "Official development assistance (gross disbursements)"
+          measurement_method: null
+          unit: "dcid:CurrencyUSD"
+          value: 2500000.00
+        - aid_type: "286"
+          statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_DAC2aAidType206_Nominal_AsAFractionOf_PrimaryIncome_EconomicUnit_GrossOfFixedCapitalConsumption_Nominal"
+          statvar_name: "Official development assistance (net disbursements, % of recipient GNI)"
+          measurement_method: null
+          unit: "dcid:Percent"
+          value: 1.227
+        - aid_type: "296"
+          statvar_dcid: "dcid:Amount_FinancialFlow_Net_Disbursement_DAC2aAidType206_Nominal_AsAFractionOf_Count_Person"
+          statvar_name: "Official development assistance (net disbursements, per person)"
+          measurement_method: null
+          unit: "dcid:CurrencyUSD"
+          value: 23.545
+        - aid_type: "106"
+          statvar_dcid: "dcid:AttributedAmount_FinancialFlow_Gross_Disbursement_DAC2aAidType106_Nominal"
+          statvar_name: "Imputed multilateral ODA (gross disbursements)"
+          measurement_method: "dcid:Modelled"
+          unit: "dcid:CurrencyUSD"
+          value: 500000.00

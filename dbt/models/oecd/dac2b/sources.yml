@@ -1,0 +1,83 @@
+version: 2
+
+sources:
+  - name: oecd_dac2b
+    description: OECD DAC2b, other official flows and export credits by donor and recipient, as the bulk file publishes it
+    tables:
+      - name: raw_dac2b
+        description: >
+          The DAC2b bulk file, one row per recipient, donor, part, aid type,
+          amount type and year, loaded by oecd_dac2b_raw_table with the
+          recipient, donor and part columns renamed. Only the columns stg_dac2b
+          consumes are declared.
+        config:
+          meta:
+            dagster:
+              asset_key: ["oecd_dac2b_raw_table"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: dac2b_required_columns_present
+              arguments:
+                column_list:
+                  - recipient_code
+                  - donor_code
+                  - part_code
+                  - AIDTYPE
+                  - DATATYPE
+                  - Year
+                  - Value
+        columns:
+          - name: recipient_code
+            data_type: bigint
+            description: >
+              DAC code of the recipient, which is a country, a multilateral
+              organisation, a region or group total such as Africa, Total
+              (10001), or spending not allocated to a country
+          - name: donor_code
+            data_type: bigint
+            description: >
+              DAC code of the donor, which is a country, a multilateral
+              organisation or a group total such as DAC Countries, Total (20001)
+          - name: part_code
+            data_type: bigint
+            description: >
+              Part of the DAC List the recipient was on that year: 1 for Part I,
+              developing countries, 2 for Part II, countries in transition
+          - name: AIDTYPE
+            data_type: bigint
+            description: DAC2b aid type code, e.g. 255 for net other official flows
+          - name: DATATYPE
+            data_type: varchar
+            description: >
+              Price basis of the value: A for current US dollars, D for constant
+              US dollars of the DAC base year
+          - name: Year
+            data_type: bigint
+            description: Year the value refers to
+          - name: Value
+            data_type: double
+            description: Amount in millions of US dollars
+      - name: raw_dac2b_metadata
+        description: >
+          One row containing metadata about the data currently loaded into the raw
+          table.
+        config:
+          meta:
+            dagster:
+              asset_key: ["oecd_dac2b_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_dac2b_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the raw file was downloaded
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When OECD last published the DAC2b bulk file
+            data_tests:
+              - not_null

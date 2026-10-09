@@ -3,7 +3,7 @@ with areas as (
         code as imf_area_code,
         dcid
     from {{ ref("code_mapping") }}
-    where property = 'imfAreaCode'
+    where property = 'imfEconomyCode'
 )
 
 select
@@ -17,4 +17,3 @@ select
 from {{ ref("stg_weo") }} as weo
 left join areas
     on weo.ref_area_code = areas.imf_area_code
-where weo.ref_area_code not in {{ weo_excluded_areas() }}

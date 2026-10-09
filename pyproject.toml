@@ -161,4 +161,4 @@ show_missing = true
 precision = 2
 
 [tool.uv.sources]
-dfo-ontology = { git = "https://github.com/ONEcampaign/dfo-ontology", rev = "v0.2.0" }
+dfo-ontology = { git = "https://github.com/ONEcampaign/dfo-ontology", rev = "v0.2.1" }

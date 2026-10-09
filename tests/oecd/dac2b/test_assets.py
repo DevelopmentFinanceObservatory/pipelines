@@ -1,4 +1,6 @@
+import json
 import shutil
+from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
@@ -10,13 +12,26 @@ import requests
 from dagster_duckdb import DuckDBResource
 from oda_reader.dac2b import DAC2B_BULK_LABEL
 from oda_reader.download.download_tools import DAC2B_FLOW_URL
+from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac2b.assets import (
+    OECD_DAC2B_EXPORT_SPEC,
+    oecd_dac2b_dc_export,
+    oecd_dac2b_dc_ingestion,
     oecd_dac2b_raw_file,
+    oecd_dac2b_raw_metadata,
     oecd_dac2b_raw_table,
     oecd_dac2b_source,
 )
-from dfo_pipelines.defs.resources import UPathFileStoreResource
+from dfo_pipelines.defs.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
+)
+from dfo_pipelines.extraction.metadata import (
+    METADATA_FILE_NAME,
+    read_extraction_metadata,
+    write_extraction_metadata,
+)
 from tests.helpers import (
     AutomationHarness,
     column_list,
@@ -30,12 +45,42 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # mocked, but joined into the data version so it is pinned in assertions.
 DAC2B_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2b/DAC2b.parquet"
 
+DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
+
+SOURCE_RELEASE_DATE = date(2026, 7, 7)
+
 
 def write_download(
     parquet: Path, save_to_path: str, use_raw_cache: bool = True
 ) -> None:
     """Write the given fixture to bulk_download_dac2b path"""
     shutil.copyfile(parquet, Path(save_to_path) / "table2b_data.parquet")
+
+
+@contextmanager
+def patch_download_clock():
+    """Freeze the instant the raw file asset stamps a download with"""
+    with patch("dfo_pipelines.defs.oecd.dac2b.assets.datetime") as mock_datetime:
+        mock_datetime.now.return_value = DOWNLOADED_AT
+        yield
+
+
+@contextmanager
+def patch_release_lookup():
+    """Answer the version and release date lookups the raw file asset makes"""
+    with (
+        patch(
+            "dfo_pipelines.defs.oecd.dac2b.assets.get_bulk_file_url_with_version",
+            autospec=True,
+            return_value=(DAC2B_TEST_URL, "0x8DEDC2882EAC20B"),
+        ),
+        patch(
+            "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file_release_date",
+            autospec=True,
+            return_value=SOURCE_RELEASE_DATE,
+        ) as release_lookup,
+    ):
+        yield release_lookup
 
 
 def test_dac2b_source_observe_fn_returns_metadata_and_data_version() -> None:
@@ -131,6 +176,13 @@ class _DAC2bAutomation(AutomationHarness):
         )
         self._stack.enter_context(
             patch(
+                "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file_release_date",
+                autospec=True,
+                return_value=SOURCE_RELEASE_DATE,
+            )
+        )
+        self._stack.enter_context(
+            patch(
                 "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
                 side_effect=partial(write_download, FIXTURES / "data.parquet"),
             )
@@ -221,18 +273,24 @@ def test_dac2b_raw_assets_are_rerun_when_the_source_data_version_changes(
 
 
 def test_dac2b_raw_file_writes_parquet(tmp_path: Path) -> None:
-    """Test DAC2b raw file asset writes the download to a date-partitioned path"""
+    """Test the raw file asset writes the download, and the metadata beside it
+
+    Both are stamped from one clock reading, so the partition a file lands in
+    and the date the provenance publishes for it can never disagree.
+    """
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    raw_dir = file_store.build_date_partitioned_path(
+        "oecd_dac2b/dac2b", partition_date=DOWNLOADED_AT.date()
+    )
 
     with (
-        patch("dfo_pipelines.defs.resources.date") as mock_date,
+        patch_download_clock(),
+        patch_release_lookup() as release_lookup,
         patch(
             "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
             side_effect=partial(write_download, FIXTURES / "data.parquet"),
         ) as bulk_download,
     ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("oecd_dac2b/dac2b")
         result = oecd_dac2b_raw_file(
             context=dg.build_asset_context(), raw_file_store=file_store
         )
@@ -240,6 +298,13 @@ def test_dac2b_raw_file_writes_parquet(tmp_path: Path) -> None:
     bulk_download.assert_called_once_with(
         save_to_path=str(raw_dir), use_raw_cache=False
     )
+    release_lookup.assert_called_once_with(DAC2B_TEST_URL)
+
+    recorded = read_extraction_metadata(raw_dir, release_names=("source",))
+    assert recorded.downloaded_at == DOWNLOADED_AT
+    assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
+    metadata_json = json.loads((raw_dir / METADATA_FILE_NAME).read_text())
+    assert set(metadata_json) == {"downloaded_at", "source_release_date"}
 
     assert list_parquet_columns(Path(str(raw_dir)) / "data.parquet") == [
         "RECIPIENT",
@@ -273,9 +338,12 @@ def test_dac2b_raw_file_check_fails_when_file_empty(tmp_path: Path) -> None:
     """Test DAC2b raw file check fails when the download is empty"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
 
-    with patch(
-        "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
-        side_effect=partial(write_download, FIXTURES / "empty.parquet"),
+    with (
+        patch_release_lookup(),
+        patch(
+            "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
+            side_effect=partial(write_download, FIXTURES / "empty.parquet"),
+        ),
     ):
         result = oecd_dac2b_raw_file(
             context=dg.build_asset_context(), raw_file_store=file_store
@@ -359,17 +427,40 @@ def test_dac2b_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
     assert row_count(duckdb, "oecd_dac2b.raw_dac2b") == 5
 
 
+def test_dac2b_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
+    """Test the metadata asset loads the extraction metadata with the raw file"""
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    write_extraction_metadata(
+        UPath(tmp_path),
+        downloaded_at=DOWNLOADED_AT,
+        release_dates={"source": SOURCE_RELEASE_DATE},
+    )
+
+    result = oecd_dac2b_raw_metadata(
+        duckdb=duckdb, oecd_dac2b_raw_file=str(tmp_path / "data.parquet")
+    )
+
+    assert isinstance(result, dg.MaterializeResult)
+    assert result.metadata == {
+        "dagster/table_name": dg.TextMetadataValue("oecd_dac2b.raw_dac2b_metadata"),
+        "dagster/row_count": dg.IntMetadataValue(1),
+    }
+
+
 def test_dac2b_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into the raw table asset"""
+    """Test the raw file asset's output path is injected into the downstream assets"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    with patch(
-        "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
-        side_effect=partial(write_download, FIXTURES / "data.parquet"),
+    with (
+        patch_release_lookup(),
+        patch(
+            "dfo_pipelines.defs.oecd.dac2b.assets.bulk_download_dac2b",
+            side_effect=partial(write_download, FIXTURES / "data.parquet"),
+        ),
     ):
         result = dg.materialize(
-            [oecd_dac2b_raw_file, oecd_dac2b_raw_table],
+            [oecd_dac2b_raw_file, oecd_dac2b_raw_table, oecd_dac2b_raw_metadata],
             resources={"raw_file_store": file_store, "duckdb": duckdb},
         )
 
@@ -379,3 +470,229 @@ def test_dac2b_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
 
     assert checks == {"file_not_empty": True, "table_not_empty": True}
     assert row_count(duckdb, "oecd_dac2b.raw_dac2b") == 25
+    assert row_count(duckdb, "oecd_dac2b.raw_dac2b_metadata") == 1
+
+
+GRANT_STATVAR = (
+    "dcid:Amount_FinancialFlow_Gross_Disbursement_DACTypeOfFinanceGrants_"
+    "DAC2bAidType201_Nominal"
+)
+INTEREST_STATVAR = (
+    "dcid:Amount_FinancialFlow_Gross_InterestPayment_DACTypeOfFinanceNonGrants_"
+    "DAC2bAidType297_Nominal"
+)
+
+DC_MODELS_SQL = f"""
+create schema if not exists oecd_dac2b;
+
+create or replace table oecd_dac2b.dc_dac2b_provenance as
+select
+    'OECD DAC2b' as name,
+    'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
+    'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2b_Data.zip' as url;
+
+create or replace table oecd_dac2b.dc_dac2b_statvars as
+select * from (values
+    (
+        '{GRANT_STATVAR}',
+        'Grants, total',
+        'dcid:FinancialFlow',
+        'dcid:amount',
+        'dcid:measuredValue',
+        'dcid:Nominal',
+        'nettingBasis,financialFlowType,dacTypeOfFinance,dac2bAidType',
+        'dcid:Disbursement',
+        'dcid:Gross',
+        'dcid:DACTypeOfFinanceGrants',
+        'dcid:DAC2bAidType201',
+        'financingProvider,financingRecipient'
+    ),
+    (
+        '{INTEREST_STATVAR}',
+        'Interest received',
+        'dcid:FinancialFlow',
+        'dcid:amount',
+        'dcid:measuredValue',
+        'dcid:Nominal',
+        'nettingBasis,financialFlowType,dacTypeOfFinance,dac2bAidType',
+        'dcid:InterestPayment',
+        'dcid:Gross',
+        'dcid:DACTypeOfFinanceNonGrants',
+        'dcid:DAC2bAidType297',
+        'financingProvider,financingRecipient'
+    )
+) as statvars (
+    dcid,
+    name,
+    population_type,
+    measured_property,
+    stat_type,
+    measurement_qualifier,
+    constraint_properties,
+    financial_flow_type,
+    netting_basis,
+    dac_type_of_finance,
+    dac2b_aid_type,
+    observation_properties
+);
+
+create or replace table oecd_dac2b.dc_dac2b_observations as
+select * from (values
+    ('{GRANT_STATVAR}', 2023, 'dcid:DACCountriesTotal', 'dcid:country/KEN', 'dcid:CurrencyUSD', 1500000.0),
+    ('{INTEREST_STATVAR}', 2023, 'dcid:DACCountriesTotal', 'dcid:country/KEN', 'dcid:CurrencyUSD', -23509652.0)
+) as observations (variable, date, financing_provider, financing_recipient, unit, value);
+"""
+
+
+def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
+    """Materialize the export over a small fixture bundle"""
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    with duckdb.get_connection() as connection:
+        connection.execute(DC_MODELS_SQL)
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
+
+    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+        mock_date.today.return_value = date(2026, 10, 7)
+        result = oecd_dac2b_dc_export(
+            context=dg.build_asset_context(),
+            duckdb=duckdb,
+            export_file_store=file_store,
+        )
+
+    assert isinstance(result, dg.MaterializeResult)
+    return result, tmp_path / "processed" / "oecd_dac2b" / "2026" / "10" / "07"
+
+
+def test_oecd_dac2b_dc_export_writes_a_bundle_to_a_date_partitioned_path(
+    tmp_path: Path,
+) -> None:
+    """Test the export reports the bundle it wrote to today's partition"""
+    result, out_dir = _run_dc_export(tmp_path)
+
+    assert result.value == str(out_dir)
+    assert result.metadata == {
+        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
+        "observation_count": dg.IntMetadataValue(2),
+        "statvar_count": dg.IntMetadataValue(2),
+        "observation_file_count": dg.IntMetadataValue(1),
+    }
+
+
+def test_oecd_dac2b_dc_export_writes_the_import_config(tmp_path: Path) -> None:
+    """Test the config registers flows by provider and recipient, with the period"""
+    _, out_dir = _run_dc_export(tmp_path)
+
+    provenance = "dcid:provenance/OECDDAC2B"
+    assert json.loads((out_dir / "config.json").read_text()) == {
+        "importName": "oecd_dac2b",
+        "inputFiles": [
+            {"pattern": "*.mcf", "provenance": provenance},
+            {
+                "pattern": "observations_*.csv",
+                "provenance": provenance,
+                "columnMappings": {
+                    "dcid:variableMeasured": "variable",
+                    "dcid:observationDate": "date",
+                    "dcid:value": "value",
+                    "dcid:unit": "unit",
+                    "custom:financingProvider": "financing_provider",
+                    "custom:financingRecipient": "financing_recipient",
+                },
+                "observationProperties": {"observationPeriod": "P1Y"},
+                "format": "variablePerRow",
+            },
+        ],
+    }
+
+
+def test_oecd_dac2b_dc_export_writes_the_conversion_recipe_onto_the_provenance_node(
+    tmp_path: Path,
+) -> None:
+    """Test the Provenance node names the DAC conversion recipe as its conversionRecipe"""
+    _, out_dir = _run_dc_export(tmp_path)
+
+    provenance = (out_dir / "provenance.mcf").read_text()
+    assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
+
+
+def test_oecd_dac2b_dc_export_writes_each_property_the_statvar_sets(
+    tmp_path: Path,
+) -> None:
+    """Test a StatVar's constraints, entities and aid type code become its properties"""
+    _, out_dir = _run_dc_export(tmp_path)
+
+    nodes = (out_dir / "custom_nodes.mcf").read_text().strip().split("\n\n")
+    assert nodes == [
+        f"Node: {GRANT_STATVAR}\n"
+        'name: "Grants, total"\n'
+        "typeOf: dcid:StatisticalVariable\n"
+        "statType: dcid:measuredValue\n"
+        "populationType: dcid:FinancialFlow\n"
+        "measuredProperty: dcid:amount\n"
+        "constraintProperties: dcid:nettingBasis, dcid:financialFlowType, "
+        "dcid:dacTypeOfFinance, dcid:dac2bAidType\n"
+        "measurementQualifier: dcid:Nominal\n"
+        "observationProperties: dcid:financingProvider, dcid:financingRecipient\n"
+        "financialFlowType: dcid:Disbursement\n"
+        "nettingBasis: dcid:Gross\n"
+        "dacTypeOfFinance: dcid:DACTypeOfFinanceGrants\n"
+        "dac2bAidType: dcid:DAC2bAidType201",
+        f"Node: {INTEREST_STATVAR}\n"
+        'name: "Interest received"\n'
+        "typeOf: dcid:StatisticalVariable\n"
+        "statType: dcid:measuredValue\n"
+        "populationType: dcid:FinancialFlow\n"
+        "measuredProperty: dcid:amount\n"
+        "constraintProperties: dcid:nettingBasis, dcid:financialFlowType, "
+        "dcid:dacTypeOfFinance, dcid:dac2bAidType\n"
+        "measurementQualifier: dcid:Nominal\n"
+        "observationProperties: dcid:financingProvider, dcid:financingRecipient\n"
+        "financialFlowType: dcid:InterestPayment\n"
+        "nettingBasis: dcid:Gross\n"
+        "dacTypeOfFinance: dcid:DACTypeOfFinanceNonGrants\n"
+        "dac2bAidType: dcid:DAC2bAidType297",
+    ]
+
+
+def test_oecd_dac2b_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path,
+) -> None:
+    """Test the ingestion is handed the export's directory under its import name"""
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    with duckdb.get_connection() as connection:
+        connection.execute(DC_MODELS_SQL)
+    knowledge_graph = KnowledgeGraphResource(
+        project_id="test-project",
+        region="test-region",
+        bucket_name="test-bucket",
+        prep_job_name="test-prep-job",
+        workflow_name="test-workflow",
+    )
+    import_name = OECD_DAC2B_EXPORT_SPEC.import_name
+    destination = f"gs://test-bucket/ingestion/input/{import_name}"
+
+    with patch(
+        "dfo_pipelines.defs.oecd.dac2b.assets.ingest_bundle",
+        return_value=destination,
+    ) as ingest_bundle:
+        result = dg.materialize(
+            [oecd_dac2b_dc_export, oecd_dac2b_dc_ingestion],
+            resources={
+                "duckdb": duckdb,
+                "export_file_store": UPathFileStoreResource(
+                    base_path=str(tmp_path / "processed")
+                ),
+                "knowledge_graph": knowledge_graph,
+            },
+        )
+
+    assert result.success
+    [export] = result.asset_materializations_for_node("oecd_dac2b_dc_export")
+    [ingestion] = result.asset_materializations_for_node("oecd_dac2b_dc_ingestion")
+    bundle = export.metadata["dagster/uri"].value
+    ingest_bundle.assert_called_once()
+    args, kwargs = ingest_bundle.call_args
+    assert str(args[0]) == bundle
+    assert kwargs["import_name"] == import_name
+    assert kwargs["settings"] == knowledge_graph.settings
+    assert ingestion.metadata["dagster/uri"].value == destination

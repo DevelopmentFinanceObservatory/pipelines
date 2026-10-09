@@ -7,7 +7,7 @@ attributes:
   translation:
     automation_condition: >-
       {{ eager_when_checks_pass
-      if node.fqn[1:3] in [["world_bank", "ids"], ["oecd", "dac1"], ["oecd", "dac_crs"], ["dfo", "ontology"], ["one", "imputed_multilateral_sectors"], ["one", "conversion_tables"], ["imf", "weo"]]
+      if node.fqn[1:3] in [["world_bank", "ids"], ["oecd", "dac1"], ["oecd", "dac2a"], ["oecd", "dac2b"], ["oecd", "dac_crs"], ["dfo", "ontology"], ["one", "imputed_multilateral_sectors"], ["one", "conversion_tables"], ["imf", "weo"]]
       else None }}
   translation_settings:
     enable_source_tests_as_checks: true

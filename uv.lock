@@ -773,7 +773,7 @@ wheels = [
 [[package]]
 name = "dfo-ontology"
 version = "0.1.0"
-source = { git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.0#1d757204bb02545567db591abd548f20168fb65d" }
+source = { git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.1#5d059b116c88985601516e61ba20c5a69f5bb537" }
 dependencies = [
     { name = "httpx" },
 ]
@@ -823,7 +823,7 @@ requires-dist = [
     { name = "dagster-duckdb", specifier = ">=0.29.10" },
     { name = "dbt-duckdb", specifier = ">=1.10.1" },
     { name = "dcp-tools", specifier = ">=1.0.0a5" },
-    { name = "dfo-ontology", git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.0" },
+    { name = "dfo-ontology", git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.1" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "imf-reader", specifier = ">=2.2.0" },
     { name = "oda-data", specifier = "==2.8.1" },

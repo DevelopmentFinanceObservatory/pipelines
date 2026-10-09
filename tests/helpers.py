@@ -61,7 +61,8 @@ class AutomationHarness:
     raw assets, one tick at a time.
 
     Subclasses patch their pipeline's network layer for as long as the context
-    is open, from the `_start_mocks` hook.
+    is open, from the `_start_mocks` hook, and pass any resource their assets
+    take beyond the file store and the database.
     """
 
     def __init__(
@@ -70,6 +71,7 @@ class AutomationHarness:
         *,
         source: dg.SourceAsset,
         raw_assets: list[dg.AssetsDefinition],
+        resources: dict[str, object] | None = None,
     ) -> None:
         self._source = source
         self._raw_assets = raw_assets
@@ -77,6 +79,7 @@ class AutomationHarness:
         self._resources = {
             "raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
             "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+            **(resources or {}),
         }
         self._defs = dg.Definitions(
             assets=[source, *raw_assets],

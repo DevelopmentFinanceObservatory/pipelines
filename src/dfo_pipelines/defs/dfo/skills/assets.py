@@ -1,7 +1,9 @@
 import os
 import re
+import stat
 import subprocess
 import tempfile
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,16 +24,19 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
+    SkillsRepositoryResource,
     UPathFileStoreResource,
 )
 
 IMPORT_NAME = "dfo_skills"
-SKILLS_REPOSITORY_URL = "https://github.com/ONEcampaign/dfo-skills"
-SKILLS_BRANCH = "main"
+# Where the skills repository keeps the skills it offers for install, which
+# every repository has, and the skills it publishes without offering them.
+INSTALLABLE_ROOT = "skills"
+SKILL_ROOTS = (INSTALLABLE_ROOT, "internal/skills")
 SKILL_FILE = "SKILL.md"
 # Each skill's graph attachments, read here and left out of the published bundle.
 ATTACHMENTS_FILE = "attachments.yaml"
-# dfo-skills is small, so a git call running this long has stalled.
+# The skills repository is small, so a git call running this long has stalled.
 GIT_TIMEOUT_SECONDS = 300
 
 SKILL_CLASS_DCID = "AgentSkill"
@@ -69,13 +74,55 @@ _ATTACHMENT_PATTERNS = {
 }
 
 
+def _is_directory(path: UPath) -> bool:
+    """Whether a listed path is a directory, raising when the store fails
+
+    The type is read with `stat()`, which raises when the path's metadata
+    cannot be read. `is_dir()` and `is_file()` on a remote store answer False
+    on any error, which would read as an entry of the other type.
+    """
+    return stat.S_ISDIR(path.stat().st_mode)
+
+
 def _is_skill_directory(path: UPath) -> bool:
     """A directory is a skill unless its name starts with `_`
 
-    Matches the dfo-skills validator, which skips every `skills/` entry whose
-    name starts with `_` (the repository's convention for drafts and scaffolds).
+    A directory under either root whose name starts with `_` is left out of the
+    raw directory's skill count and out of the export, and so is a file, such
+    as `skills/categories.yaml`. A store error while reading the path's type
+    raises.
     """
-    return path.is_dir() and not path.name.startswith("_")
+    return not path.name.startswith("_") and _is_directory(path)
+
+
+def _skill_directories(raw_directory: UPath) -> list[tuple[str, UPath]]:
+    """Each skill directory under a raw directory, with the root it sits in
+
+    A raw directory mirrors the repository's roots. One without `skills/`, such
+    as one holding its skills at the top level, is refused, since reading it
+    would find no skills.
+
+    Which roots exist is read from a listing of the raw directory, and each
+    root's entries from a listing of the root. A listing raises when the store
+    fails, and so does reading whether a listed entry is a directory. An
+    existence or type check that answers False on any error would read as a
+    repository without that root or that skill.
+    """
+    listed = {path.name for path in raw_directory.iterdir()}
+    if INSTALLABLE_ROOT not in listed:
+        raise RuntimeError(
+            f"raw directory {raw_directory} has no {INSTALLABLE_ROOT}/ directory: "
+            "materialize dfo_skills_raw_directory again to write one"
+        )
+    return [
+        (root, path)
+        for root in SKILL_ROOTS
+        # The raw directory holds files only, so a root's first directory is
+        # listed exactly when the root has files.
+        if root.split("/")[0] in listed
+        for path in sorted((raw_directory / root).iterdir())
+        if _is_skill_directory(path)
+    ]
 
 
 @dataclass(frozen=True)
@@ -91,11 +138,13 @@ class _Reference:
 class _Skill:
     """A validated skill directory: its id, `SKILL.md`, references, and attachments
 
-    `applies_to` holds the ontology nodes the skill explains, and `sources` the
-    provenance of each export whose dataset it explains as a whole.
+    `root` is the repository root the skill sits in. `applies_to` holds the
+    ontology nodes the skill explains, and `sources` the provenance of each
+    export whose dataset it explains as a whole.
     """
 
     name: str
+    root: str
     markdown: str
     description: str
     references: list[_Reference]
@@ -287,7 +336,7 @@ def _reference_dcid_suffix(skill_path: UPath, reference_path: UPath) -> str:
     return suffix
 
 
-def _read_skill(skill_path: UPath) -> _Skill:
+def _read_skill(skill_path: UPath, *, root: str) -> _Skill:
     """Read a skill directory, failing on anything the Skills API contract rejects
 
     The directory name is a lower-case hyphenated id of at most
@@ -319,7 +368,7 @@ def _read_skill(skill_path: UPath) -> _Skill:
 
     reference_paths: list[UPath] = []
     for path in sorted(skill_path.rglob("*")):
-        if not path.is_file():
+        if _is_directory(path):
             continue
         bundle_path = path.relative_to(skill_path).as_posix()
         if len(bundle_path) > MAX_PATH_CHARACTERS:
@@ -358,6 +407,7 @@ def _read_skill(skill_path: UPath) -> _Skill:
     ]
     return _Skill(
         name=skill_name,
+        root=root,
         markdown=markdown,
         description=description,
         references=references,
@@ -385,7 +435,8 @@ def _run_git(*args: str, cwd: Path | None = None) -> str:
     if result.returncode != 0:
         raise RuntimeError(
             f"git {args[0]} failed:\n{result.stderr}\n"
-            "dfo-skills is private: check git can authenticate to GitHub"
+            "Check the repository URL and, if the repository is private, that git "
+            "can authenticate to GitHub"
         )
     return result.stdout.strip()
 
@@ -394,11 +445,12 @@ def _run_git(*args: str, cwd: Path | None = None) -> str:
     group_name="dfo_skills",
     automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
-def dfo_skills_source() -> dg.ObserveResult:
-    """Observed commit at the head of the dfo-skills main branch"""
-    output = _run_git("ls-remote", SKILLS_REPOSITORY_URL, f"refs/heads/{SKILLS_BRANCH}")
+def dfo_skills_source(skills_repository: SkillsRepositoryResource) -> dg.ObserveResult:
+    """Observed commit at the head of the skills repository's branch"""
+    url, branch = skills_repository.url, skills_repository.branch
+    output = _run_git("ls-remote", url, f"refs/heads/{branch}")
     if not output:
-        raise RuntimeError(f"dfo-skills has no {SKILLS_BRANCH} branch")
+        raise RuntimeError(f"{url} has no {branch} branch")
     commit = output.split()[0]
     return dg.ObserveResult(
         metadata={"commit": dg.MetadataValue.text(commit)},
@@ -418,37 +470,52 @@ def dfo_skills_source() -> dg.ObserveResult:
     ],
 )
 def dfo_skills_raw_directory(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
+    context: dg.AssetExecutionContext,
+    raw_file_store: UPathFileStoreResource,
+    skills_repository: SkillsRepositoryResource,
 ):
-    """DFO agent skills, as published on the dfo-skills main branch
+    """DFO agent skills, as published on the skills repository's branch
 
-    dfo-skills is private, so git needs GitHub credentials wherever this runs.
+    The raw directory mirrors the repository's skill roots: `skills/<name>/`,
+    and `internal/skills/<name>/` where the repository has one. A private
+    repository needs git to hold GitHub credentials wherever this runs.
     """
+    url = skills_repository.url
     raw_directory = raw_file_store.build_date_partitioned_path("dfo_skills/skills")
 
     with tempfile.TemporaryDirectory() as staging_dir:
-        clone_path = Path(staging_dir) / "dfo-skills"
+        clone_path = Path(staging_dir) / "repository"
         _run_git(
             "clone",
             "--depth=1",
-            f"--branch={SKILLS_BRANCH}",
-            SKILLS_REPOSITORY_URL,
+            f"--branch={skills_repository.branch}",
+            url,
             str(clone_path),
         )
         commit = _run_git("rev-parse", "HEAD", cwd=clone_path)
-        skills_path = clone_path / "skills"
-        # Reading a symlink would copy whatever it points at on this machine.
-        if skills_path.is_symlink():
-            raise RuntimeError(f"dfo-skills {commit} has skills/ as a symlink")
-        if not skills_path.is_dir():
-            raise RuntimeError(f"dfo-skills {commit} has no skills/ directory")
-        symlinks = [path for path in skills_path.rglob("*") if path.is_symlink()]
-        if symlinks:
-            raise RuntimeError(
-                f"dfo-skills {commit} has symlinks under skills/: "
-                f"{sorted(str(path.relative_to(skills_path)) for path in symlinks)}"
-            )
-        files = [path for path in skills_path.rglob("*") if path.is_file()]
+        files: list[Path] = []
+        for root in SKILL_ROOTS:
+            root_path = clone_path / root
+            # Reading a symlink would copy whatever it points at on this machine.
+            for directory in (root_path, *root_path.parents):
+                if directory == clone_path:
+                    break
+                if directory.is_symlink():
+                    raise RuntimeError(
+                        f"{url} {commit} has "
+                        f"{directory.relative_to(clone_path).as_posix()}/ as a symlink"
+                    )
+            if not root_path.is_dir():
+                if root == INSTALLABLE_ROOT:
+                    raise RuntimeError(f"{url} {commit} has no {root}/ directory")
+                continue
+            symlinks = [path for path in root_path.rglob("*") if path.is_symlink()]
+            if symlinks:
+                raise RuntimeError(
+                    f"{url} {commit} has symlinks under {root}/: "
+                    f"{sorted(str(path.relative_to(root_path)) for path in symlinks)}"
+                )
+            files.extend(path for path in root_path.rglob("*") if path.is_file())
 
         # Cleared after the clone succeeds, so a failed fetch keeps the day's
         # copy and a rerun drops skills deleted upstream.
@@ -456,17 +523,17 @@ def dfo_skills_raw_directory(
             raw_directory.rmdir(recursive=True)
         raw_directory.mkdir(parents=True)
         for path in files:
-            target = raw_directory / path.relative_to(skills_path)
+            target = raw_directory / path.relative_to(clone_path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
 
     skill_count = sum(
         1
-        for path in raw_directory.iterdir()
-        if _is_skill_directory(path) and (path / "SKILL.md").is_file()
+        for _, path in _skill_directories(raw_directory)
+        if (path / "SKILL.md").is_file()
     )
     context.log.info(
-        f"Wrote {skill_count} skills from dfo-skills {commit} to {raw_directory}"
+        f"Wrote {skill_count} skills from {url} {commit} to {raw_directory}"
     )
     return dg.MaterializeResult(
         value=str(raw_directory),
@@ -512,6 +579,7 @@ def _check_attachment_targets(
 def dfo_skills_dc_export(
     context: dg.AssetExecutionContext,
     export_file_store: UPathFileStoreResource,
+    skills_repository: SkillsRepositoryResource,
     dfo_skills_raw_directory: str,
     dfo_ontology_raw_directory: str,
 ) -> dg.MaterializeResult:
@@ -519,18 +587,21 @@ def dfo_skills_dc_export(
 
     Each skill and each of its references becomes a node holding its markdown,
     and a skill links to the targets its attachments.yaml lists. A skill
-    directory that breaks the Skills API contract's limits, or an attachment
-    target that does not resolve, fails the run before anything is written.
+    directory that breaks the Skills API contract's limits, a name that sits in
+    both of the repository's roots, or an attachment target that does not
+    resolve, fails the run before anything is written.
     """
     provenance_dcid = "dcid:provenance/DFOSkills"
     out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
 
-    skill_paths = sorted(
-        path
-        for path in UPath(dfo_skills_raw_directory).iterdir()
-        if _is_skill_directory(path)
-    )
-    skills = [_read_skill(skill_path) for skill_path in skill_paths]
+    skill_directories = _skill_directories(UPath(dfo_skills_raw_directory))
+    # A skill's name is its id in the graph, so two roots cannot share one.
+    names = Counter(path.name for _, path in skill_directories)
+    if repeated := sorted(name for name, count in names.items() if count > 1):
+        raise RuntimeError(
+            f"skills {repeated} are in more than one of {list(SKILL_ROOTS)}"
+        )
+    skills = [_read_skill(path, root=root) for root, path in skill_directories]
 
     _check_attachment_targets(
         skills,
@@ -543,60 +614,16 @@ def dfo_skills_dc_export(
     manager.add_provenance(
         dcid=provenance_dcid,
         name="DFO Skills",
-        url=SKILLS_REPOSITORY_URL,
+        url=skills_repository.url,
         # Defined by the ontology import, which must be ingested first.
         source="dcid:source/ONEData",
-    )
-    manager.add_node(
-        dcid=SKILL_CLASS_DCID,
-        name="Agent Skill",
-        type_of="Class",
-        description="A packaged set of instructions an agent loads for a task.",
-        additional_properties={"subClassOf": "dcid:Intangible"},
-    )
-    manager.add_node(
-        dcid=REFERENCE_CLASS_DCID,
-        name="Agent Skill Reference",
-        type_of="Class",
-        description="A supporting document an agent skill loads on demand.",
-        additional_properties={"subClassOf": "dcid:Intangible"},
-    )
-    manager.add_property(
-        dcid=REFERENCES_PROPERTY,
-        name="agent skill references",
-        domain_includes=SKILL_CLASS_DCID,
-        range_includes=REFERENCE_CLASS_DCID,
-        description="The supporting documents a skill loads on demand.",
-    )
-    manager.add_property(
-        dcid=APPLIES_TO_PROPERTY,
-        name="skill applies to",
-        domain_includes=SKILL_CLASS_DCID,
-        range_includes="Thing",
-        description=(
-            "An ontology property or value whose data the skill explains how to "
-            "interpret. A skill applies to a StatVar when it links to any of the "
-            "StatVar's constraint properties or constraint values, or to one of "
-            "their ancestors, since a link also covers the linked node's "
-            "descendants in the ontology's hierarchy."
-        ),
-    )
-    manager.add_property(
-        dcid=APPLIES_TO_PROVENANCE_PROPERTY,
-        name="skill applies to provenance",
-        domain_includes=SKILL_CLASS_DCID,
-        range_includes="Provenance",
-        description=(
-            "The provenance of a dataset whose series the skill explains how to "
-            "use. A skill applies to every series imported under that provenance."
-        ),
     )
 
     reference_count = 0
     for skill in skills:
         skill_dcid = f"dcid:skill/{skill.name}"
 
-        url = f"{SKILLS_REPOSITORY_URL}/tree/{SKILLS_BRANCH}/skills/{skill.name}"
+        url = skills_repository.skill_url(root=skill.root, skill_name=skill.name)
         properties = {
             "url": f'"{url}"',
             "text": escape_markdown(skill.markdown),
@@ -656,7 +683,8 @@ def dfo_skills_dc_ingestion(
 
     Materialized by hand only: an ingestion rewrites the shared graph and runs
     for as long as it takes after the workflow is started. It follows the
-    ontology's ingestion, which defines the source and the nodes skills link to.
+    ontology's ingestion, which defines the source, the skill classes and
+    properties, and the nodes skills link to.
     """
     destination = ingest_bundle(
         UPath(dfo_skills_dc_export),
