@@ -37,8 +37,12 @@ extraction as (
             greatest(metadata.crs_release_year, metadata.multisystem_release_year)
             as varchar
         ) as latest_release_year,
+        strftime(
+            greatest(metadata.crs_release_date, metadata.multisystem_release_date),
+            '%Y-%m-%d'
+        ) as source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
-            as last_data_refresh_date,
+            as access_date,
         -- CRS and Members' Total Use each have their own publication cycle
         -- (next_oecd_release_date, next_multisystem_release_date); the source
         -- next in line is whichever of the two comes first.
@@ -65,7 +69,7 @@ select
     'https://www.oecd.org/en/about/terms-conditions.html' as license,
     'dcid:OECDTermsAndConditions' as license_type,
     'P3M' as source_release_frequency,
-    extraction.last_data_refresh_date,
+    extraction.source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
@@ -80,15 +84,15 @@ select
     || 'current US dollars.' as description,
     'ONE (' || extraction.latest_release_year || '), Imputed Multilateral Sectors, '
     || 'https://docs.one.org/methodologies/data/oda/imputed-multilateral-sectors/ '
-    || '(accessed on ' || extraction.last_data_refresh_date || '), computed from '
+    || '(accessed on ' || extraction.access_date || '), computed from '
     || 'OECD (' || extraction.crs_release_year || '), Creditor Reporting '
     || 'System (CRS), '
     || 'https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_CRS@DF_CRS/ '
-    || '(accessed on ' || extraction.last_data_refresh_date || ') and OECD ('
+    || '(accessed on ' || extraction.access_date || ') and OECD ('
     || extraction.multisystem_release_year || '), Members'' Total Use of the '
     || 'Multilateral System, '
     || 'https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_MULTI@DF_MULTI/ '
-    || '(accessed on ' || extraction.last_data_refresh_date || ')'
+    || '(accessed on ' || extraction.access_date || ')'
         as license_attribution
 from extraction
 cross join observation_range

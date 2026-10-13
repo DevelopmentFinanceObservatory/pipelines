@@ -8,6 +8,7 @@ seeds:
     config:
       column_types:
         concept_code: string
+        statvar_name: string
         population_type: string
         measured_property: string
         stat_type: string
@@ -36,6 +37,10 @@ seeds:
               arguments:
                 to: ref('weo_staged_indicators')
                 field: concept_code
+      - name: statvar_name
+        description: Name of the StatVar the indicator measures
+        data_tests:
+          - not_null
       - name: population_type
         description: DCID of the population type
         data_tests:

@@ -788,6 +788,13 @@ models:
           publishes in April and October and DAC1 twice a year.
         data_tests:
           - not_null
+      - name: source_release_date
+        data_type: string
+        description: >
+          Date of the latest source release the table is computed from, as
+          YYYY-MM-DD
+        data_tests:
+          - not_null
       - name: last_data_refresh_date
         data_type: string
         description: >

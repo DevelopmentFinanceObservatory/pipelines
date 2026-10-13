@@ -1,5 +1,7 @@
-## 2026-10-07 First release
+## 2026-10-14 First release
 
 ### Added
 
-- Dataset added to the graph.
+- ODA disbursements by donor and recipient country or region, including the OECD's
+  imputed multilateral contributions, and ODA per person and as a share of recipient
+  GNI.

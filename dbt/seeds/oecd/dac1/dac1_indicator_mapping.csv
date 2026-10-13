@@ -398,6 +398,12 @@ aid_type,flow,statvar_dcid,population_type,measured_property,stat_type,measureme
 1906,1150,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,,1906,,dcid:CurrencyUSD,financingProvider
 1906,1151,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceGrants,1906,,dcid:CurrencyUSD,financingProvider
 1906,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,1906,,dcid:CurrencyUSD,financingProvider
+1910,1120,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,,1910,,dcid:CurrencyUSD,financingProvider
+1910,1121,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,dcid:DACTypeOfFinanceGrants,1910,,dcid:CurrencyUSD,financingProvider
+1910,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,1910,,dcid:CurrencyUSD,financingProvider
+1910,1150,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,,1910,,dcid:CurrencyUSD,financingProvider
+1910,1151,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceGrants,1910,,dcid:CurrencyUSD,financingProvider
+1910,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,1910,,dcid:CurrencyUSD,financingProvider
 1999,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,1999,,dcid:CurrencyUSD,financingProvider
 2000,1120,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,,2000,,dcid:CurrencyUSD,financingProvider
 2000,1121,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,dcid:DACTypeOfFinanceGrants,2000,,dcid:CurrencyUSD,financingProvider
@@ -588,6 +594,7 @@ aid_type,flow,statvar_dcid,population_type,measured_property,stat_type,measureme
 3404,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,3404,,dcid:CurrencyUSD,financingProvider
 3404,1150,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,,3404,,dcid:CurrencyUSD,financingProvider
 3404,1152,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceNonGrants,3404,,dcid:CurrencyUSD,financingProvider
+3405,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,3405,,dcid:CurrencyUSD,financingProvider
 3530,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,3530,,dcid:CurrencyUSD,financingProvider
 3840,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,3840,,dcid:CurrencyUSD,financingProvider
 3860,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,3860,,dcid:CurrencyUSD,financingProvider
@@ -625,6 +632,13 @@ aid_type,flow,statvar_dcid,population_type,measured_property,stat_type,measureme
 11024,1152,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceNonGrants,11024,,dcid:CurrencyUSD,financingProvider
 11024,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,11024,,dcid:CurrencyUSD,financingProvider
 11026,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,11026,,dcid:CurrencyUSD,financingProvider
+11030,1120,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,,11030,,dcid:CurrencyUSD,financingProvider
+11030,1121,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,dcid:DACTypeOfFinanceGrants,11030,,dcid:CurrencyUSD,financingProvider
+11030,1122,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Gross,,dcid:DACTypeOfFinanceNonGrants,11030,,dcid:CurrencyUSD,financingProvider
+11030,1140,,dcid:FinancialFlow,dcid:amount,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,dcid:Net,,,11030,,dcid:CurrencyUSD,financingProvider
+11030,1150,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,,11030,,dcid:CurrencyUSD,financingProvider
+11030,1151,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceGrants,11030,,dcid:CurrencyUSD,financingProvider
+11030,1152,,dcid:FinancialObligation,dcid:amount,dcid:measuredValue,dcid:Nominal,,dcid:Commitment,,,dcid:DACTypeOfFinanceNonGrants,11030,,dcid:CurrencyUSD,financingProvider
 11030,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,11030,,dcid:CurrencyUSD,financingProvider
 11040,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,11040,,dcid:CurrencyUSD,financingProvider
 11041,1160,,dcid:FinancialFlow,dcid:grantEquivalent,dcid:measuredValue,dcid:Nominal,dcid:Disbursement,,,,,11041,,dcid:CurrencyUSD,financingProvider

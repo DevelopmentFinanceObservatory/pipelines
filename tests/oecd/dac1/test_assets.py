@@ -486,7 +486,8 @@ create or replace table oecd_dac1.dc_dac1_provenance as
 select
     'OECD DAC1' as name,
     'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
-    'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC1/Table1_Data.zip' as url;
+    'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC1/Table1_Data.zip' as url,
+    '2026-09-22' as source_release_date;
 
 create or replace table oecd_dac1.dc_dac1_statvars as
 select * from (values

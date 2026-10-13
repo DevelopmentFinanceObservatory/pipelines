@@ -340,3 +340,38 @@ unit_tests:
       rows:
         - {variable: "dcid:ExchangeRate_CurrencyUnit_ConversionRecipeIMF", date: 2026, observation_about: "dcid:CurrencyKES", value: 130.0, unit: "dcid:CurrencyPerUSDollar", measurement_method: "dcid:IMFProjection"}
         - {variable: "dcid:Deflator_EconomicProduction_ConversionRecipeIMF", date: 2024, observation_about: "dcid:country/KEN", value: 100.0, unit: "dcid:IndexPoint", measurement_method: null}
+
+  - name: dac_provenance_takes_weo_release_date_when_it_is_the_later_one
+    model: dc_conversion_tables_dac_provenance
+    description: >
+      source_release_date is the later of the DAC1 and WEO release dates, here
+      the WEO's.
+    given:
+      - input: ref('dc_conversion_tables_dac_observations')
+        rows:
+          - {date: 2024}
+      - input: source('oecd_dac1', 'raw_dac1_metadata')
+        rows:
+          - {source_release_date: "2026-07-07"}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {source_release_date: "2026-10-14"}
+    expect:
+      rows:
+        - {source_release_date: "2026-10-14"}
+
+  - name: dac_provenance_takes_dac1_release_date_when_it_is_the_later_one
+    model: dc_conversion_tables_dac_provenance
+    given:
+      - input: ref('dc_conversion_tables_dac_observations')
+        rows:
+          - {date: 2024}
+      - input: source('oecd_dac1', 'raw_dac1_metadata')
+        rows:
+          - {source_release_date: "2026-07-07"}
+      - input: source('imf_weo', 'raw_weo_metadata')
+        rows:
+          - {source_release_date: "2026-04-14"}
+    expect:
+      rows:
+        - {source_release_date: "2026-07-07"}

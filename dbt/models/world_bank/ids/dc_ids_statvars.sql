@@ -9,8 +9,15 @@
 select  -- noqa: ST06
     statvar_dcid as dcid,
     statvar_name as name,
-    -- The World Bank name of each source series, in code order.
-    string_agg(series_name, '; ' order by series_code) as description,
+    -- The World Bank name of each source series, in code order, less any currency.
+    string_agg(
+        regexp_replace(
+            regexp_replace(series_name, ', current US\$\)$', ')'),
+            ' \((current )?US\$\)$',
+            ''
+        ),
+        '; ' order by series_code
+    ) as description,
     population_type,
     measured_property,
     stat_type,

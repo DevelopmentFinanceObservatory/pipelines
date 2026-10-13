@@ -614,7 +614,14 @@ def dfo_skills_dc_export(
     manager.add_provenance(
         dcid=provenance_dcid,
         name="DFO Skills",
+        description=(
+            "Guidance for AI agents on using DFO data correctly, written as skills. "
+            "Each skill covers a dataset or a concept, and links to the datasets and "
+            "classification codes it applies to."
+        ),
         url=skills_repository.url,
+        license="https://developmentfinance.org/docs/about/cite-and-licence",
+        license_type="dcid:DFOCiteAndLicense",
         # Defined by the ontology import, which must be ingested first.
         source="dcid:source/ONEData",
     )

@@ -162,13 +162,18 @@ def dfo_ontology_dc_export(
     # FIXME: Source and Provenance should be added to the ontology, not created here
     source_dcid = "dcid:source/ONEData"
     provenance_dcid = "dcid:provenance/DFOOntology"
-    manager.add_source(dcid=source_dcid, name="ONE Data", url="")
+    manager.add_source(dcid=source_dcid, name="ONE Data", url="https://data.one.org/")
     manager.add_provenance(
         dcid=provenance_dcid,
         name="DFO Ontology",
+        description=(
+            "The DFO ontology defines the classes, properties and code lists that "
+            "describe development finance in the knowledge graph."
+        ),
         source=source_dcid,
-        url="",
-        license="",
+        url="https://github.com/DevelopmentFinanceObservatory/ontology",
+        license="https://developmentfinance.org/docs/about/cite-and-licence",
+        license_type="dcid:DFOCiteAndLicense",
     )
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
     manager.export_all(str(out_dir), validate_data=True)

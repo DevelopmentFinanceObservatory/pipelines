@@ -6,32 +6,11 @@
     "finalExpenditureType": "indicators.final_expenditure_type",
 } %}
 
-with labels as (
-    select
-        concept_code,
-        any_value(concept_label) as concept_label,
-        any_value(unit_label) as unit_label
-    from {{ ref("stg_weo") }}
-    group by concept_code
-),
-
--- A currency indicator's label ends with its unit; dropping it names the
--- StatVar shared across currencies.
-indicators as (
+with indicators as (
     select
         indicator_mapping.*,
-        stat_types.dcid_segment as stat_type_dcid_segment,
-        case
-            when ends_with(labels.concept_label, ', ' || labels.unit_label)
-                then left(
-                    labels.concept_label,
-                    length(labels.concept_label) - length(', ' || labels.unit_label)
-                )
-            else labels.concept_label
-        end as statvar_name
+        stat_types.dcid_segment as stat_type_dcid_segment
     from {{ ref("weo_indicator_mapping") }} as indicator_mapping
-    left join labels
-        on indicator_mapping.concept_code = labels.concept_code
     left join {{ ref("stat_type_mapping") }} as stat_types
         on indicator_mapping.stat_type = stat_types.stat_type
 ),

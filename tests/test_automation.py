@@ -325,12 +325,12 @@ CONVERSION_TABLES_ASSET_KEYS = {
     CONVERSION_TABLES_IMF_EXPORT_KEY,
 } | CONVERSION_TABLES_DBT_MODEL_KEYS
 
-# What the conversion tables wait on from outside their own models: DAC1 staging,
-# the WEO unified layer and its currency map, the shared mappings, and the seed
-# naming each shared currency's reference area.
+# What the conversion tables wait on from outside their own models.
 CONVERSION_TABLES_PARENT_KEYS = SHARED_MAPPING_KEYS | {
     dg.AssetKey(["oecd_dac1", "stg_dac1"]),
+    dg.AssetKey(["oecd_dac1_raw_metadata"]),
     dg.AssetKey(["imf_weo", "int_weo_unified"]),
+    dg.AssetKey(["imf_weo_raw_metadata"]),
     dg.AssetKey(["imf_weo", "weo_currency_mapping"]),
     dg.AssetKey(["one_conversion_tables", "currency_rate_reference"]),
 }

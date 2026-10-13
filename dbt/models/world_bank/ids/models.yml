@@ -447,6 +447,16 @@ models:
           arguments:
             expression: >
               creditor_breakdown is null or creditor_breakdown = 'dcid:ByCreditor'
+      - dbt_utils.expression_is_true:
+          name: a_named_debtor_is_never_public_or_publicly_guaranteed
+          description: >
+            Public or publicly guaranteed belongs only on the aggregate that names
+            no debtor. On a public debtor it narrows nothing, and would stop the
+            debtor's creditor breakdowns reading as parts of its total.
+          arguments:
+            expression: >
+              ids_debtor_type is null
+              or guarantee_status is distinct from 'dcid:PublicOrPubliclyGuaranteed'
     columns:
       - name: series_code
         data_type: string
@@ -643,8 +653,8 @@ models:
       - name: description
         data_type: string
         description: >
-          World Bank name of each series the StatVar was minted from,
-          semicolon-delimited
+          World Bank name of each series the StatVar was minted from, less
+          any currency, semicolon-delimited
         data_tests:
           - not_null
       - name: population_type
@@ -1030,9 +1040,9 @@ models:
         description: How often the World Bank publishes, as an ISO 8601 duration
         data_tests:
           - not_null
-      - name: last_data_refresh_date
+      - name: source_release_date
         data_type: string
-        description: Date the raw data was downloaded, as YYYY-MM-DD
+        description: Date the World Bank published the IDS release, as YYYY-MM-DD
         data_tests:
           - not_null
       - name: next_source_release_date

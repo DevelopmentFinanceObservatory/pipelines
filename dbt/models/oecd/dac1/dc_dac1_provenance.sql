@@ -9,8 +9,9 @@ with metadata as (
 extraction as (
     select
         metadata.release_year as source_release_year,
+        strftime(metadata.source_release_date, '%Y-%m-%d') as source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
-            as last_data_refresh_date,
+            as access_date,
         {{ next_oecd_release_date('metadata.source_release_date') }}
             as next_source_release_date
     from metadata
@@ -39,7 +40,7 @@ select
     'https://www.oecd.org/en/about/terms-conditions.html' as license,
     'dcid:OECDTermsAndConditions' as license_type,
     'P3M' as source_release_frequency,
-    extraction.last_data_refresh_date,
+    extraction.source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
@@ -53,7 +54,7 @@ select
     'OECD (' || extraction.source_release_year || '), OECD DAC1, '
     || 'OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC1/Table1_Data.zip'
-    || ' (accessed on ' || extraction.last_data_refresh_date || ')'
+    || ' (accessed on ' || extraction.access_date || ')'
         as license_attribution
 from extraction
 cross join observation_range

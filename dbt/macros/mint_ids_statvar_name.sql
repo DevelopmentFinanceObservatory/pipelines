@@ -5,11 +5,11 @@
 ) %}
     {#-
         Human-readable name for an IDS StatVar, composed from its properties:
-        `<measure> <debt> [owed by the <debtor>] [to <creditor>][, by creditor] (<unit>)`
+        `<measure> <debt> [owed by the <debtor>] [to <creditor>][, by creditor] [(<unit>)]`
 
         `labels` maps each constrained column to its node's label, suffix stripped.
         `denominator` is the denominator's series code, or the DCID of one Data
-        Commons already defines. The unit is in the name because a ratio shares
+        Commons already defines. A ratio names its denominator, as it shares
         every other property with its numerator. An unknown unit or denominator
         gives a null name, which the not_null test catches.
 
@@ -100,26 +100,29 @@
     )
     -- Creditor breakdown.
     || case when {{ creditor_breakdown }} is not null then ', by creditor' else '' end
-    -- Unit, and the denominator of a ratio.
-    || ' ('
-    || case {{ unit }}
-        when 'dcid:CurrencyUSD' then 'current US$'
-        when 'dcid:Percent' then '%'
-        when 'dcid:Year' then 'years'
-    end
+    -- Unit, and the denominator of a ratio. A currency is dropped.
     || case
-        when {{ denominator }} is null then ''
-        when {{ denominator }} = 'dcid:Count_Person' then ' per person'
-        else ' of ' || case {{ denominator }}
-            when 'NY.GNP.MKTP.CD' then 'GNI'
-            when 'DT.DOD.DECT.CD' then 'total external debt'
-            when 'DT.DOD.DPPG.CD' then 'public or publicly guaranteed external debt'
-        end
-        -- A variant itemised by creditor divides by that creditor's total.
-        || case
-            when {{ creditor_breakdown }} is not null then ' owed to the same creditor'
-            else ''
-        end
+        when {{ unit }} = 'dcid:CurrencyUSD' and {{ denominator }} is null then ''
+        else ' (' || ltrim(
+            case {{ unit }}
+                when 'dcid:CurrencyUSD' then ''
+                when 'dcid:Percent' then '%'
+                when 'dcid:Year' then 'years'
+            end
+            || case
+                when {{ denominator }} is null then ''
+                when {{ denominator }} = 'dcid:Count_Person' then ' per person'
+                else ' of ' || case {{ denominator }}
+                    when 'NY.GNP.MKTP.CD' then 'GNI'
+                    when 'DT.DOD.DECT.CD' then 'total external debt'
+                    when 'DT.DOD.DPPG.CD' then 'public or publicly guaranteed external debt'
+                end
+                -- A variant itemised by creditor divides by that creditor's total.
+                || case
+                    when {{ creditor_breakdown }} is not null then ' owed to the same creditor'
+                    else ''
+                end
+            end
+        ) || ')'
     end
-    || ')'
 {%- endmacro %}

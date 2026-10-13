@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Data pipelines for the Development Finance Observatory."
 
 authors = [
-  { name = "Tilly Woodfield", email = "tilly.woodfield@one.org" }
+    { name = "ONE Campaign" },
+    { name = "Tilly Woodfield", email = "tilly.woodfield@one.org" },
+    { name = "Jorge Rivera", email = "jorge.rivera@one.org" },
 ]
 
 readme = "README.md"
@@ -87,7 +89,6 @@ ignore = [
     "F841",     # Unused local — common during exploration
 ]
 
-
 # Allow autofix for all enabled rules
 fixable = ["ALL"]
 unfixable = []
@@ -96,7 +97,6 @@ unfixable = []
 
 # Notebooks: exploration style — allow REPL-like patterns.
 "**/*.ipynb" = ["F401", "F811", "E402"]
-
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -112,7 +112,6 @@ python-version = "3.13"
 
 [tool.ty.src]
 include = ["src/dfo_pipelines", "tests"]
-
 
 [tool.ty.analysis]
 # Replace pandas / numpy type information with `Any`. Eliminates the cascade
@@ -131,8 +130,6 @@ replace-imports-with-any = [
 # patterns common in exploratory code. Demoted to ignore.
 possibly-missing-attribute = "ignore"
 possibly-unresolved-reference = "ignore"
-
-
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
