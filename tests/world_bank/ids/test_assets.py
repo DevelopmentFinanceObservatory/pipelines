@@ -43,6 +43,7 @@ from tests.helpers import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
 
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
@@ -603,13 +604,13 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
     )
 
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 5
+    assert row_count(duckdb, "world_bank_ids.raw_ids") == FIXTURE_ROWS
     assert isinstance(result, dg.MaterializeResult)
     assert (
         meta(result, "dagster/table_name", dg.TextMetadataValue).value
         == "world_bank_ids.raw_ids"
     )
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 5
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == FIXTURE_ROWS
 
     [check] = result.check_results
     assert check.check_name == "table_not_empty"
@@ -634,7 +635,9 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
         "2024": "VARCHAR",
         "2025": "VARCHAR",
     }
-    assert [row[0] for row in codes] == ["071", "WLD", "WLD", "WLD", "WLD"]
+    assert [row[0] for row in codes] == sorted(
+        pd.read_parquet(FIXTURES / "data.parquet")["Counterpart-Area Code"]
+    )
 
 
 def test_ids_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
@@ -663,7 +666,7 @@ def test_ids_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
     )
 
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 5
+    assert row_count(duckdb, "world_bank_ids.raw_ids") == FIXTURE_ROWS
 
     world_bank_ids_raw_table(
         duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data-0.parquet")
@@ -766,7 +769,7 @@ select
     'https://example.org/terms' as license,
     'dcid:TestLicenseType' as license_type,
     'P1Y' as source_release_frequency,
-    '2026-08-18' as last_data_refresh_date,
+    '2026-09-22' as source_release_date,
     '2026-12' as next_source_release_date,
     '2023' as earliest_observation_date,
     '2024' as latest_observation_date
@@ -778,7 +781,7 @@ select * from (values
     (
         '{TOTAL_STATVAR}',
         'External debt outstanding, long-term',
-        'External debt stocks, long-term + IMF (DOD, current US$)',
+        'External debt stocks, long-term + IMF (DOD)',
         'dcid:FinancialPosition',
         'dcid:amount',
         'dcid:measuredValue',
@@ -808,7 +811,7 @@ select * from (values
     (
         '{BREAKDOWN_STATVAR}',
         'External debt outstanding, bilateral',
-        'PPG, bilateral (DOD, current US$)',
+        'PPG, bilateral (DOD)',
         'dcid:FinancialPosition',
         'dcid:amount',
         'dcid:measuredValue',
@@ -843,8 +846,8 @@ select * from (values
     ),
     (
         '{GNI_STATVAR}',
-        'Gross national income (current US$)',
-        'GNI (current US$)',
+        'Gross national income',
+        'GNI',
         'dcid:EconomicUnit',
         'dcid:primaryIncome',
         'dcid:measuredValue',
@@ -1069,7 +1072,7 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         f"Node: {TOTAL_STATVAR}\n"
         'name: "External debt outstanding, long-term"\n'
         "typeOf: dcid:StatisticalVariable\n"
-        'description: "External debt stocks, long-term + IMF (DOD, current US$)"\n'
+        'description: "External debt stocks, long-term + IMF (DOD)"\n'
         "statType: dcid:measuredValue\n"
         "populationType: dcid:FinancialPosition\n"
         "measuredProperty: dcid:amount\n"
@@ -1083,7 +1086,7 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         f"Node: {BREAKDOWN_STATVAR}\n"
         'name: "External debt outstanding, bilateral"\n'
         "typeOf: dcid:StatisticalVariable\n"
-        'description: "PPG, bilateral (DOD, current US$)"\n'
+        'description: "PPG, bilateral (DOD)"\n'
         "statType: dcid:measuredValue\n"
         "populationType: dcid:FinancialPosition\n"
         "measuredProperty: dcid:amount\n"
@@ -1113,9 +1116,9 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
     )
     assert nodes[GNI_STATVAR] == (
         f"Node: {GNI_STATVAR}\n"
-        'name: "Gross national income (current US$)"\n'
+        'name: "Gross national income"\n'
         "typeOf: dcid:StatisticalVariable\n"
-        'description: "GNI (current US$)"\n'
+        'description: "GNI"\n'
         "statType: dcid:measuredValue\n"
         "populationType: dcid:EconomicUnit\n"
         "measuredProperty: dcid:primaryIncome\n"

@@ -1,24 +1,24 @@
 ## What & why
 
-<!-- A brief summary of the changes -->
+<!-- What this changes and why -->
 
 Closes #
 
 ## Changes
 
-<!-- Bullet the key changes a reviewer should look at -->
+<!-- The key changes this pull request makes -->
 
 -
 
-## Review focus
+## Notes for reviewers
 
-<!-- Specific design decisions or tradeoffs the reviewer should be aware of -->
+<!-- Design decisions, trade-offs or anything else reviewers should know -->
 
 -
 
 ## Checklist
 
-- [ ] Scope is at most one issue
-- [ ] Tests added/updated
+- [ ] Addresses one issue, linked above
+- [ ] Tests updated where relevant
 - [ ] Docs updated where relevant
 - [ ] Self-reviewed the diff

@@ -497,12 +497,13 @@ create or replace table imf_weo.dc_weo_provenance as
 select
     'IMF World Economic Outlook (WEO)' as name,
     'source/InternationalMonetaryFund' as source,
-    'https://data.imf.org/en/datasets/IMF.RES:WEO' as url;
+    'https://data.imf.org/en/datasets/IMF.RES:WEO' as url,
+    '2026-09-22' as source_release_date;
 
 create or replace table imf_weo.dc_weo_statvars as
 select
     '{GDP_STATVAR}' as dcid,
-    'Gross domestic product (GDP), Current prices' as name,
+    'Gross domestic product (GDP)' as name,
     'dcid:EconomicProduction' as population_type,
     'dcid:valueAdded' as measured_property,
     'dcid:measuredValue' as stat_type,
@@ -622,7 +623,7 @@ def test_imf_weo_dc_export_writes_each_property_the_statvar_sets(
     [node] = (out_dir / "custom_nodes.mcf").read_text().strip().split("\n\n")
     assert node == (
         f"Node: {GDP_STATVAR}\n"
-        'name: "Gross domestic product (GDP), Current prices"\n'
+        'name: "Gross domestic product (GDP)"\n'
         "typeOf: dcid:StatisticalVariable\n"
         "statType: dcid:measuredValue\n"
         "populationType: dcid:EconomicProduction\n"

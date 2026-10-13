@@ -19,7 +19,7 @@ with bulk_files as (
 
 metadata as (
     select
-        downloaded_at,
+        source_release_date,
         cast(extract(year from source_release_date) as varchar) as release_year,
         cast(extract(year from source_release_date) + 1 as varchar)
             as following_year,
@@ -29,8 +29,7 @@ metadata as (
 
 extraction as (
     select
-        strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
-            as last_data_refresh_date,
+        strftime(metadata.source_release_date, '%Y-%m-%d') as source_release_date,
         case
             when metadata.release_month < 12 then metadata.release_year || '-12'
             else metadata.following_year || '-12'
@@ -54,7 +53,7 @@ select
     'https://datacatalog.worldbank.org/public-licenses?fragment=cc' as license,
     'dcid:CreativeCommonsAttributionLicense' as license_type,
     'P1Y' as source_release_frequency,
-    extraction.last_data_refresh_date,
+    extraction.source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,

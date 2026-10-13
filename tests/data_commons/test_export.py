@@ -3,7 +3,9 @@ import json
 import logging
 import shutil
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -64,7 +66,7 @@ select
     'Source One (2026), Provenance One (accessed on 2026-03-04)'
         as license_attribution,
     'P1Y' as source_release_frequency,
-    '2026-03-04' as last_data_refresh_date,
+    '2026-02-15' as source_release_date,
     '2026-06' as next_source_release_date,
     '2000' as earliest_observation_date,
     '2001' as latest_observation_date
@@ -509,8 +511,13 @@ def test_export_bundle_does_not_coerce_a_numeric_looking_string(
 def test_export_bundle_writes_the_provenance_from_the_spec_and_model(
     tmp_path: Path,
 ) -> None:
-    """Test the provenance node takes its dcid from the spec, the rest from the model"""
-    _, out_dir = run_export(tmp_path)
+    """Test the provenance node takes its dcid from the spec, its refresh date from the export's UTC clock, and the rest from the model"""
+    with patch("dfo_pipelines.data_commons.export.datetime") as mock_datetime:
+        # The local date differs, so a clock read in local time fails the test.
+        mock_datetime.now.side_effect = lambda tz=None: (
+            datetime(2026, 10, 14, tzinfo=UTC) if tz is UTC else datetime(2026, 10, 13)
+        )
+        _, out_dir = run_export(tmp_path)
 
     assert (out_dir / "provenance.mcf").read_text().strip() == (
         "Node: dcid:provenance/Provenance1\n"
@@ -523,11 +530,12 @@ def test_export_bundle_writes_the_provenance_from_the_spec_and_model(
         "licenseType: dcid:LicenseType1\n"
         'licenseAttribution: "Source One (2026), Provenance One '
         '(accessed on 2026-03-04)"\n'
-        'lastDataRefreshDate: "2026-03-04"\n'
+        'lastDataRefreshDate: "2026-10-14"\n'
         'nextSourceReleaseDate: "2026-06"\n'
         'sourceReleaseFrequency: "P1Y"\n'
         'earliestObservationDate: "2000"\n'
         'latestObservationDate: "2001"\n'
+        'importedSourceReleaseDate: "2026-02-15"\n'
         'dataTransformationDescription: "## Step one\\n\\nWhat the step does.\\n"\n'
         'dataTransformationChangelog: "## 2026-01-01\\n\\n### Added\\n\\n'
         '- Dataset added to the graph.\\n"'
@@ -684,27 +692,34 @@ def test_export_spec_requires_a_conversion_recipe() -> None:
         ExportSpec(**fields)
 
 
-def test_export_bundle_writes_a_mapped_provenance_integer_as_a_number(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("value_sql", "expected"),
+    [
+        pytest.param("2024", "2024", id="integer"),
+        pytest.param("'a \"b\"'", '"a \\u0022b\\u0022"', id="string"),
+    ],
+)
+def test_export_bundle_writes_a_mapped_provenance_value(
+    tmp_path: Path, value_sql: str, expected: str
 ) -> None:
-    """Test a mapped integer provenance column is written as an unquoted integer"""
+    """Test a mapped integer is written as a number and a string as quoted, escaped text"""
     out_dir = export_with_provenance_column(
         tmp_path,
         column="deflator_base_year",
-        value_sql="2024",
+        value_sql=value_sql,
         property_name="deflatorBaseYear",
     )
 
     provenance = (out_dir / "provenance.mcf").read_text()
-    assert "deflatorBaseYear: 2024\n" in provenance
+    assert f"deflatorBaseYear: {expected}\n" in provenance
     assert "deflator_base_year" not in provenance
 
 
 @pytest.mark.parametrize(
     "value_sql",
     [
-        pytest.param("'2024'", id="numeric-string"),
-        pytest.param("'dcid:Value1'", id="reference"),
+        pytest.param("date '2026-09-22'", id="date"),
+        pytest.param("timestamp '2026-09-22 10:00:00'", id="timestamp"),
         pytest.param("null::varchar", id="null"),
         pytest.param("true", id="boolean"),
         pytest.param("2024.5::double", id="float"),
@@ -713,7 +728,7 @@ def test_export_bundle_writes_a_mapped_provenance_integer_as_a_number(
 def test_export_bundle_refuses_a_mapped_provenance_value_mcf_cannot_carry(
     tmp_path: Path, value_sql: str
 ) -> None:
-    """Test a mapped provenance value that is not an integer fails the export, naming the column, and writes nothing"""
+    """Test a mapped provenance value that is neither an integer nor a string fails the export, naming the column, and writes nothing"""
     with pytest.raises(ValueError, match="'deflator_base_year'"):
         export_with_provenance_column(
             tmp_path,
@@ -744,7 +759,13 @@ def test_export_bundle_refuses_a_mapped_column_the_provenance_lacks(
 
 
 @pytest.mark.parametrize(
-    "reserved_property", [*DOCUMENTATION_FILES, "conversionRecipe"]
+    "reserved_property",
+    [
+        *DOCUMENTATION_FILES,
+        "conversionRecipe",
+        "importedSourceReleaseDate",
+        "lastDataRefreshDate",
+    ],
 )
 def test_export_spec_refuses_mapping_onto_a_property_the_export_writes(
     reserved_property: str,

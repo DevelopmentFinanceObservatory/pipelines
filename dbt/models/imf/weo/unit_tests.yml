@@ -73,44 +73,6 @@ unit_tests:
         - {observation_about: "dcid:IMFWorld", concept_code: PPPGDP, time_period: 2026, is_estimate: true}
         - {observation_about: "dcid:EuroArea", concept_code: NGDPD, time_period: 2025, is_estimate: true}
 
-  - name: mapped_names_statvars_from_the_label_without_its_currency
-    model: int_weo_mapped
-    description: >
-      A label ending in its unit names the StatVar shared across currencies. A
-      label whose unit isn't a trailing segment, or that has no unit, is kept whole.
-    given:
-      - input: ref('int_weo_unified')
-        rows:
-          - {observation_about: "dcid:country/KEN", concept_code: NGDPD, time_period: 2024, value: 1, is_estimate: false}
-          - {observation_about: "dcid:country/KEN", concept_code: NGSD_NGDP, time_period: 2024, value: 2, is_estimate: false}
-          - {observation_about: "dcid:country/KEN", concept_code: PPPGDP, time_period: 2024, value: 3, is_estimate: false}
-      - input: ref('weo_indicator_mapping')
-        rows:
-          - {concept_code: NGDPD, stat_type: "dcid:measuredValue", unit: "dcid:CurrencyUSD"}
-          - {concept_code: NGSD_NGDP, stat_type: "dcid:measuredValue", unit: "dcid:Percent"}
-          - {concept_code: PPPGDP, stat_type: "dcid:measuredValue", unit: "dcid:PPPInternationalDollar"}
-      - input: ref('stg_weo')
-        rows:
-          - {concept_code: NGDPD, concept_label: "Gross domestic product (GDP), Current prices, US dollar", unit_label: US dollar}
-          - {concept_code: NGSD_NGDP, concept_label: "Gross national savings, Percent of GDP", unit_label: Percent}
-          - {concept_code: PPPGDP, concept_label: "Gross domestic product (GDP), Purchasing power parity (PPP) international dollar", unit_label: null}
-      - input: ref('stat_type_mapping')
-        rows:
-          - {stat_type: "dcid:measuredValue", dcid_segment: null}
-      - input: ref('code_mapping')
-        rows: []
-      - input: ref('weo_currency_mapping')
-        rows: []
-      - input: ref('int_weo_dollar_countries')
-        rows: []
-      - input: ref('int_weo_dollar_twins')
-        rows: []
-    expect:
-      rows:
-        - {value: 1, statvar_name: "Gross domestic product (GDP), Current prices"}
-        - {value: 2, statvar_name: "Gross national savings, Percent of GDP"}
-        - {value: 3, statvar_name: "Gross domestic product (GDP), Purchasing power parity (PPP) international dollar"}
-
   - name: mapped_mints_dcids_naming_their_denominators
     model: int_weo_mapped
     description: >
@@ -127,8 +89,6 @@ unit_tests:
           - {concept_code: NGDP, population_type: "dcid:EconomicProduction", measured_property: "dcid:valueAdded", stat_type: "dcid:measuredValue", product_tax_basis: "dcid:IncludingProductTaxes", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", measurement_qualifier: "dcid:Nominal", unit: "dcid:CurrencyKES"}
           - {concept_code: NGSD_NGDP, population_type: "dcid:EconomicUnit", measured_property: "dcid:saving", stat_type: "dcid:measuredValue", measurement_qualifier: "dcid:Nominal", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", denominator_concept_code: NGDP, unit: "dcid:Percent"}
           - {concept_code: NGAP_NPGDP, population_type: "dcid:EconomicProduction", measured_property: "dcid:outputGap", stat_type: "dcid:measuredValue", product_tax_basis: "dcid:IncludingProductTaxes", fixed_capital_consumption_basis: "dcid:GrossOfFixedCapitalConsumption", measurement_qualifier: "dcid:RealValue", denominator_dcid: "dcid:ValueAdded_EconomicProduction_IncludingProductTaxes_GrossOfFixedCapitalConsumption_CyclicallyAdjusted_RealValue", unit: "dcid:Percent"}
-      - input: ref('stg_weo')
-        rows: []
       - input: ref('stat_type_mapping')
         rows:
           - {stat_type: "dcid:measuredValue", dcid_segment: null}
@@ -168,8 +128,6 @@ unit_tests:
         rows:
           - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null, measurement_method: null}
           - {concept_code: NGAP_NPGDP, stat_type: "dcid:measuredValue", unit: "dcid:Percent", measurement_method: "dcid:Modelled"}
-      - input: ref('stg_weo')
-        rows: []
       - input: ref('stat_type_mapping')
         rows:
           - {stat_type: "dcid:measuredValue", dcid_segment: null}
@@ -209,8 +167,6 @@ unit_tests:
           - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null}
           - {concept_code: NGDPD, stat_type: "dcid:measuredValue", unit: "dcid:CurrencyUSD"}
           - {concept_code: NGDP_R, stat_type: "dcid:measuredValue", unit: null}
-      - input: ref('stg_weo')
-        rows: []
       - input: ref('stat_type_mapping')
         rows:
           - {stat_type: "dcid:measuredValue", dcid_segment: null}
@@ -250,8 +206,6 @@ unit_tests:
       - input: ref('weo_indicator_mapping')
         rows:
           - {concept_code: NGDP, stat_type: "dcid:measuredValue", unit: null}
-      - input: ref('stg_weo')
-        rows: []
       - input: ref('stat_type_mapping')
         rows:
           - {stat_type: "dcid:measuredValue", dcid_segment: null}
@@ -305,7 +259,7 @@ unit_tests:
           - {dcid: source/IMF}
     expect:
       rows:
-        - {last_data_refresh_date: "2026-04-20", next_source_release_date: "2026-10", earliest_observation_date: "1980", latest_observation_date: "2031"}
+        - {next_source_release_date: "2026-10", earliest_observation_date: "1980", latest_observation_date: "2031"}
 
   - name: provenance_expects_april_after_an_october_release
     model: dc_weo_provenance

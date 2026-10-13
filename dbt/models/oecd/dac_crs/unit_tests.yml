@@ -215,7 +215,7 @@ unit_tests:
           - {downloaded_at: "2026-08-18 23:47:05+00", source_release_date: "2025-12-15"}
     expect:
       rows:
-        - {last_data_refresh_date: "2026-08-18", next_source_release_date: "2026-04", earliest_observation_date: "2015", latest_observation_date: "2023", license_attribution: "OECD (2025), Creditor Reporting System (CRS), OECD Data Explorer, https://webfs-dcd.oecd.org/files/dotStat/DSD_CRS/CRS.parquet (accessed on 2026-08-18)"}
+        - {next_source_release_date: "2026-04", earliest_observation_date: "2015", latest_observation_date: "2023", license_attribution: "OECD (2025), Creditor Reporting System (CRS), OECD Data Explorer, https://webfs-dcd.oecd.org/files/dotStat/DSD_CRS/CRS.parquet (accessed on 2026-08-18)"}
 
   - name: provenance_holds_an_overdue_release_date_in_the_past
     model: dc_dac_crs_provenance

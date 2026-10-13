@@ -59,13 +59,9 @@ CLAUDE.md
 .tmp_dagster*
 .dagster_home*
 
-# Raw data — never commit source data
-data/raw/*
-!data/raw/.gitkeep
-
-# Processed data
-data/processed/*
-!data/processed/.gitkeep
+# Data directory
+data/*
+!data/.gitkeep
 
 # dbt
 dbt/target
