@@ -462,11 +462,9 @@ models:
           next_source_release_date carries the exact month.
         data_tests:
           - not_null
-      - name: last_data_refresh_date
+      - name: source_release_date
         data_type: string
-        description: >
-          Date the raw file was downloaded, as an ISO 8601 date in UTC, read
-          from the extraction metadata.
+        description: Date the OECD published the DAC2a release, as YYYY-MM-DD
         data_tests:
           - not_null
       - name: next_source_release_date

@@ -1,5 +1,6 @@
-## 2026-10-02 First release
+## 2026-10-14 First release
 
 ### Added
 
-- Dataset added to the graph.
+- Total flows by provider and aid type, including ODA, other official flows and
+  private flows, and ODA as a share of GNI.

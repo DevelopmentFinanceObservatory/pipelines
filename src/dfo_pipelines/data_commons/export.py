@@ -4,19 +4,21 @@ A bundle is what Data Commons ingests: MCF files defining the nodes, CSV files
 carrying the observations, and a `config.json` registering both against a
 provenance. The dbt models are the interface — every column a model emits is
 handed to the dcp-tools call that serialises it, so a pipeline publishes another
-property by adding a column rather than by changing this module. The pipeline
-documentation is kept in the repository's docs directory and written onto the
-provenance node as markdown.
+property by adding a column rather than by changing this module.
 
-Besides the documentation, the module owns the provenance's `conversionRecipe`,
-taken from `ExportSpec.conversion_recipe`. It is a platform contract. dfo-apis
-refuses to convert a series whose provenance declares no recipe, so every export
-states its recipe, or that it has none, on its spec.
+The module itself writes four properties onto every provenance: the pipeline
+documentation from the repository's docs directory, as markdown; the provenance
+model's `source_release_date` column, as `importedSourceReleaseDate`;
+`lastDataRefreshDate`, the export's UTC date, unless the provenance model supplies
+one; and `conversionRecipe`, from `ExportSpec.conversion_recipe`. The recipe is a
+platform contract. dfo-apis refuses to convert a series whose provenance declares no
+recipe, so every export states its recipe, or that it has none, on its spec.
 """
 
 import logging
 import tempfile
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from fnmatch import fnmatchcase
 from itertools import permutations
@@ -50,6 +52,11 @@ DOCUMENTATION_FILES = {
 
 # The provenance property `ExportSpec.conversion_recipe` is written onto.
 CONVERSION_RECIPE_PROPERTY = "conversionRecipe"
+
+# The provenance model column every pipeline emits, and the property it is written
+# onto.
+SOURCE_RELEASE_DATE_COLUMN = "source_release_date"
+SOURCE_RELEASE_DATE_PROPERTY = "importedSourceReleaseDate"
 
 
 class ConversionRecipe(StrEnum):
@@ -121,15 +128,16 @@ class ExportSpec:
         provenance_column_to_property: Maps a provenance model column to an
             ontology property `add_provenance` has no keyword argument for, e.g.
             `deflator_base_year` to `deflatorBaseYear`. The column must hold an
-            integer; `export_bundle` raises `ValueError` for anything else, since
-            the value is written into the MCF unquoted. Every other provenance
-            column must be an `add_provenance` keyword.
+            integer or a string; `export_bundle` raises `ValueError` for anything
+            else, since `add_provenance` writes the value into the MCF as given.
+            Every other provenance column must be an `add_provenance` keyword.
 
     Raises:
         ValueError: If `provenance_column_to_property` maps a column onto
-            `conversionRecipe` or a property the export writes from
-            `DOCUMENTATION_FILES`, if there is no observation input, or if one
-            input's file pattern would match another's files.
+            `conversionRecipe`, `importedSourceReleaseDate`, `lastDataRefreshDate`
+            or a property the export writes from `DOCUMENTATION_FILES`, if there is
+            no observation input, or if one input's file pattern would match
+            another's files.
     """
 
     import_name: str
@@ -147,13 +155,18 @@ class ExportSpec:
     provenance_column_to_property: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        reserved = DOCUMENTATION_FILES.keys() | {CONVERSION_RECIPE_PROPERTY}
+        reserved = DOCUMENTATION_FILES.keys() | {
+            CONVERSION_RECIPE_PROPERTY,
+            SOURCE_RELEASE_DATE_PROPERTY,
+            "lastDataRefreshDate",
+        }
         clashes = sorted(set(self.provenance_column_to_property.values()) & reserved)
         if clashes:
             raise ValueError(
                 f"{self.import_name}: provenance_column_to_property maps onto "
-                f"{clashes}, which the export writes from conversion_recipe and "
-                "the documentation files"
+                f"{clashes}, which the export writes from conversion_recipe, "
+                f"{SOURCE_RELEASE_DATE_COLUMN}, the export date and the "
+                "documentation files"
             )
         if not self.observation_inputs:
             raise ValueError(f"{self.import_name}: no observation inputs")
@@ -199,13 +212,15 @@ def _provenance_property_value(column: str, value: Any) -> str:
     """The MCF text of a `provenance_column_to_property` column's value.
 
     Raises:
-        ValueError: If `value` is not an integer, naming the column and value.
+        ValueError: If `value` is neither an integer nor a string.
     """
     # bool is a subclass of int, and True would otherwise be written as "True".
     if isinstance(value, int) and not isinstance(value, bool):
         return str(value)
+    if isinstance(value, str):
+        return escape_markdown(value)
     raise ValueError(
-        f"Provenance column {column!r} must hold an integer, got {value!r}"
+        f"Provenance column {column!r} must hold an integer or a string, got {value!r}"
     )
 
 
@@ -244,7 +259,7 @@ def export_bundle(
 
     Raises:
         ValueError: If the provenance or source model does not hold exactly one
-            row, the provenance model lacks a column
+            row, the provenance model lacks `source_release_date` or a column
             `spec.provenance_column_to_property` maps, it holds a value in one
             that `_provenance_property_value` refuses, or a written observation
             file matches other than exactly one observation input's pattern.
@@ -265,13 +280,16 @@ def export_bundle(
 
     log.info("Registering Provenance nodes")
     (provenance,) = get_model_rows(connection, spec.provenance_model)
-    if missing := spec.provenance_column_to_property.keys() - provenance.keys():
+    column_to_property = spec.provenance_column_to_property | {
+        SOURCE_RELEASE_DATE_COLUMN: SOURCE_RELEASE_DATE_PROPERTY
+    }
+    if missing := column_to_property.keys() - provenance.keys():
         raise ValueError(
             f"{spec.provenance_model} lacks the mapped columns {sorted(missing)}"
         )
     mapped_properties = {
         property_name: _provenance_property_value(column, provenance.pop(column))
-        for column, property_name in spec.provenance_column_to_property.items()
+        for column, property_name in column_to_property.items()
     }
     recipe = (
         {}
@@ -282,6 +300,9 @@ def export_bundle(
         name: escape_markdown((spec.docs_dir / file_name).read_text())
         for name, file_name in DOCUMENTATION_FILES.items()
     }
+    provenance.setdefault(
+        "last_data_refresh_date", datetime.now(UTC).strftime("%Y-%m-%d")
+    )
     manager.add_provenance(
         **provenance,
         dcid=spec.provenance_dcid,

@@ -36,10 +36,6 @@ dcid:FinancingResourceEnum,RDBC,dcid:DebtInstrument,debt instrument,wbCode
 dcid:FinancingResourceEnum,RDBN,dcid:DebtInstrument,debt instrument,wbCode
 dcid:FinancingResourceEnum,TECH,dcid:UnrequitedTransfer,unrequited transfer,wbCode
 dcid:FinancingResourceEnum,US,dcid:Loan,loan,wbCode
-dcid:GuaranteeStatusEnum,DECB,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
-dcid:GuaranteeStatusEnum,DEGG,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
-dcid:GuaranteeStatusEnum,DEPS,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
-dcid:GuaranteeStatusEnum,DOPS,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
 dcid:GuaranteeStatusEnum,DPNG,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode
 dcid:GuaranteeStatusEnum,DPPG,dcid:PublicOrPubliclyGuaranteed,public or publicly guaranteed,wbCode
 dcid:GuaranteeStatusEnum,NEBR,dcid:NotPubliclyGuaranteed,not publicly guaranteed,wbCode

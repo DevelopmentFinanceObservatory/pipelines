@@ -1,5 +1,6 @@
-## 2026-09-29 First release
+## 2026-10-14 First release
 
 ### Added
 
-- Dataset added to the graph.
+- External debt stocks, flows and debt service of low- and middle-income countries by
+  borrower and creditor, with related ratios and gross national income.

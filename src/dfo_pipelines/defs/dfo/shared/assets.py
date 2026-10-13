@@ -40,7 +40,10 @@ def dfo_shared_dc_export(
     manager.add_provenance(
         dcid=provenance_dcid,
         name="DFO Shared Nodes",
-        url="",
+        description=("Nodes that more than one DFO dataset links to."),
+        url="https://github.com/DevelopmentFinanceObservatory/pipelines",
+        license="https://developmentfinance.org/docs/about/cite-and-licence",
+        license_type="dcid:DFOCiteAndLicense",
         # Defined by the ontology import, which must be ingested first.
         source="dcid:source/ONEData",
     )

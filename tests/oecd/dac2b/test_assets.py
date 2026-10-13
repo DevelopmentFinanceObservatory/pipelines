@@ -489,7 +489,8 @@ create or replace table oecd_dac2b.dc_dac2b_provenance as
 select
     'OECD DAC2b' as name,
     'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
-    'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2b_Data.zip' as url;
+    'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2b_Data.zip' as url,
+    '2026-09-22' as source_release_date;
 
 create or replace table oecd_dac2b.dc_dac2b_statvars as
 select * from (values

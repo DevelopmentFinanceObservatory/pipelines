@@ -22,6 +22,7 @@ dcid:DACRecipientUnallocatedByCountry,798,dcid:DACAsiaUnallocated,"Asia, unalloc
 dcid:DACRecipientUnallocatedByCountry,9998,dcid:DACBilateralUnallocated,"Bilateral, unallocated (DAC)",dacCode
 dcid:FinancialPositionTypeEnum,DOD,dcid:AmountOutstanding,amount outstanding,wbCode
 dcid:IDSCreditorTypeEnum,BLAT,dcid:IDSCreditorTypeBLAT,bilateral (IDS Creditor),classificationCode
+dcid:IDSDebtorTypeEnum,DEGG,dcid:IDSDebtorTypeGG,general government (IDS debtor type),classificationCode
 dcid:FinancialFlowTypeEnum,TDS,dcid:ServicingPayment,servicing payment,wbCode
 dcid:CurrencyUnit,CHF,dcid:CurrencyCHF,Swiss Franc,iso4217AlphaCode
 dcid:CurrencyUnit,DEM,dcid:CurrencyDEM,Deutsche Mark (historic),iso4217AlphaCode

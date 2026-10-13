@@ -1,6 +1,9 @@
 Node: dcid:provenance/DFOSkills
 name: "DFO Skills"
 typeOf: dcid:Provenance
+description: "Guidance for AI agents on using DFO data correctly, written as skills. Each skill covers a dataset or a concept, and links to the datasets and classification codes it applies to."
 url: "https://github.com/example-org/example-skills"
 source: dcid:source/ONEData
+license: "https://developmentfinance.org/docs/about/cite-and-licence"
+licenseType: dcid:DFOCiteAndLicense
 
