@@ -30,4 +30,6 @@ select
         else cast(purpose_code as string)
     end as purpose_code
 from {{ source("one_imputed_multilateral_sectors", "raw_imputed_multilateral_sectors") }}
-where allocation_status in ('imputed', 'stale_share', 'proxy', 'unallocated')
+where
+    allocation_status in ('imputed', 'stale_share', 'proxy', 'unallocated')
+    and {{ exclude_incomplete_years("one_imputed_multilateral_sectors") }}
