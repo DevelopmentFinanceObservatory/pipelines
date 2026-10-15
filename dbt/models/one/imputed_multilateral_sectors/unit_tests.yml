@@ -19,6 +19,21 @@ unit_tests:
         - {donor_code: "1", recipient_code: "100", channel_code: "903", purpose_code: "11110", year: 2023, value: 2.0}
         - {donor_code: "1", recipient_code: "9998", channel_code: "904", purpose_code: "998", year: 2023, value: 3.0}
 
+  - name: stg_imputed_multilateral_sectors_excludes_incomplete_years
+    model: stg_imputed_multilateral_sectors
+    description: A year incomplete_years lists for imputed multilateral sectors is not staged.
+    overrides:
+      vars:
+        incomplete_years: {one_imputed_multilateral_sectors: [2025]}
+    given:
+      - input: source('one_imputed_multilateral_sectors', 'raw_imputed_multilateral_sectors')
+        rows:
+          - {donor_code: 1, recipient_code: 100, channel_code: 901, purpose_code: 11110, year: 2024, value: 10.0, allocation_status: imputed, share_channel_code: 901}
+          - {donor_code: 1, recipient_code: 100, channel_code: 901, purpose_code: 11110, year: 2025, value: 3.0, allocation_status: imputed, share_channel_code: 901}
+    expect:
+      rows:
+        - {donor_code: "1", recipient_code: "100", channel_code: "901", purpose_code: "11110", year: 2024, value: 10.0}
+
   - name: stg_assigns_unallocated_recipient_to_fixed_purpose_proxy_rows
     model: stg_imputed_multilateral_sectors
     description: >
