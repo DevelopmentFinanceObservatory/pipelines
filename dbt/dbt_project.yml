@@ -20,6 +20,13 @@ clean-targets:
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
 vars:
+  # Years a source has published only in part so far, by import.
+  incomplete_years:
+    oecd_dac_crs: [2025]
+    oecd_dac2a: [2025]
+    oecd_dac2b: [2025]
+    one_imputed_multilateral_sectors: [2025]
+
   # The year every conversion-table deflator series is rebased to equal 100 in,
   # written onto both table provenances as deflatorBaseYear. It follows the base
   # year of the DAC's published constant prices, which the

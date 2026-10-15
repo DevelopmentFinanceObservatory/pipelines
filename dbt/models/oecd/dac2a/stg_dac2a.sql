@@ -7,4 +7,6 @@ select
     cast(year as integer) as year,
     cast(value as decimal(38, 12)) as value
 from {{ source("oecd_dac2a", "raw_dac2a") }}
-where value is not null
+where
+    value is not null
+    and {{ exclude_incomplete_years("oecd_dac2a") }}
