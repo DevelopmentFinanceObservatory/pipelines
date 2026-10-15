@@ -34,7 +34,7 @@ unit_tests:
 
   - name: stg_dac_crs_keeps_every_year_when_none_is_listed
     model: stg_dac_crs
-    description: An import incomplete_years lists no years for keeps every year.
+    description: An import with no years listed in incomplete_years keeps every year.
     overrides:
       vars:
         incomplete_years: {}
