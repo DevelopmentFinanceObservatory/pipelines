@@ -30,6 +30,11 @@ when `oda-data`'s recorded release disagrees with the token observed before the 
 source's token moves between the two observations: `oda-data` resolves its own release identity through a
 7-day HTTP annotation cache, so it can otherwise report a release that no longer matches what was read.
 
+## Exclude the partial preliminary year
+
+Before each full release, the OECD publishes preliminary data for the year that release covers, as reporters
+submit it. Until then, that year is partial, so the pipeline excludes it.
+
 ## Compute the imputed spending
 
 For each provider, `oda-data`'s `imputed_multilateral_by_purpose` function takes the provider's core

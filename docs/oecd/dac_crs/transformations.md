@@ -3,6 +3,12 @@
 The complete CRS file is downloaded from the OECD each time the pipeline runs, and
 replaces the previous copy, so the data reflects the OECD's latest release.
 
+## Exclude the partial preliminary year
+
+Before each full release, the OECD publishes preliminary data for the year that release
+covers, as reporters submit it. Until then, that year is partial, so the pipeline
+excludes it.
+
 ## Exclude donor core contributions to multilaterals
 
 The OECD instructs that donor core contributions to multilateral organisations,

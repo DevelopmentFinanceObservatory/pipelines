@@ -4,6 +4,12 @@ The OECD publishes DAC2B in April, June, September and December. The complete ta
 downloaded from the OECD each time it is republished, and replaces the previous copy,
 so the data reflects the OECD's latest release.
 
+## Exclude the partial preliminary year
+
+Before each full release, the OECD publishes preliminary data for the year that release
+covers, as reporters submit it. Until then, that year is partial, so the pipeline
+excludes it.
+
 ## Standardise providers and recipients
 
 Provider and recipient codes are standardised to Data Commons IDs used across the
