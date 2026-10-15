@@ -13,10 +13,7 @@ on:
 
 jobs:
   lint:
-    # Mints a dfo-reader token, which prod keeps only in main-limited
-    # environments, so this runs in ONEcampaign only. The identical tree
-    # ran it here before it was synced.
-    if: github.repository_owner == 'ONEcampaign' && github.event.pull_request.draft != true
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -34,29 +31,6 @@ jobs:
 
       - name: Set up Python 3.13
         run: uv python install '3.13'
-
-      # Temporary: dfo-ontology is a private repository, so uv cannot resolve the
-      # git dependency with the token a workflow is given. The lockfile pins it in
-      # ONEcampaign, so the token is read-only on that repository whichever
-      # organisation runs this. Rewriting the URL rather than depending over ssh
-      # keeps the dependency installable locally as it is declared, and narrowing
-      # it to ONEcampaign keeps the token off every other fetch. Remove these two
-      # steps once the repository is public.
-      - name: Mint a read-only token for dfo-ontology
-        id: reader
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.READER_APP_CLIENT_ID }}
-          private-key: ${{ secrets.READER_APP_PRIVATE_KEY }}
-          owner: ONEcampaign
-          repositories: dfo-ontology
-          permission-contents: read
-
-      - name: Authenticate to private repositories
-        run: >
-          git config --global
-          url."https://x-access-token:${{ steps.reader.outputs.token }}@github.com/ONEcampaign/".insteadOf
-          "https://github.com/ONEcampaign/"
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -82,10 +56,7 @@ jobs:
 
 
   test:
-    # Mints a dfo-reader token, which prod keeps only in main-limited
-    # environments, so this runs in ONEcampaign only. The identical tree
-    # ran it here before it was synced.
-    if: github.repository_owner == 'ONEcampaign' && github.event.pull_request.draft != true
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -103,29 +74,6 @@ jobs:
 
       - name: Set up Python 3.13
         run: uv python install '3.13'
-
-      # Temporary: dfo-ontology is a private repository, so uv cannot resolve the
-      # git dependency with the token a workflow is given. The lockfile pins it in
-      # ONEcampaign, so the token is read-only on that repository whichever
-      # organisation runs this. Rewriting the URL rather than depending over ssh
-      # keeps the dependency installable locally as it is declared, and narrowing
-      # it to ONEcampaign keeps the token off every other fetch. Remove these two
-      # steps once the repository is public.
-      - name: Mint a read-only token for dfo-ontology
-        id: reader
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.READER_APP_CLIENT_ID }}
-          private-key: ${{ secrets.READER_APP_PRIVATE_KEY }}
-          owner: ONEcampaign
-          repositories: dfo-ontology
-          permission-contents: read
-
-      - name: Authenticate to private repositories
-        run: >
-          git config --global
-          url."https://x-access-token:${{ steps.reader.outputs.token }}@github.com/ONEcampaign/".insteadOf
-          "https://github.com/ONEcampaign/"
 
       - name: Install dependencies
         run: uv sync --frozen

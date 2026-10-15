@@ -735,7 +735,7 @@ wheels = [
 
 [[package]]
 name = "dcp-tools"
-version = "1.0.0a5"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "datacommons-admin" },
@@ -744,9 +744,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/de/f8/139937d17ce501e9fb19d476e18cca62cf1c5af25ef8bf48226a2a8086f3/dcp_tools-1.0.0a5.tar.gz", hash = "sha256:54c977e51894ccda8f775cf5c5ef946dbbcd3b990e187b0bee6cbefc330a9337", size = 44659, upload-time = "2026-09-10T10:09:09.032Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/60/15df64896af5efa8adba07ec9be4df6d35a181c8aaf507c4290eea70fada/dcp_tools-1.0.1.tar.gz", hash = "sha256:d73eb5c93095b47f601a6ffd92f8dd94b2ffe090797eef5e96415f61141c1244", size = 46732, upload-time = "2026-10-13T15:28:51.69Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/94/dd46a060069463c7e3738480d0efb6183e10257abdca861365c6c960d078/dcp_tools-1.0.0a5-py3-none-any.whl", hash = "sha256:4f01db79046cd475929fdeefe740a0ff4829ff31fef0b18225cf90c53d4c661c", size = 56904, upload-time = "2026-09-10T10:09:08.04Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/24/d17e45df5db6b176ece631d5351c3bfe04015eba3a14c745b83dff429b97/dcp_tools-1.0.1-py3-none-any.whl", hash = "sha256:1686bbfbf0edef4db88d73e4a2e5d3f9d11a28c6f37bf4307c0c7a7c6e3e96d3", size = 56802, upload-time = "2026-10-13T15:28:50.709Z" },
 ]
 
 [[package]]
@@ -773,7 +773,7 @@ wheels = [
 [[package]]
 name = "dfo-ontology"
 version = "0.1.0"
-source = { git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.1#5d059b116c88985601516e61ba20c5a69f5bb537" }
+source = { git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=v0.2.1#afa964e452cc08dbfb3cf11379bbf9a9f32b14f4" }
 dependencies = [
     { name = "httpx" },
 ]
@@ -822,8 +822,8 @@ requires-dist = [
     { name = "dagster-dbt", specifier = ">=0.29.10" },
     { name = "dagster-duckdb", specifier = ">=0.29.10" },
     { name = "dbt-duckdb", specifier = ">=1.10.1" },
-    { name = "dcp-tools", specifier = ">=1.0.0a5" },
-    { name = "dfo-ontology", git = "https://github.com/ONEcampaign/dfo-ontology?rev=v0.2.1" },
+    { name = "dcp-tools", specifier = ">=1.0.1" },
+    { name = "dfo-ontology", git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=v0.2.1" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "imf-reader", specifier = ">=2.2.0" },
     { name = "oda-data", specifier = "==2.8.1" },
