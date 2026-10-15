@@ -33,7 +33,8 @@ source's token moves between the two observations: `oda-data` resolves its own r
 ## Exclude the partial preliminary year
 
 Before each full release, the OECD publishes preliminary data for the year that release covers, as reporters
-submit it. Until then, that year is partial, so the pipeline excludes it.
+submit it. Until then, that year is partial, so the pipeline excludes it. Support for partial years is in
+development. Partial years will be marked incomplete, so they don't lead to incorrect or confusing analyses.
 
 ## Compute the imputed spending
 

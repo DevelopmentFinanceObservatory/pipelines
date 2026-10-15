@@ -8,7 +8,8 @@ so the data reflects the OECD's latest release.
 
 Before each full release, the OECD publishes preliminary data for the year that release
 covers, as reporters submit it. Until then, that year is partial, so the pipeline
-excludes it.
+excludes it. Support for partial years is in development. Partial years will be marked
+incomplete, so they don't lead to incorrect or confusing analyses.
 
 ## Standardise providers and recipients
 
