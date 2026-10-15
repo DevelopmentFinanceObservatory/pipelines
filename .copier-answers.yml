@@ -1,8 +1,8 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v1.0.2
 _src_path: gh:ONEcampaign/bblocks-projects
-author_email: tilly.woodfield@one.org
-author_name: Tilly Woodfield
+author_email: data@one.org
+author_name: ONE Campaign
 include_notebooks: false
 include_pytest: true
 license: mit
