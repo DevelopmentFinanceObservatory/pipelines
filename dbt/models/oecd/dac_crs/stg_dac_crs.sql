@@ -17,4 +17,6 @@ from {{ source("oecd_dac_crs", "raw_dac_crs") }}
 -- organisations, which the multilateral then spends and reports under its own
 -- provider code, so counting both counts the same money twice. The OECD
 -- instructs that they be excluded; a null bi_multi is kept.
-where bi_multi is distinct from 2
+where
+    bi_multi is distinct from 2
+    and {{ exclude_incomplete_years("oecd_dac_crs") }}

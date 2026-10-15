@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "Data pipelines for the Development Finance Observatory."
 
 authors = [
-    { name = "ONE Campaign" },
-    { name = "Tilly Woodfield", email = "tilly.woodfield@one.org" },
-    { name = "Jorge Rivera", email = "jorge.rivera@one.org" },
+    { name = "ONE Campaign", email = "data@one.org" },
 ]
 
 readme = "README.md"
