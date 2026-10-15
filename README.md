@@ -6,9 +6,6 @@ Data pipelines for the [Development Finance Observatory](https://developmentfina
 
 This project uses [uv](https://docs.astral.sh/uv/) for dependency management. Install uv first, and `uv sync` installs the Python version the project needs along with its dependencies. `dbt deps` then installs the dbt packages the models use.
 
-> [!IMPORTANT]
-> One dependency, `dfo-ontology`, is installed from a repository that is not yet public, so `uv sync` only succeeds with access to it.
-
 ```bash
 uv sync
 uv run dbt deps --project-dir dbt --profiles-dir dbt
