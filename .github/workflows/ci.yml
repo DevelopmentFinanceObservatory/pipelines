@@ -100,8 +100,6 @@ jobs:
         run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
 
       - name: Upload coverage
-        # Coverage reports to ONEcampaign's Codecov project only.
-        if: github.repository_owner == 'ONEcampaign'
         uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
