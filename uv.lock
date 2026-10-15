@@ -773,7 +773,7 @@ wheels = [
 [[package]]
 name = "dfo-ontology"
 version = "0.1.0"
-source = { git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=afa964e452cc08dbfb3cf11379bbf9a9f32b14f4#afa964e452cc08dbfb3cf11379bbf9a9f32b14f4" }
+source = { git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=617bdb685e79022494132ef3614674c232b395fc#617bdb685e79022494132ef3614674c232b395fc" }
 dependencies = [
     { name = "httpx" },
 ]
@@ -823,7 +823,7 @@ requires-dist = [
     { name = "dagster-duckdb", specifier = ">=0.29.10" },
     { name = "dbt-duckdb", specifier = ">=1.10.1" },
     { name = "dcp-tools", specifier = ">=1.0.1" },
-    { name = "dfo-ontology", git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=afa964e452cc08dbfb3cf11379bbf9a9f32b14f4" },
+    { name = "dfo-ontology", git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=617bdb685e79022494132ef3614674c232b395fc" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "imf-reader", specifier = ">=2.2.0" },
     { name = "oda-data", specifier = "==2.8.1" },
