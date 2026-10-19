@@ -5,6 +5,7 @@ import dagster as dg
 import pytest
 
 from dfo_pipelines.definitions import defs
+from dfo_pipelines.defs.automation import automation_sensor_default_status
 
 SENSOR_NAME = "automation_condition_sensor"
 
@@ -481,14 +482,16 @@ def test_automation_sensor_is_the_only_sensor() -> None:
     assert [sensor.name for sensor in _project_sensors()] == [SENSOR_NAME]
 
 
-def test_automation_sensor_runs_by_default() -> None:
-    """Test the sensor starts without a manual UI toggle
+def test_automation_sensor_runs_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the sensor starts without a manual UI toggle when nothing sets its status
 
     Sensor on/off state lives in a gitignored, per-environment schedules.db, so
     a sensor that is not default-running has to be found and switched on in
     every environment it is deployed to - so, check it defaults to RUNNING.
     """
-    assert _automation_sensor().default_status == dg.DefaultSensorStatus.RUNNING
+    monkeypatch.delenv("AUTOMATION_SENSOR_DEFAULT_STATUS", raising=False)
+
+    assert automation_sensor_default_status() == dg.DefaultSensorStatus.RUNNING
 
 
 @pytest.mark.parametrize(
