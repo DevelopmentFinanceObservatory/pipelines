@@ -1,0 +1,7 @@
+# Local instance configuration for `dg dev`; Dagster+ ignores this file.
+
+# Capture the root logger, so upstream libraries' log messages reach the run log.
+python_logs:
+  managed_python_loggers:
+    - root
+  python_log_level: INFO
