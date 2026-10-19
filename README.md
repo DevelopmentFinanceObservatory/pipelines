@@ -13,11 +13,10 @@ uv run dbt deps --project-dir dbt --profiles-dir dbt
 
 ## Configuration
 
-Copy the example environment file, [`.env.example`](.env.example), fill in the values, and create the directory that `DAGSTER_HOME` points to.
+Copy the example environment file, [`.env.example`](.env.example), and fill in the values.
 
 ```bash
 cp .env.example .env
-mkdir .dagster_home
 ```
 
 ## Project structure

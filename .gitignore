@@ -57,7 +57,8 @@ CLAUDE.md
 # Dagster
 .dg
 .tmp_dagster*
-.dagster_home*
+.dagster_home/*
+!.dagster_home/dagster.yaml
 
 # Data directory
 data/*
