@@ -482,16 +482,35 @@ def test_automation_sensor_is_the_only_sensor() -> None:
     assert [sensor.name for sensor in _project_sensors()] == [SENSOR_NAME]
 
 
-def test_automation_sensor_runs_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_automation_sensor_takes_its_default_status_from_the_environment() -> None:
+    """Test the sensor is built with the status the environment sets"""
+    assert _automation_sensor().default_status == automation_sensor_default_status()
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        (None, dg.DefaultSensorStatus.RUNNING),
+        ("STOPPED", dg.DefaultSensorStatus.STOPPED),
+    ],
+)
+def test_automation_sensor_runs_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+    configured: str | None,
+    expected: dg.DefaultSensorStatus,
+) -> None:
     """Test the sensor starts without a manual UI toggle when nothing sets its status
 
     Sensor on/off state lives in a gitignored, per-environment schedules.db, so
     a sensor that is not default-running has to be found and switched on in
     every environment it is deployed to - so, check it defaults to RUNNING.
     """
-    monkeypatch.delenv("AUTOMATION_SENSOR_DEFAULT_STATUS", raising=False)
+    if configured is None:
+        monkeypatch.delenv("AUTOMATION_SENSOR_DEFAULT_STATUS", raising=False)
+    else:
+        monkeypatch.setenv("AUTOMATION_SENSOR_DEFAULT_STATUS", configured)
 
-    assert automation_sensor_default_status() == dg.DefaultSensorStatus.RUNNING
+    assert automation_sensor_default_status() == expected
 
 
 @pytest.mark.parametrize(
