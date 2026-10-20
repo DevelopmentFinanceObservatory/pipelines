@@ -16,6 +16,8 @@ def defs():
     return dg.Definitions.merge(
         loaded,
         dg.Definitions(
+            # One step at a time, since DuckDB allows one read-write process.
+            executor=dg.multiprocess_executor.configured({"max_concurrent": 1}),
             resources={
                 "raw_file_store": UPathFileStoreResource(base_path="data/raw"),
                 "export_file_store": UPathFileStoreResource(base_path="data/processed"),
@@ -30,6 +32,6 @@ def defs():
                 "skills_repository": SkillsRepositoryResource(
                     url=dg.EnvVar("DFO_SKILLS_REPOSITORY_URL"),
                 ),
-            }
+            },
         ),
     )

@@ -1,5 +1,10 @@
 # Local instance configuration for `dg dev`; Dagster+ ignores this file.
 
+# One run at a time, since runs share one DuckDB file.
+concurrency:
+  runs:
+    max_concurrent_runs: 1
+
 # Capture the root logger, so upstream libraries' log messages reach the run log.
 python_logs:
   managed_python_loggers:
