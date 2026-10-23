@@ -595,7 +595,7 @@ def one_imputed_multilateral_sectors_dc_ingestion(
     Materialized by hand only: an ingestion rewrites the shared graph and runs
     for as long as it takes after the workflow is started.
     """
-    destination = ingest_bundle(
+    ingestion = ingest_bundle(
         UPath(one_imputed_multilateral_sectors_dc_export),
         import_name=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name,
         settings=knowledge_graph.settings,
@@ -603,9 +603,10 @@ def one_imputed_multilateral_sectors_dc_ingestion(
     )
     return dg.MaterializeResult(
         metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
+            "dagster/uri": dg.MetadataValue.text(ingestion.destination),
             "import_name": dg.MetadataValue.text(
                 IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
             ),
+            "execution_name": dg.MetadataValue.text(ingestion.execution_name),
         },
     )

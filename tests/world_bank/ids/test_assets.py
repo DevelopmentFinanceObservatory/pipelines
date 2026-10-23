@@ -11,6 +11,7 @@ import pytest
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
@@ -35,6 +36,7 @@ from dfo_pipelines.extraction.metadata import (
     write_extraction_metadata,
 )
 from tests.helpers import (
+    EXECUTION_NAME,
     AutomationHarness,
     column_list,
     list_first_row,
@@ -1129,23 +1131,18 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
     )
 
 
-def test_ids_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_ids_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     create_dc_models(duckdb)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     import_name = IDS_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 
     with patch(
         "dfo_pipelines.defs.world_bank.ids.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [world_bank_ids_dc_export, world_bank_ids_dc_ingestion],
@@ -1168,3 +1165,4 @@ def test_ids_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> No
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME

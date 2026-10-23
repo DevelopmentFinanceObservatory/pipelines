@@ -182,6 +182,16 @@ def statvar_nodes(out_dir: Path) -> dict[str, str]:
     }
 
 
+def mcf_properties(mcf: str) -> dict[str, str]:
+    """One MCF node's values keyed on property, which must each appear once"""
+    properties: dict[str, str] = {}
+    for line in mcf.strip().splitlines():
+        name, _, value = line.partition(": ")
+        assert name not in properties, f"{name} repeats"
+        properties[name] = value
+    return properties
+
+
 def test_export_bundle_writes_a_bundle(tmp_path: Path) -> None:
     """Test the export writes a bundle of MCF, observations and a config"""
     metadata, out_dir = run_export(tmp_path)
@@ -519,27 +529,25 @@ def test_export_bundle_writes_the_provenance_from_the_spec_and_model(
         )
         _, out_dir = run_export(tmp_path)
 
-    assert (out_dir / "provenance.mcf").read_text().strip() == (
-        "Node: dcid:provenance/Provenance1\n"
-        'name: "Provenance One"\n'
-        "typeOf: dcid:Provenance\n"
-        'url: "https://example.org/source"\n'
-        "source: dcid:dc/s/Source1\n"
-        'sourceDataUrl: "https://example.org/source/data.parquet"\n'
-        'license: "https://example.org/terms"\n'
-        "licenseType: dcid:LicenseType1\n"
-        'licenseAttribution: "Source One (2026), Provenance One '
-        '(accessed on 2026-03-04)"\n'
-        'lastDataRefreshDate: "2026-10-14"\n'
-        'nextSourceReleaseDate: "2026-06"\n'
-        'sourceReleaseFrequency: "P1Y"\n'
-        'earliestObservationDate: "2000"\n'
-        'latestObservationDate: "2001"\n'
-        'importedSourceReleaseDate: "2026-02-15"\n'
-        'dataTransformationDescription: "## Step one\\n\\nWhat the step does.\\n"\n'
-        'dataTransformationChangelog: "## 2026-01-01\\n\\n### Added\\n\\n'
-        '- Dataset added to the graph.\\n"'
-    )
+    assert mcf_properties((out_dir / "provenance.mcf").read_text()) == {
+        "Node": "dcid:provenance/Provenance1",
+        "name": '"Provenance One"',
+        "typeOf": "dcid:Provenance",
+        "url": '"https://example.org/source"',
+        "source": "dcid:dc/s/Source1",
+        "sourceDataUrl": '"https://example.org/source/data.parquet"',
+        "license": '"https://example.org/terms"',
+        "licenseType": "dcid:LicenseType1",
+        "licenseAttribution": '"Source One (2026), Provenance One (accessed on 2026-03-04)"',
+        "lastDataRefreshDate": '"2026-10-14"',
+        "importedSourceReleaseDate": '"2026-02-15"',
+        "nextSourceReleaseDate": '"2026-06"',
+        "sourceReleaseFrequency": '"P1Y"',
+        "earliestObservationDate": '"2000"',
+        "latestObservationDate": '"2001"',
+        "dataTransformationDescription": '"## Step one\\n\\nWhat the step does.\\n"',
+        "dataTransformationChangelog": '"## 2026-01-01\\n\\n### Added\\n\\n- Dataset added to the graph.\\n"',
+    }
 
 
 @pytest.mark.parametrize("missing", DOCUMENTATION_FILES.values())

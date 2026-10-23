@@ -13,6 +13,7 @@ from oda_reader.download.download_tools import CRS_FLOW_URL, MULTI_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     CRS_BULK_LABEL,
     CURRENCY,
@@ -38,7 +39,7 @@ from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
 )
-from tests.helpers import column_list, list_first_row, meta, row_count
+from tests.helpers import EXECUTION_NAME, column_list, list_first_row, meta, row_count
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 
@@ -1337,21 +1338,19 @@ def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(tmp_path: Path) ->
     }
 
 
-def test_dc_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     _create_dc_models(duckdb)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     import_name = IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 
-    with patch(f"{ASSETS_MODULE}.ingest_bundle", return_value=destination) as ingest:
+    with patch(
+        f"{ASSETS_MODULE}.ingest_bundle",
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
+    ) as ingest:
         result = dg.materialize(
             [
                 one_imputed_multilateral_sectors_dc_export,
@@ -1379,6 +1378,7 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> Non
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
