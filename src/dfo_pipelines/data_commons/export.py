@@ -53,10 +53,9 @@ DOCUMENTATION_FILES = {
 # The provenance property `ExportSpec.conversion_recipe` is written onto.
 CONVERSION_RECIPE_PROPERTY = "conversionRecipe"
 
-# The provenance model column every pipeline emits, and the property it is written
-# onto.
+# The provenance model column every pipeline emits, written onto the provenance as
+# its `importedSourceReleaseDate`.
 SOURCE_RELEASE_DATE_COLUMN = "source_release_date"
-SOURCE_RELEASE_DATE_PROPERTY = "importedSourceReleaseDate"
 
 
 class ConversionRecipe(StrEnum):
@@ -157,7 +156,7 @@ class ExportSpec:
     def __post_init__(self) -> None:
         reserved = DOCUMENTATION_FILES.keys() | {
             CONVERSION_RECIPE_PROPERTY,
-            SOURCE_RELEASE_DATE_PROPERTY,
+            "importedSourceReleaseDate",
             "lastDataRefreshDate",
         }
         clashes = sorted(set(self.provenance_column_to_property.values()) & reserved)
@@ -280,17 +279,16 @@ def export_bundle(
 
     log.info("Registering Provenance nodes")
     (provenance,) = get_model_rows(connection, spec.provenance_model)
-    column_to_property = spec.provenance_column_to_property | {
-        SOURCE_RELEASE_DATE_COLUMN: SOURCE_RELEASE_DATE_PROPERTY
-    }
-    if missing := column_to_property.keys() - provenance.keys():
+    required = spec.provenance_column_to_property.keys() | {SOURCE_RELEASE_DATE_COLUMN}
+    if missing := required - provenance.keys():
         raise ValueError(
             f"{spec.provenance_model} lacks the mapped columns {sorted(missing)}"
         )
     mapped_properties = {
         property_name: _provenance_property_value(column, provenance.pop(column))
-        for column, property_name in column_to_property.items()
+        for column, property_name in spec.provenance_column_to_property.items()
     }
+    source_release_date = provenance.pop(SOURCE_RELEASE_DATE_COLUMN)
     recipe = (
         {}
         if spec.conversion_recipe is None
@@ -306,6 +304,7 @@ def export_bundle(
     manager.add_provenance(
         **provenance,
         dcid=spec.provenance_dcid,
+        imported_source_release_date=source_release_date,
         additional_properties=recipe | mapped_properties | documentation,
     )
 

@@ -4,6 +4,7 @@ from unittest.mock import patch
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.dfo.shared.assets import (
     IMPORT_NAME,
     dfo_shared_dc_export,
@@ -13,7 +14,7 @@ from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from tests.helpers import meta
+from tests.helpers import EXECUTION_NAME, meta
 
 LICENSE_TYPES_SQL = """
 create or replace table dfo_shared.license_types as
@@ -59,19 +60,15 @@ def test_dc_export_writes_a_node_for_each_license_type(tmp_path: Path) -> None:
     assert meta(result, "license_type_count", dg.IntMetadataValue).value == 1
 
 
-def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
 
     with patch(
         "dfo_pipelines.defs.dfo.shared.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [dfo_shared_dc_export, dfo_shared_dc_ingestion],
@@ -92,3 +89,4 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
     assert kwargs["import_name"] == IMPORT_NAME
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME

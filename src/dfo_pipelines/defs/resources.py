@@ -1,9 +1,11 @@
 import re
 from datetime import date
 from pathlib import Path
+from typing import override
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 from upath import UPath
 
 
@@ -21,6 +23,27 @@ class UPathFileStoreResource(dg.ConfigurableResource):
         """
         partition = (partition_date or date.today()).strftime("%Y/%m/%d")
         return UPath(self.base_path) / path / partition
+
+
+class _ResourceKGSettings(KGSettings):
+    """KGSettings built from the values passed in and nothing else
+
+    KGSettings otherwise lets the environment and a .env file override those
+    values, and forbids any variable it does not declare, which is every other
+    variable in this project.
+    """
+
+    @classmethod
+    @override
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (init_settings,)
 
 
 class KnowledgeGraphResource(dg.ConfigurableResource):
@@ -41,7 +64,7 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
     @property
     def settings(self) -> KGSettings:
         """Settings as dcp-tools expects them"""
-        return KGSettings(
+        return _ResourceKGSettings(
             gcp_project_id=self.project_id,
             gcp_region=self.region,
             gcs_bucket_name=self.bucket_name,
@@ -51,9 +74,6 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
             # which is handed the bundle's directory and never writes an output.
             local_path=Path("."),
             gcs_output_folder_path="",
-            # KGSettings otherwise reads .env itself and forbids any variable it
-            # does not declare, which is every other variable in this project.
-            _env_file=None,
         )
 
 

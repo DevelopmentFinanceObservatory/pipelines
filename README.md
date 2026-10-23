@@ -43,6 +43,12 @@ Automation runs through one sensor, `automation_condition_sensor`. On a new loca
 
 On a fresh environment, materialize the dbt seeds, and any other asset with no parents, once by hand. `eager()` never builds an asset with no parents, so nothing downstream of them automates until they exist.
 
+### Ingestion
+
+Each `*_dc_ingestion` asset syncs its export's bundle to the ingestion bucket, starts the Data Commons Platform ingestion workflow, and watches the execution for two minutes. An execution that fails or is cancelled in that time fails the asset. One still running is left to finish, and the asset records its resource name as `execution_name` metadata, the name to look it up by in Cloud Workflows.
+
+The identity that starts the workflow also needs `roles/workflows.viewer`. The asset reads the workflow's definition before it uploads the bundle and stops if the workflow does not come from a Data Commons Platform 1.1.6 stack, and the asset reads the execution's state while it watches.
+
 ## Running dbt
 
 The dbt models can also be built without Dagster. Run this from the repository root:

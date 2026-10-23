@@ -13,6 +13,7 @@ from imf_reader.config import DataflowDiscoveryError, NoDataError
 from imf_reader.weo.api import FlowRef
 from upath import UPath
 
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.imf.weo.assets import (
     IMF_WEO_EXPORT_SPEC,
     PUBLICATION_DATE_URL,
@@ -33,6 +34,7 @@ from dfo_pipelines.extraction.metadata import (
     write_extraction_metadata,
 )
 from tests.helpers import (
+    EXECUTION_NAME,
     AutomationHarness,
     column_list,
     list_first_row,
@@ -635,23 +637,19 @@ def test_imf_weo_dc_export_writes_each_property_the_statvar_sets(
     )
 
 
-def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     with duckdb.get_connection() as connection:
         connection.execute(DC_MODELS_SQL)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     import_name = IMF_WEO_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 
     with patch(
         "dfo_pipelines.defs.imf.weo.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [imf_weo_dc_export, imf_weo_dc_ingestion],
@@ -674,3 +672,4 @@ def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME

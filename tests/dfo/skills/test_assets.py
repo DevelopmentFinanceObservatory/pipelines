@@ -13,6 +13,7 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.dfo.ontology.assets import ONTOLOGY_MCF
 from dfo_pipelines.defs.dfo.skills.assets import (
@@ -31,7 +32,7 @@ from dfo_pipelines.defs.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from tests.helpers import AutomationHarness, meta
+from tests.helpers import EXECUTION_NAME, AutomationHarness, meta
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -352,19 +353,15 @@ def _stub_skills_raw_directory() -> str:
     return str(FIXTURES)
 
 
-def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
 
     with patch(
         "dfo_pipelines.defs.dfo.skills.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [
@@ -392,6 +389,7 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
     assert kwargs["import_name"] == IMPORT_NAME
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME
 
 
 def write_skill(

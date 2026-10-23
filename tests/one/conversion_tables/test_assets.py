@@ -10,6 +10,7 @@ import pytest
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES, ExportSpec
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.one.conversion_tables.assets import (
     DAC_EXPORT_SPEC,
     IMF_EXPORT_SPEC,
@@ -22,6 +23,7 @@ from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
+from tests.helpers import EXECUTION_NAME
 
 DOCS_DIR = Path(__file__).parents[3] / "docs" / "one" / "conversion_tables"
 
@@ -281,7 +283,7 @@ def test_dc_export_marks_only_projected_rows_with_a_measurement_method(
 
 @pytest.mark.parametrize("table", TABLES)
 def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, table: str
+    tmp_path: Path, table: str, knowledge_graph: KnowledgeGraphResource
 ) -> None:
     """Test each ingestion is handed its own export's directory under its import name"""
     spec, export_asset = TABLES[table]
@@ -291,17 +293,11 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
         connection.execute(_provenance_sql(table))
         connection.execute(_statvars_sql(table))
         connection.execute(_observations_sql(table))
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{spec.import_name}"
 
     with patch(
         "dfo_pipelines.defs.one.conversion_tables.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [export_asset, INGESTIONS[table]],
@@ -325,4 +321,5 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
     assert ingestion.metadata == {
         "dagster/uri": dg.TextMetadataValue(destination),
         "import_name": dg.TextMetadataValue(spec.import_name),
+        "execution_name": dg.TextMetadataValue(EXECUTION_NAME),
     }

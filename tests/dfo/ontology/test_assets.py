@@ -11,6 +11,7 @@ import pytest
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.dfo.ontology.assets import (
     CODE_MAPPING_CSV,
     COMPILE_REPORT,
@@ -26,7 +27,7 @@ from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from tests.helpers import column_list, meta, row_count
+from tests.helpers import EXECUTION_NAME, column_list, meta, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -329,20 +330,14 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
 
 
 def test_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, compiler: Any
+    tmp_path: Path, compiler: Any, knowledge_graph: KnowledgeGraphResource
 ) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
 
     with patch(
         "dfo_pipelines.defs.dfo.ontology.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [
@@ -371,3 +366,4 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == IMPORT_NAME
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME

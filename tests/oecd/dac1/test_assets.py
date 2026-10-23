@@ -13,6 +13,7 @@ from dagster_duckdb import DuckDBResource
 from oda_reader.download.download_tools import DAC1_FLOW_URL
 from upath import UPath
 
+from dfo_pipelines.data_commons.ingestion import Ingestion
 from dfo_pipelines.defs.oecd.dac1.assets import (
     OECD_DAC1_EXPORT_SPEC,
     oecd_dac1_dc_export,
@@ -32,6 +33,7 @@ from dfo_pipelines.extraction.metadata import (
     write_extraction_metadata,
 )
 from tests.helpers import (
+    EXECUTION_NAME,
     AutomationHarness,
     column_list,
     list_parquet_columns,
@@ -684,23 +686,18 @@ def test_oecd_dac1_dc_export_writes_each_property_the_statvar_sets(
 
 def test_oecd_dac1_ingestion_ingests_the_bundle_the_export_wrote(
     tmp_path: Path,
+    knowledge_graph: KnowledgeGraphResource,
 ) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     with duckdb.get_connection() as connection:
         connection.execute(DC_MODELS_SQL)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        workflow_name="test-workflow",
-    )
     import_name = OECD_DAC1_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 
     with patch(
         "dfo_pipelines.defs.oecd.dac1.assets.ingest_bundle",
-        return_value=destination,
+        return_value=Ingestion(destination=destination, execution_name=EXECUTION_NAME),
     ) as ingest_bundle:
         result = dg.materialize(
             [oecd_dac1_dc_export, oecd_dac1_dc_ingestion],
@@ -723,3 +720,4 @@ def test_oecd_dac1_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata["execution_name"].value == EXECUTION_NAME

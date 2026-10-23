@@ -10,6 +10,12 @@ from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.defs.resources import UPathFileStoreResource
 
+# Resource name of the workflow execution a mocked ingestion reports starting.
+EXECUTION_NAME = (
+    "projects/test-project/locations/test-region/workflows/test-workflow/"
+    "executions/test-execution"
+)
+
 
 def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     assert result.metadata is not None

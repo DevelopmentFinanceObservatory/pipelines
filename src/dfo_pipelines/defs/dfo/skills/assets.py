@@ -693,7 +693,7 @@ def dfo_skills_dc_ingestion(
     ontology's ingestion, which defines the source, the skill classes and
     properties, and the nodes skills link to.
     """
-    destination = ingest_bundle(
+    ingestion = ingest_bundle(
         UPath(dfo_skills_dc_export),
         import_name=IMPORT_NAME,
         settings=knowledge_graph.settings,
@@ -701,7 +701,8 @@ def dfo_skills_dc_ingestion(
     )
     return dg.MaterializeResult(
         metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
+            "dagster/uri": dg.MetadataValue.text(ingestion.destination),
             "import_name": dg.MetadataValue.text(IMPORT_NAME),
+            "execution_name": dg.MetadataValue.text(ingestion.execution_name),
         },
     )

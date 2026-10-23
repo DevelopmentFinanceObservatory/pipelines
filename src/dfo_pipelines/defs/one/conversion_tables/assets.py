@@ -159,7 +159,7 @@ def _ingest(
     bundle: str,
 ) -> dg.MaterializeResult:
     """Ingest the bundle `spec`'s export wrote and report where it was staged."""
-    destination = ingest_bundle(
+    ingestion = ingest_bundle(
         UPath(bundle),
         import_name=spec.import_name,
         settings=knowledge_graph.settings,
@@ -167,8 +167,9 @@ def _ingest(
     )
     return dg.MaterializeResult(
         metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
+            "dagster/uri": dg.MetadataValue.text(ingestion.destination),
             "import_name": dg.MetadataValue.text(spec.import_name),
+            "execution_name": dg.MetadataValue.text(ingestion.execution_name),
         },
     )
 
