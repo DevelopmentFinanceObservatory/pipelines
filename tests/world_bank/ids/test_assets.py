@@ -1137,7 +1137,6 @@ def test_ids_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> No
         project_id="test-project",
         region="test-region",
         bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
         workflow_name="test-workflow",
     )
     import_name = IDS_EXPORT_SPEC.import_name

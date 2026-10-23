@@ -18,7 +18,6 @@ KNOWLEDGE_GRAPH = KnowledgeGraphResource(
     project_id="test-project",
     region="test-region",
     bucket_name="test-bucket",
-    prep_job_name="test-prep-job",
     workflow_name="test-workflow",
 )
 

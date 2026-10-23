@@ -644,7 +644,6 @@ def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -
         project_id="test-project",
         region="test-region",
         bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
         workflow_name="test-workflow",
     )
     import_name = IMF_WEO_EXPORT_SPEC.import_name

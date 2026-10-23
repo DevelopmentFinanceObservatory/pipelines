@@ -674,7 +674,6 @@ def test_oecd_dac2a_ingestion_ingests_the_bundle_the_export_wrote(
         project_id="test-project",
         region="test-region",
         bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
         workflow_name="test-workflow",
     )
     import_name = OECD_DAC2A_EXPORT_SPEC.import_name

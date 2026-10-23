@@ -35,7 +35,6 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
     project_id: str
     region: str
     bucket_name: str
-    prep_job_name: str
     workflow_name: str
     service_account: str | None = None
 
@@ -46,7 +45,6 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
             gcp_project_id=self.project_id,
             gcp_region=self.region,
             gcs_bucket_name=self.bucket_name,
-            ingestion_prep_job_name=self.prep_job_name,
             ingestion_workflow_name=self.workflow_name,
             ingestion_service_account=self.service_account,
             # Required by KGSettings but read by nothing on the ingestion path,

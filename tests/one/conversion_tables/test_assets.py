@@ -295,7 +295,6 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
         project_id="test-project",
         region="test-region",
         bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
         workflow_name="test-workflow",
     )
     destination = f"gs://test-bucket/ingestion/input/{spec.import_name}"
