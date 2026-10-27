@@ -44,6 +44,14 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
             gcs_bucket_name=self.bucket_name,
             ingestion_workflow_name=self.workflow_name,
             ingestion_service_account=self.service_account,
+            # Passed so the environment and .env cannot set them, until
+            # https://github.com/ONEcampaign/dcp-tools/issues/202
+            local_path=None,
+            gcp_credentials=None,
+            gcs_input_folder_path=KGSettings.model_fields[
+                "gcs_input_folder_path"
+            ].default,
+            gcs_output_folder_path=None,
         )
 
 
