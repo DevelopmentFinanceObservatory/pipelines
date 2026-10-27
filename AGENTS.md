@@ -13,6 +13,7 @@ The following sections are in roughly priority order.
 
 - Start by reading the issue that the PR is addressing
 - The PR should address a single issue, flag if it combines multiple or has added scope
+- Flag changes the issue doesn't need: renames, reflows, moved code, and tests for behaviour the PR doesn't change
 
 ### Design and Architecture
 
