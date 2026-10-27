@@ -8,7 +8,7 @@ with metadata as (
 
 extraction as (
     select
-        strftime(metadata.source_release_date, '%Y-%m-%d') as source_release_date,
+        strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
         -- The IMF publishes WEO in April and October.
         case
             when metadata.release_month < 4
@@ -35,7 +35,7 @@ select
     'https://www.imf.org/en/about/copyright-and-terms' as license,
     'dcid:InternationalMonetaryFundCopyrightAndUsage' as license_type,
     'P6M' as source_release_frequency,
-    extraction.source_release_date,
+    extraction.imported_source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,

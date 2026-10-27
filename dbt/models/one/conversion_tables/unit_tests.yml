@@ -344,7 +344,7 @@ unit_tests:
   - name: dac_provenance_takes_weo_release_date_when_it_is_the_later_one
     model: dc_conversion_tables_dac_provenance
     description: >
-      source_release_date is the later of the DAC1 and WEO release dates, here
+      imported_source_release_date is the later of the DAC1 and WEO release dates, here
       the WEO's.
     given:
       - input: ref('dc_conversion_tables_dac_observations')
@@ -358,7 +358,7 @@ unit_tests:
           - {source_release_date: "2026-10-14"}
     expect:
       rows:
-        - {source_release_date: "2026-10-14"}
+        - {imported_source_release_date: "2026-10-14"}
 
   - name: dac_provenance_takes_dac1_release_date_when_it_is_the_later_one
     model: dc_conversion_tables_dac_provenance
@@ -374,4 +374,4 @@ unit_tests:
           - {source_release_date: "2026-04-14"}
     expect:
       rows:
-        - {source_release_date: "2026-07-07"}
+        - {imported_source_release_date: "2026-07-07"}

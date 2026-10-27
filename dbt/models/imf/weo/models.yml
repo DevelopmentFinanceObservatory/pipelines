@@ -491,7 +491,7 @@ models:
         description: How often the IMF publishes, as an ISO 8601 duration
         data_tests:
           - not_null
-      - name: source_release_date
+      - name: imported_source_release_date
         data_type: string
         description: Date the IMF published the WEO release, as YYYY-MM-DD
         data_tests:

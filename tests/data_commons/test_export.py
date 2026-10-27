@@ -66,7 +66,7 @@ select
     'Source One (2026), Provenance One (accessed on 2026-03-04)'
         as license_attribution,
     'P1Y' as source_release_frequency,
-    '2026-02-15' as source_release_date,
+    '2026-02-15' as imported_source_release_date,
     '2026-06' as next_source_release_date,
     '2000' as earliest_observation_date,
     '2001' as latest_observation_date
@@ -771,7 +771,6 @@ def test_export_bundle_refuses_a_mapped_column_the_provenance_lacks(
     [
         *DOCUMENTATION_FILES,
         "conversionRecipe",
-        "importedSourceReleaseDate",
         "lastDataRefreshDate",
     ],
 )
