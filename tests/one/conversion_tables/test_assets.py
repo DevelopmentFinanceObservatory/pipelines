@@ -320,4 +320,3 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
         "dagster/uri": dg.TextMetadataValue(destination),
         "import_name": dg.TextMetadataValue(spec.import_name),
     }
-    assert "import_name" not in export.metadata

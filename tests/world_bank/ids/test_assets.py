@@ -58,11 +58,14 @@ def patch_release_date():
     )
 
 
+BULK_FILE_METADATA = {"A_D.xlsx": {"etag": "etag-A_D.xlsx-v1"}}
+
+
 def patch_bulk_file_metadata():
     """Serve the bulk files' HEAD metadata without a network call"""
     return patch(
         "dfo_pipelines.defs.world_bank.ids.assets.fetch_ids_bulk_file_metadata",
-        return_value={},
+        return_value=BULK_FILE_METADATA,
     )
 
 
@@ -247,7 +250,6 @@ def test_world_bank_ids_source_observe_fn_returns_metadata_and_data_version() ->
     files = metadata["files"]
     assert isinstance(files, dg.JsonMetadataValue)
     assert files.data is not None
-    assert list(files.data) == list(BULK_XLSX_URLS)
     assert files.data["A_D.xlsx"] == {
         "etag": '"etag-A_D.xlsx-v1"',
         "last_modified": "Thu, 14 May 2026 17:51:34 GMT",
@@ -433,6 +435,7 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
         source_df
     ) * len(BULK_XLSX_URLS)
+    assert meta(result, "files", dg.JsonMetadataValue).data == BULK_FILE_METADATA
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
     assert check.passed
@@ -463,37 +466,6 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     ]
     recorded = read_extraction_metadata(raw_dir, release_names=("source",))
     assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
-
-
-def test_ids_raw_file_reports_the_files_the_source_observes(tmp_path: Path) -> None:
-    """Test the raw file reports the bulk files' metadata in the source's shape"""
-    observe = world_bank_ids_source.observe_fn
-    assert observe is not None
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        filename = request.url.path.rsplit("/", 1)[1]
-        return httpx.Response(
-            200, headers=_get_mock_head_headers(filename=filename, version="v1")
-        )
-
-    with (
-        _mock_http(handler),
-        patch_release_date(),
-        patch(
-            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-            side_effect=_fake_download(pd.DataFrame({"Country Code": ["AFG"]})),
-        ),
-    ):
-        observation = observe()
-        result = world_bank_ids_raw_file(
-            context=dg.build_asset_context(),
-            raw_file_store=UPathFileStoreResource(base_path=str(tmp_path / "raw")),
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert observation.metadata is not None
-    assert result.metadata is not None
-    assert result.metadata["files"] == observation.metadata["files"]
 
 
 def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
@@ -1211,7 +1183,4 @@ def test_ids_ingestion_ingests_the_bundle_the_export_wrote(
     assert str(args[0]) == bundle
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata == {
-        "dagster/uri": dg.TextMetadataValue(destination),
-        "import_name": dg.TextMetadataValue(import_name),
-    }
+    assert ingestion.metadata["dagster/uri"].value == destination

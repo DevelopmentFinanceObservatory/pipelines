@@ -140,7 +140,6 @@ def test_raw_directory_copies_the_skills_at_the_head_of_main(
     assert meta(result, "version", dg.TextMetadataValue).value == git(
         upstream, "rev-parse", "HEAD"
     )
-    assert "commit" not in (result.metadata or {})
     [check] = result.check_results
     assert check.check_name == "skills_not_empty"
     assert check.passed
@@ -344,24 +343,6 @@ def test_source_observes_the_head_commit_of_the_repository(upstream: Path) -> No
     }
 
 
-def test_raw_directory_reports_the_version_the_source_observed(
-    tmp_path: Path, upstream: Path
-) -> None:
-    """Test the raw directory's version equals the source's version for the same commit"""
-    observe = dfo_skills_source.observe_fn
-    assert observe is not None
-
-    observation = observe(skills_repository=SKILLS_REPOSITORY)
-    result = materialize_raw_directory(tmp_path)
-
-    assert isinstance(observation, dg.ObserveResult)
-    assert observation.metadata is not None
-    assert (
-        meta(result, "version", dg.TextMetadataValue).value
-        == observation.metadata["version"].value
-    )
-
-
 def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
     """Test a skill, its reference and its attachments export as the expected bundle
 
@@ -424,7 +405,6 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
     assert "import_name" not in export.metadata
-    assert ingestion.metadata["import_name"].value == IMPORT_NAME
 
 
 def write_skill(

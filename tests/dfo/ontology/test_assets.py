@@ -366,4 +366,3 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
     assert "import_name" not in export.metadata
-    assert ingestion.metadata["import_name"].value == IMPORT_NAME

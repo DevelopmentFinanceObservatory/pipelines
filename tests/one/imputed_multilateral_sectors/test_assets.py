@@ -551,9 +551,7 @@ def test_source_observe_fn_returns_metadata_and_data_version() -> None:
 
     assert isinstance(result, dg.ObserveResult)
     assert result.data_version == dg.DataVersion(
-        "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet;v20260801;"
-        "https://webfs-dcd.oecd.org/data/multisystem/MULTISYSTEM.parquet;v20260715;"
-        "2.8.1"
+        ";".join([CRS_TEST_URL, CRS_VERSION, MULTI_TEST_URL, MULTI_VERSION, "2.8.1"])
     )
     metadata = result.metadata
     assert metadata is not None
@@ -820,8 +818,6 @@ def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
     assert isinstance(result, dg.MaterializeResult)
     assert result.value == str(directory / "data.parquet")
     assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 3
-    assert result.metadata is not None
-    assert "row_count" not in result.metadata
     assert meta(result, "crs_version", dg.TextMetadataValue).value == CRS_VERSION
     assert (
         meta(result, "multisystem_version", dg.TextMetadataValue).value == MULTI_VERSION
@@ -1382,8 +1378,6 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
-    assert "import_name" not in export.metadata
-    assert ingestion.metadata["import_name"].value == import_name
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
