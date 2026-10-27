@@ -40,20 +40,20 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt deps --project-dir dbt/ --profiles-dir dbt/
 
-      - name: Run ruff check
-        run: uv run ruff check .
+      - name: Cache pre-commit
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pre-commit-
 
-      - name: Run ruff format check
-        run: uv run ruff format --check .
-
-      - name: Run ty
-        run: uv run ty check
-
-      - name: Run sqlfluff lint
+      # UV_NO_ENV_FILE makes the sqlfluff hook ignore `--env-file .env`, absent in CI.
+      - name: Run pre-commit hooks
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
-        run: uv run sqlfluff lint dbt/models --dialect duckdb
-
+          UV_NO_ENV_FILE: "1"
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 
   test:
     if: github.event.pull_request.draft != true
