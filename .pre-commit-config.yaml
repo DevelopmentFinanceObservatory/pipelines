@@ -74,7 +74,7 @@ repos:
 
       # Large files (1MB) with sensible excludes
       - id: check-added-large-files
-        args: [--maxkb=5000]
+        args: [--maxkb=5000, --enforce-all]
         exclude: |
           (?x)^(
             .*\.parquet|
