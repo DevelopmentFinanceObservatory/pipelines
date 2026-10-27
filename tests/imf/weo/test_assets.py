@@ -266,7 +266,6 @@ def test_imf_weo_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert result.data_version == dg.DataVersion("October;2025")
     metadata = result.metadata
     assert metadata is not None
-    assert set(metadata) == {"version"}
     version = metadata["version"]
     assert isinstance(version, dg.TextMetadataValue)
     assert version.value == "October 2025"

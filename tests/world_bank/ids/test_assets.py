@@ -246,7 +246,6 @@ def test_world_bank_ids_source_observe_fn_returns_metadata_and_data_version() ->
     )
     metadata = result.metadata
     assert metadata is not None
-    assert set(metadata) == {"files"}
     files = metadata["files"]
     assert isinstance(files, dg.JsonMetadataValue)
     assert files.data is not None

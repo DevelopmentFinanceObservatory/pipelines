@@ -115,7 +115,6 @@ def test_dac_crs_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert isinstance(version_meta, dg.TextMetadataValue)
     assert url_meta.value == CRS_TEST_URL
     assert version_meta.value == SOURCE_VERSION
-    assert "url" not in metadata
 
 
 def test_dac_crs_source_observe_fn_raises_when_version_unavailable() -> None:

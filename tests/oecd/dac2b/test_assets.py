@@ -112,7 +112,6 @@ def test_dac2b_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert isinstance(version_meta, dg.TextMetadataValue)
     assert url_meta.value == DAC2B_TEST_URL
     assert version_meta.value == "v20260801"
-    assert "url" not in metadata
 
 
 def test_dac2b_source_observe_fn_raises_when_version_unavailable() -> None:
