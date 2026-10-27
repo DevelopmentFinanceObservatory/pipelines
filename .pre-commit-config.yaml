@@ -72,7 +72,7 @@ repos:
       # Basic secret hygiene
       - id: detect-private-key
 
-      # Large files (1MB) with sensible excludes
+      # Large files (5MB) with sensible excludes
       - id: check-added-large-files
         args: [--maxkb=5000, --enforce-all]
         exclude: |

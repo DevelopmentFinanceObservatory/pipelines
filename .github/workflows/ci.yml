@@ -11,6 +11,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Every uv command uses uv.lock as committed and fails if it is stale.
+env:
+  UV_LOCKED: "1"
+
 jobs:
   lint:
     if: github.event.pull_request.draft != true
@@ -33,7 +37,7 @@ jobs:
         run: uv python install '3.13'
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync
 
       - name: Install dbt dependencies
         env:
@@ -76,7 +80,7 @@ jobs:
         run: uv python install '3.13'
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync
 
       - name: Install dbt dependencies
         env:
