@@ -53,7 +53,7 @@ Total, has no rate.
 
 Several areas can share a currency, so `currency_rate_reference` names the area whose rate is the
 currency's rate. In the DAC table the euro comes from EU Institutions, which report in euros (ECU before
-1999) in every year. In the IMF table it comes from Germany, because the WEO publishes no euro-area GDP in
+1999\) in every year. In the IMF table it comes from Germany, because the WEO publishes no euro-area GDP in
 euros. A currency's issuer supplies it where there is one, as the United States does for the US dollar.
 For the CFA francs and the Eastern Caribbean dollar, which no country issues, the seed names a member. A
 currency one area uses takes that area's rate. A shared currency with no reference fails the build.

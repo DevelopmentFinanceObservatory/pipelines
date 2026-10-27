@@ -882,7 +882,8 @@ def test_dc_export_rejects_a_reference_that_is_not_utf8(tmp_path: Path) -> None:
     """Test a reference whose bytes are not UTF-8 fails the run, naming it"""
     skills_root = tmp_path / "skills"
     write_skill(skills_root, "example-skill", {"latin.md": ""})
-    (skills_root / "example-skill/references/latin.md").write_bytes(b"caf\xe9\n")
+    not_utf8 = b"caf\xe9\n"  # codespell:ignore caf
+    (skills_root / "example-skill/references/latin.md").write_bytes(not_utf8)
 
     assert_export_fails(tmp_path, "example-skill", "references/latin.md")
 

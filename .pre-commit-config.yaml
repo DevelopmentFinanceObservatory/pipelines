@@ -8,16 +8,25 @@
 # Test fixtures are data compared byte for byte, so the hooks that rewrite files
 # skip them, while the ones that only check still run.
 
+# Ruff, ty and sqlfluff are local hooks run through uv, at their uv.lock versions.
+# CI runs every hook on every file.
+
 repos:
   # ---------------------------------------------------------------------------
   # Ruff: fast linter + formatter
   # ---------------------------------------------------------------------------
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.12
+  - repo: local
     hooks:
       - id: ruff-check
-        args: [--fix]
+        name: ruff check
+        language: system
+        entry: uv run ruff check --force-exclude --fix
+        types_or: [python, pyi, jupyter]
       - id: ruff-format
+        name: ruff format
+        language: system
+        entry: uv run ruff format --force-exclude
+        types_or: [python, pyi, jupyter]
 
   # ---------------------------------------------------------------------------
   # Core hygiene, JSON/YAML/TOML, security
@@ -83,6 +92,18 @@ repos:
         language: system
         entry: uv run ty check
         types: [python]
+        pass_filenames: false
+
+  # ---------------------------------------------------------------------------
+  # SQL linting (needs dbt deps and DUCKDB_PATH, from .env locally)
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: sqlfluff
+        name: sqlfluff lint
+        language: system
+        entry: uv run --env-file .env sqlfluff lint dbt/models
+        files: ^dbt/models/
         pass_filenames: false
 
   # ---------------------------------------------------------------------------

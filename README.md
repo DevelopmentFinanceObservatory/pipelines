@@ -85,7 +85,7 @@ uv run --env-file .env sqlfluff lint dbt/models
 
 ### Pre-commit hooks
 
-To run the checks on each commit, install the hooks:
+The hooks in `.pre-commit-config.yaml` are the checks CI's lint job runs, on every file. The sqlfluff hook needs `dbt deps` and a `.env` that sets `DUCKDB_PATH`, as above. To run the checks on each commit, install the hooks:
 
 ```bash
 uv run pre-commit install
