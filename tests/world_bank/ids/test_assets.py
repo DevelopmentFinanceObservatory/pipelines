@@ -1227,4 +1227,7 @@ def test_ids_ingestion_ingests_the_bundle_the_export_wrote(
     assert str(args[0]) == bundle
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata == {"dagster/uri": dg.TextMetadataValue(destination)}
+    assert ingestion.metadata == {
+        "dagster/uri": dg.TextMetadataValue(destination),
+        "import_name": dg.TextMetadataValue(import_name),
+    }

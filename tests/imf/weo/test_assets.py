@@ -697,4 +697,5 @@ def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
-    assert set(ingestion.metadata) == {"dagster/uri"}
+    assert set(ingestion.metadata) == {"dagster/uri", "import_name"}
+    assert ingestion.metadata["import_name"].value == import_name

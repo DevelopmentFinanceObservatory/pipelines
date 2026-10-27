@@ -168,6 +168,7 @@ def _ingest(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(spec.import_name),
         },
     )
 

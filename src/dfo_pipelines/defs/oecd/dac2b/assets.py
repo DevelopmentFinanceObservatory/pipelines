@@ -292,5 +292,6 @@ def oecd_dac2b_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(OECD_DAC2B_EXPORT_SPEC.import_name),
         },
     )

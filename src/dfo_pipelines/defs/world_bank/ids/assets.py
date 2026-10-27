@@ -472,5 +472,6 @@ def world_bank_ids_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(IDS_EXPORT_SPEC.import_name),
         },
     )

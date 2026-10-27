@@ -299,5 +299,6 @@ def oecd_dac_crs_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(CRS_EXPORT_SPEC.import_name),
         },
     )

@@ -606,5 +606,8 @@ def one_imputed_multilateral_sectors_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
+            "import_name": dg.MetadataValue.text(
+                IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
+            ),
         },
     )
