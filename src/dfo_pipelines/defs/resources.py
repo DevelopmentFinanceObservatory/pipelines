@@ -3,10 +3,19 @@ from datetime import date
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
+from pydantic import ConfigDict
 from upath import UPath
 
 
-class UPathFileStoreResource(dg.ConfigurableResource):
+class StrictConfigurableResource(dg.ConfigurableResource):
+    """Resource that raises on an undeclared keyword argument instead of ignoring it"""
+
+    # Dagster copies a resource from its __dict__, so a cached_property read
+    # before the copy fails as an undeclared field
+    model_config = ConfigDict(**dg.ConfigurableResource.model_config, extra="forbid")
+
+
+class UPathFileStoreResource(StrictConfigurableResource):
     """File store for UPath backends"""
 
     base_path: str
@@ -22,7 +31,7 @@ class UPathFileStoreResource(dg.ConfigurableResource):
         return UPath(self.base_path) / path / partition
 
 
-class KnowledgeGraphResource(dg.ConfigurableResource):
+class KnowledgeGraphResource(StrictConfigurableResource):
     """Data Commons knowledge graph a bundle is ingested into
 
     Reading the settings here puts them on Dagster's config surface, where a
@@ -61,7 +70,7 @@ SKILLS_REPOSITORY_URL_SHAPE = re.compile(
 )
 
 
-class SkillsRepositoryResource(dg.ConfigurableResource):
+class SkillsRepositoryResource(StrictConfigurableResource):
     """GitHub repository the DFO agent skills are fetched from and linked to
 
     Each deployment has its own, so the URL is read on Dagster's config surface,
