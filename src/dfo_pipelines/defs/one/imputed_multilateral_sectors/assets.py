@@ -301,7 +301,9 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
     return dg.ObserveResult(
         metadata={
+            "crs_url": dg.MetadataValue.text(crs_url),
             "crs_version": dg.MetadataValue.text(crs_version),
+            "multisystem_url": dg.MetadataValue.text(multi_url),
             "multisystem_version": dg.MetadataValue.text(multi_version),
             "oda_data_version": dg.MetadataValue.text(oda_data_version),
         },

@@ -557,10 +557,11 @@ def test_source_observe_fn_returns_metadata_and_data_version() -> None:
     )
     metadata = result.metadata
     assert metadata is not None
+    assert metadata["crs_url"] == dg.MetadataValue.text(CRS_TEST_URL)
     assert metadata["crs_version"] == dg.MetadataValue.text(CRS_VERSION)
+    assert metadata["multisystem_url"] == dg.MetadataValue.text(MULTI_TEST_URL)
     assert metadata["multisystem_version"] == dg.MetadataValue.text(MULTI_VERSION)
     assert metadata["oda_data_version"] == dg.MetadataValue.text("2.8.1")
-    assert not {"crs_url", "multisystem_url"} & metadata.keys()
 
 
 def test_source_data_version_moves_when_the_crs_token_alone_changes() -> None:
