@@ -52,10 +52,8 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20  # 1 MB
 
 OBSERVATION_TIMEOUT_SECONDS = 30
 
-type FileMetadata = dict[str, str | int | None]
 
-
-def file_metadata(url: str, response: httpx.Response) -> FileMetadata:
+def file_metadata(url: str, response: httpx.Response) -> dict[str, str | int | None]:
     """The version headers of a bulk file's response, recorded against its URL
 
     `url` is the configured URL, since `response.url` may be a redirect.
@@ -70,17 +68,18 @@ def file_metadata(url: str, response: httpx.Response) -> FileMetadata:
     }
 
 
-def fetch_ids_bulk_file_metadata() -> dict[str, FileMetadata]:
+def fetch_ids_bulk_file_metadata() -> dict[str, dict[str, str | int | None]]:
     """Fetch the metadata for the IDS bulk data files using HEAD requests
 
     Returns:
-        dict[str, FileMetadata]: one entry per URL, keyed on the filename part
-            of the URL, holding the HTTP headers stored as the asset metadata
+        dict[str, dict[str, str | int | None]]: dictionary with one entry per
+            URL (indexed on the filename part of the URL) which contains the
+            HTTP headers that will be stored as the asset metadata
     """
     with httpx.Client(
         follow_redirects=True, timeout=OBSERVATION_TIMEOUT_SECONDS
     ) as client:
-        files: dict[str, FileMetadata] = {}
+        files: dict[str, dict[str, str | int | None]] = {}
         for filename, url in BULK_XLSX_URLS.items():
             response = client.head(url)
             response.raise_for_status()
@@ -88,12 +87,15 @@ def fetch_ids_bulk_file_metadata() -> dict[str, FileMetadata]:
     return files
 
 
-def get_ids_bulk_download_version(filename: str, file_metadata: FileMetadata) -> str:
+def get_ids_bulk_download_version(
+    filename: str, file_metadata: dict[str, str | int | None]
+) -> str:
     """Get a version string for the IDS bulk download file from its metadata.
 
     Args:
         filename (str): the filename of the bulk XLSX file
-        file_metadata (FileMetadata): the metadata dictionary for the file
+        file_metadata (dict[str, str  |  int  |  None]): the metadata dictionary
+        for the file
 
     Raises:
         ValueError: if no version information is available in the metadata
@@ -270,13 +272,15 @@ def fetch_ids_release_date() -> date:
     return date.fromisoformat(source["lastupdated"])
 
 
-def download_ids_bulk_data_files(output_folder: UPath) -> dict[str, FileMetadata]:
+def download_ids_bulk_data_files(
+    output_folder: UPath,
+) -> dict[str, dict[str, str | int | None]]:
     """Download the six IDS bulk XLSX files into folder.
 
     Returns the headers of each download in the source observation's shape, so
     the raw file records the version it downloaded.
     """
-    files: dict[str, FileMetadata] = {}
+    files: dict[str, dict[str, str | int | None]] = {}
     try:
         with httpx.Client(follow_redirects=True, timeout=600) as client:
             for filename, url in BULK_XLSX_URLS.items():
