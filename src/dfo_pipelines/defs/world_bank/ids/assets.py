@@ -53,23 +53,6 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20  # 1 MB
 OBSERVATION_TIMEOUT_SECONDS = 30
 
 
-def ids_bulk_file_metadata(
-    url: str, response: httpx.Response
-) -> dict[str, str | int | None]:
-    """The version headers of a bulk file's response, recorded against its URL
-
-    `url` is the configured URL, since `response.url` may be a redirect.
-    """
-    content_length = response.headers.get("content-length")
-    return {
-        "etag": response.headers.get("etag"),
-        "last_modified": response.headers.get("last-modified"),
-        "content_length": int(content_length) if content_length is not None else None,
-        "version_id": response.headers.get("x-ms-version-id"),
-        "url": url,
-    }
-
-
 def fetch_ids_bulk_file_metadata() -> dict[str, dict[str, str | int | None]]:
     """Fetch the metadata for the IDS bulk data files using HEAD requests
 
@@ -87,7 +70,16 @@ def fetch_ids_bulk_file_metadata() -> dict[str, dict[str, str | int | None]]:
         for filename, url in BULK_XLSX_URLS.items():
             response = client.head(url)
             response.raise_for_status()
-            files[filename] = ids_bulk_file_metadata(url, response)
+            content_length = response.headers.get("content-length")
+            files[filename] = {
+                "etag": response.headers.get("etag"),
+                "last_modified": response.headers.get("last-modified"),
+                "content_length": (
+                    int(content_length) if content_length is not None else None
+                ),
+                "version_id": response.headers.get("x-ms-version-id"),
+                "url": url,
+            }
 
     return files
 
@@ -173,7 +165,8 @@ def world_bank_ids_raw_file(
     directory.mkdir(parents=True, exist_ok=True)
 
     source_release_date = fetch_ids_release_date()
-    files = download_ids_bulk_data_files(directory)
+    files = fetch_ids_bulk_file_metadata()
+    download_ids_bulk_data_files(directory)
 
     output_file = directory / "data.parquet"
     rows = combine_ids_bulk_data_files(directory, output_file)
@@ -277,21 +270,13 @@ def fetch_ids_release_date() -> date:
     return date.fromisoformat(source["lastupdated"])
 
 
-def download_ids_bulk_data_files(
-    output_folder: UPath,
-) -> dict[str, dict[str, str | int | None]]:
-    """Download the six IDS bulk XLSX files into folder.
-
-    Returns the headers of each download in the source observation's shape, so
-    the raw file records the version it downloaded.
-    """
-    files: dict[str, dict[str, str | int | None]] = {}
+def download_ids_bulk_data_files(output_folder: UPath) -> None:
+    """Download the six IDS bulk XLSX files into folder."""
     try:
         with httpx.Client(follow_redirects=True, timeout=600) as client:
             for filename, url in BULK_XLSX_URLS.items():
                 with client.stream("GET", url) as resp:
                     resp.raise_for_status()
-                    files[filename] = ids_bulk_file_metadata(url, resp)
                     with (output_folder / filename).open("wb") as f:
                         for chunk in resp.iter_bytes(chunk_size=DOWNLOAD_CHUNK_SIZE):
                             f.write(chunk)
@@ -299,7 +284,6 @@ def download_ids_bulk_data_files(
         for filename in BULK_XLSX_URLS:
             (output_folder / filename).unlink(missing_ok=True)
         raise
-    return files
 
 
 def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:

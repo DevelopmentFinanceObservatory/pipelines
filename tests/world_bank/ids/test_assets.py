@@ -1,7 +1,6 @@
 import json
 from collections.abc import Callable
 from datetime import UTC, date, datetime
-from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -59,14 +58,21 @@ def patch_release_date():
     )
 
 
-def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> dict:
+def patch_bulk_file_metadata():
+    """Serve the bulk files' HEAD metadata without a network call"""
+    return patch(
+        "dfo_pipelines.defs.world_bank.ids.assets.fetch_ids_bulk_file_metadata",
+        return_value={},
+    )
+
+
+def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> None:
     """Stand-in for the download: write the frame as each of the six XLSX files."""
     for filename in BULK_XLSX_URLS:
         df.to_excel(folder / filename, index=False, engine="openpyxl")
-    return {filename: {"url": url} for filename, url in BULK_XLSX_URLS.items()}
 
 
-def _fake_download(df: pd.DataFrame) -> Callable[[UPath], dict]:
+def _fake_download(df: pd.DataFrame) -> Callable[[UPath], None]:
     return lambda folder: _write_fake_downloads(folder, df)
 
 
@@ -401,6 +407,7 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     )
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch("dfo_pipelines.defs.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
@@ -458,51 +465,35 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
 
 
-def test_ids_raw_file_reports_the_headers_of_the_files_it_downloaded(
-    tmp_path: Path,
-) -> None:
-    """Test the raw file reports the headers of its own downloads
-
-    The World Bank can republish between the observation and the download, so the
-    GET responses here carry a newer version than the HEAD responses.
-    """
-    workbook = BytesIO()
-    pd.DataFrame({"Country Code": ["AFG"]}).to_excel(
-        workbook, index=False, engine="openpyxl"
-    )
-    content = workbook.getvalue()
+def test_ids_raw_file_reports_the_files_the_source_observes(tmp_path: Path) -> None:
+    """Test the raw file reports the bulk files' metadata in the source's shape"""
+    observe = world_bank_ids_source.observe_fn
+    assert observe is not None
 
     def handler(request: httpx.Request) -> httpx.Response:
         filename = request.url.path.rsplit("/", 1)[1]
-        if request.method == "HEAD":
-            return httpx.Response(
-                200, headers=_get_mock_head_headers(filename=filename, version="v1")
-            )
-        headers = _get_mock_head_headers(filename=filename, version="v2")
-        # Let httpx set the length of the served content
-        headers.pop("content-length")
-        return httpx.Response(200, headers=headers, content=content)
+        return httpx.Response(
+            200, headers=_get_mock_head_headers(filename=filename, version="v1")
+        )
 
-    with _mock_http(handler), patch_release_date():
+    with (
+        _mock_http(handler),
+        patch_release_date(),
+        patch(
+            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
+            side_effect=_fake_download(pd.DataFrame({"Country Code": ["AFG"]})),
+        ),
+    ):
+        observation = observe()
         result = world_bank_ids_raw_file(
             context=dg.build_asset_context(),
             raw_file_store=UPathFileStoreResource(base_path=str(tmp_path / "raw")),
         )
 
     assert isinstance(result, dg.MaterializeResult)
-    assert meta(result, "files", dg.JsonMetadataValue).data == {
-        filename: {
-            "etag": f'"etag-{filename}-v2"',
-            "last_modified": "Fri, 15 May 2026 17:51:34 GMT",
-            "content_length": len(content),
-            "version_id": "2026-05-15T17:51:34.3247738Z",
-            "url": url,
-        }
-        for filename, url in BULK_XLSX_URLS.items()
-    }
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
-        BULK_XLSX_URLS
-    )
+    assert observation.metadata is not None
+    assert result.metadata is not None
+    assert result.metadata["files"] == observation.metadata["files"]
 
 
 def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
@@ -512,6 +503,7 @@ def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(empty_df),
@@ -554,6 +546,7 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch("dfo_pipelines.defs.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
@@ -583,19 +576,9 @@ def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:
         return httpx.Response(200, content=f"payload for {request.url.path}".encode())
 
     with _mock_http(handler):
-        files = download_ids_bulk_data_files(UPath(tmp_path))
+        download_ids_bulk_data_files(UPath(tmp_path))
 
     assert requested == list(BULK_XLSX_URLS.values())
-    assert files == {
-        filename: {
-            "etag": None,
-            "last_modified": None,
-            "content_length": len(f"payload for {httpx.URL(url).path}"),
-            "version_id": None,
-            "url": url,
-        }
-        for filename, url in BULK_XLSX_URLS.items()
-    }
     for filename, url in BULK_XLSX_URLS.items():
         written = (tmp_path / filename).read_bytes()
         assert written == f"payload for {httpx.URL(url).path}".encode()
@@ -802,6 +785,7 @@ def test_ids_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),
