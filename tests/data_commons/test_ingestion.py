@@ -86,6 +86,20 @@ def test_ingest_syncs_the_bundle_into_the_import_folder_then_ingests_it(
     assert destination == f"gs://{settings.gcs_bucket_name}/{folder}"
 
 
+def test_ingest_builds_its_storage_client_in_the_graph_project(
+    tmp_path: Path, gcp: MagicMock, knowledge_graph: KnowledgeGraphResource
+) -> None:
+    """Test the client takes the graph's project, not the environment's default"""
+    bundle = write_bundle(tmp_path / "bundle")
+    settings = knowledge_graph.settings
+
+    ingest(bundle, settings)
+
+    gcp.get_gcs_client.assert_called_once_with(
+        settings.gcp_credentials, project=settings.gcp_project_id
+    )
+
+
 def test_ingest_checks_the_workflow_contract_before_the_sync(
     tmp_path: Path, gcp: MagicMock, knowledge_graph: KnowledgeGraphResource
 ) -> None:
