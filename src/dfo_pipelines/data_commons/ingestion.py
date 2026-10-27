@@ -60,7 +60,9 @@ def ingest_bundle(
     check_ingestion_workflow_contract(settings)
 
     folder = f"{settings.gcs_input_folder_path}/{import_name}"
-    bucket = get_gcs_client(settings.gcp_credentials).bucket(settings.gcs_bucket_name)
+    bucket = get_gcs_client(
+        settings.gcp_credentials, project=settings.gcp_project_id
+    ).bucket(settings.gcs_bucket_name)
     sync_directory_to_gcs(bucket, directory, gcs_folder_name=folder)
     destination = f"gs://{settings.gcs_bucket_name}/{folder}"
     log.info(f"Synced {bundle} to {destination}")
