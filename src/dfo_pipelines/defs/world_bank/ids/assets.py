@@ -53,7 +53,9 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20  # 1 MB
 OBSERVATION_TIMEOUT_SECONDS = 30
 
 
-def file_metadata(url: str, response: httpx.Response) -> dict[str, str | int | None]:
+def ids_bulk_file_metadata(
+    url: str, response: httpx.Response
+) -> dict[str, str | int | None]:
     """The version headers of a bulk file's response, recorded against its URL
 
     `url` is the configured URL, since `response.url` may be a redirect.
@@ -76,14 +78,17 @@ def fetch_ids_bulk_file_metadata() -> dict[str, dict[str, str | int | None]]:
             URL (indexed on the filename part of the URL) which contains the
             HTTP headers that will be stored as the asset metadata
     """
+
+    files: dict[str, dict[str, str | int | None]] = {}
+
     with httpx.Client(
         follow_redirects=True, timeout=OBSERVATION_TIMEOUT_SECONDS
     ) as client:
-        files: dict[str, dict[str, str | int | None]] = {}
         for filename, url in BULK_XLSX_URLS.items():
             response = client.head(url)
             response.raise_for_status()
-            files[filename] = file_metadata(url, response)
+            files[filename] = ids_bulk_file_metadata(url, response)
+
     return files
 
 
@@ -133,8 +138,8 @@ def world_bank_ids_source() -> dg.ObserveResult:
     files = fetch_ids_bulk_file_metadata()
     data_version = dg.DataVersion(
         ";".join(
-            f"{filename}:{get_ids_bulk_download_version(filename, metadata)}"
-            for filename, metadata in files.items()
+            f"{filename}:{get_ids_bulk_download_version(filename, file_metadata)}"
+            for filename, file_metadata in files.items()
         )
     )
 
@@ -284,13 +289,11 @@ def download_ids_bulk_data_files(
     try:
         with httpx.Client(follow_redirects=True, timeout=600) as client:
             for filename, url in BULK_XLSX_URLS.items():
-                with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    files[filename] = file_metadata(url, response)
+                with client.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    files[filename] = ids_bulk_file_metadata(url, resp)
                     with (output_folder / filename).open("wb") as f:
-                        for chunk in response.iter_bytes(
-                            chunk_size=DOWNLOAD_CHUNK_SIZE
-                        ):
+                        for chunk in resp.iter_bytes(chunk_size=DOWNLOAD_CHUNK_SIZE):
                             f.write(chunk)
     except Exception:
         for filename in BULK_XLSX_URLS:
