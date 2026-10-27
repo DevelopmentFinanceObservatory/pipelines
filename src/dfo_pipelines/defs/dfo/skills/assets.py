@@ -453,7 +453,10 @@ def dfo_skills_source(skills_repository: SkillsRepositoryResource) -> dg.Observe
         raise RuntimeError(f"{url} has no {branch} branch")
     commit = output.split()[0]
     return dg.ObserveResult(
-        metadata={"commit": dg.MetadataValue.text(commit)},
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(url),
+            "version": dg.MetadataValue.text(commit),
+        },
         data_version=dg.DataVersion(commit),
     )
 
@@ -539,7 +542,7 @@ def dfo_skills_raw_directory(
         value=str(raw_directory),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(raw_directory)),
-            "commit": dg.MetadataValue.text(commit),
+            "version": dg.MetadataValue.text(commit),
             "skill_count": dg.MetadataValue.int(skill_count),
         },
         check_results=[
@@ -671,7 +674,6 @@ def dfo_skills_dc_export(
         value=str(out_dir),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
             "skill_count": dg.MetadataValue.int(len(skills)),
             "reference_count": dg.MetadataValue.int(reference_count),
         },
@@ -702,6 +704,5 @@ def dfo_skills_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
         },
     )

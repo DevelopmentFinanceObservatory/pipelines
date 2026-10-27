@@ -301,9 +301,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
     return dg.ObserveResult(
         metadata={
-            "crs_url": dg.MetadataValue.text(crs_url),
             "crs_version": dg.MetadataValue.text(crs_version),
-            "multisystem_url": dg.MetadataValue.text(multi_url),
             "multisystem_version": dg.MetadataValue.text(multi_version),
             "oda_data_version": dg.MetadataValue.text(oda_data_version),
         },
@@ -403,7 +401,11 @@ def one_imputed_multilateral_sectors_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(file_path)),
             "file_size": dg.MetadataValue.int(file_size),
-            "row_count": dg.MetadataValue.int(rows),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+            "crs_version": dg.MetadataValue.text(observed_before["crs"]),
+            "multisystem_version": dg.MetadataValue.text(
+                observed_before["multisystem"]
+            ),
             **build_quality_metadata(data, provenance=provenance),
         },
         check_results=[
@@ -604,8 +606,5 @@ def one_imputed_multilateral_sectors_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(
-                IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
-            ),
         },
     )

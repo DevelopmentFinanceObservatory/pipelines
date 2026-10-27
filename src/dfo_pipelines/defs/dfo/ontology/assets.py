@@ -186,7 +186,6 @@ def dfo_ontology_dc_export(
         value=str(out_dir),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
             "node_count": dg.MetadataValue.int(count_mcf_nodes(out_dir / ONTOLOGY_MCF)),
         },
     )
@@ -214,6 +213,5 @@ def dfo_ontology_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
         },
     )

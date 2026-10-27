@@ -67,7 +67,6 @@ def dfo_shared_dc_export(
         value=str(out_dir),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
             "license_type_count": dg.MetadataValue.int(len(license_types)),
         },
     )
@@ -96,6 +95,5 @@ def dfo_shared_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
         },
     )

@@ -316,7 +316,5 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
     assert str(args[0]) == export.metadata["dagster/uri"].value
     assert kwargs["import_name"] == spec.import_name
     assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata == {
-        "dagster/uri": dg.TextMetadataValue(destination),
-        "import_name": dg.TextMetadataValue(spec.import_name),
-    }
+    assert ingestion.metadata == {"dagster/uri": dg.TextMetadataValue(destination)}
+    assert "import_name" not in export.metadata

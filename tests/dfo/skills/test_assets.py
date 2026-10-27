@@ -137,9 +137,10 @@ def test_raw_directory_copies_the_skills_at_the_head_of_main(
     result = materialize_raw_directory(tmp_path)
 
     assert files_under(Path(str(result.value))) == raw_files(SKILLS)
-    assert meta(result, "commit", dg.TextMetadataValue).value == git(
+    assert meta(result, "version", dg.TextMetadataValue).value == git(
         upstream, "rev-parse", "HEAD"
     )
+    assert "commit" not in (result.metadata or {})
     [check] = result.check_results
     assert check.check_name == "skills_not_empty"
     assert check.passed
@@ -327,6 +328,40 @@ def test_raw_directory_is_rerun_once_when_main_moves(
         assert automation.tick() == {"dfo_skills_raw_directory": 0}
 
 
+def test_source_observes_the_head_commit_of_the_repository(upstream: Path) -> None:
+    """Test the source reports the head commit as its version and the repository as its uri"""
+    observe = dfo_skills_source.observe_fn
+    assert observe is not None
+
+    result = observe(skills_repository=SKILLS_REPOSITORY)
+
+    head = git(upstream, "rev-parse", "HEAD")
+    assert isinstance(result, dg.ObserveResult)
+    assert result.data_version == dg.DataVersion(head)
+    assert result.metadata == {
+        "dagster/uri": dg.TextMetadataValue(REPOSITORY_URL),
+        "version": dg.TextMetadataValue(head),
+    }
+
+
+def test_raw_directory_reports_the_version_the_source_observed(
+    tmp_path: Path, upstream: Path
+) -> None:
+    """Test the raw directory's version equals the source's version for the same commit"""
+    observe = dfo_skills_source.observe_fn
+    assert observe is not None
+
+    observation = observe(skills_repository=SKILLS_REPOSITORY)
+    result = materialize_raw_directory(tmp_path)
+
+    assert isinstance(observation, dg.ObserveResult)
+    assert observation.metadata is not None
+    assert (
+        meta(result, "version", dg.TextMetadataValue).value
+        == observation.metadata["version"].value
+    )
+
+
 def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
     """Test a skill, its reference and its attachments export as the expected bundle
 
@@ -388,6 +423,8 @@ def test_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == IMPORT_NAME
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert "import_name" not in export.metadata
+    assert "import_name" not in ingestion.metadata
 
 
 def write_skill(
@@ -729,7 +766,7 @@ def test_project_reads_the_repository_from_the_environment(
     result = _observe_project_source()
 
     [observation] = result.asset_observations_for_node("dfo_skills_source")
-    assert observation.metadata["commit"].value == git(upstream, "rev-parse", "HEAD")
+    assert observation.metadata["version"].value == git(upstream, "rev-parse", "HEAD")
 
 
 def test_project_fails_a_skills_run_at_launch_without_the_variable(

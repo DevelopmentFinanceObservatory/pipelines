@@ -109,12 +109,13 @@ def test_dac_crs_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert result.data_version == dg.DataVersion(f"{CRS_TEST_URL};{SOURCE_VERSION}")
     metadata = result.metadata
     assert metadata is not None
-    url_meta = metadata["url"]
+    uri_meta = metadata["dagster/uri"]
     version_meta = metadata["version"]
-    assert isinstance(url_meta, dg.TextMetadataValue)
+    assert isinstance(uri_meta, dg.TextMetadataValue)
     assert isinstance(version_meta, dg.TextMetadataValue)
-    assert url_meta.value == CRS_TEST_URL
+    assert uri_meta.value == CRS_TEST_URL
     assert version_meta.value == SOURCE_VERSION
+    assert "url" not in metadata
 
 
 def test_dac_crs_source_observe_fn_raises_when_version_unavailable() -> None:
@@ -288,6 +289,8 @@ def test_dac_crs_raw_file_writes_parquet(tmp_path: Path) -> None:
     and the date the provenance publishes for it can never disagree - not
     across midnight, and not across timezones.
     """
+    observe = oecd_dac_crs_source.observe_fn
+    assert observe is not None
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
 
     raw_dir = file_store.build_date_partitioned_path(
@@ -305,6 +308,7 @@ def test_dac_crs_raw_file_writes_parquet(tmp_path: Path) -> None:
         result = oecd_dac_crs_raw_file(
             context=dg.build_asset_context(), raw_file_store=file_store
         )
+        observation = observe()
 
     bulk_download.assert_called_once()
     assert bulk_download.call_args.kwargs["save_to_path"] == str(raw_dir)
@@ -318,11 +322,16 @@ def test_dac_crs_raw_file_writes_parquet(tmp_path: Path) -> None:
     metadata_json = json.loads((raw_dir / METADATA_FILE_NAME).read_text())
     assert set(metadata_json) == {"downloaded_at", "source_release_date"}
 
+    assert isinstance(observation, dg.ObserveResult)
+    assert observation.metadata is not None
+    observed_version = observation.metadata["version"]
     assert isinstance(result, dg.MaterializeResult)
     assert result.value == str(raw_dir / "data.parquet")
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
         "file_size": dg.IntMetadataValue((FIXTURES / "data.parquet").stat().st_size),
+        "version": observed_version,
+        "dagster/row_count": dg.IntMetadataValue(25),
     }
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
@@ -715,9 +724,11 @@ def test_dac_crs_ingestion_ingests_the_bundle_the_export_wrote(
     [export] = result.asset_materializations_for_node("oecd_dac_crs_dc_export")
     [ingestion] = result.asset_materializations_for_node("oecd_dac_crs_dc_ingestion")
     bundle = export.metadata["dagster/uri"].value
+    assert "import_name" not in export.metadata
     ingest_bundle.assert_called_once()
     args, kwargs = ingest_bundle.call_args
     assert str(args[0]) == bundle
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert "import_name" not in ingestion.metadata

@@ -96,8 +96,11 @@ def test_imf_weo_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
         "file_size": dg.IntMetadataValue((raw_dir / "data.parquet").stat().st_size),
-        "version": dg.TextMetadataValue("April;2026"),
+        "dagster/row_count": dg.IntMetadataValue(FIXTURE_ROWS),
+        "version": dg.TextMetadataValue("April 2026"),
     }
+    row_count_value = meta(result, "dagster/row_count", dg.IntMetadataValue).value
+    assert type(row_count_value) is int
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
     assert check.passed
@@ -148,7 +151,30 @@ def test_imf_weo_raw_file_pins_the_download_to_the_resolved_release(
 
     fetch.assert_called_once_with(version=("April", 2026))
     assert isinstance(result, dg.MaterializeResult)
-    assert meta(result, "version", dg.TextMetadataValue).value == "April;2026"
+    assert meta(result, "version", dg.TextMetadataValue).value == "April 2026"
+
+
+def test_imf_weo_raw_file_reports_the_version_the_source_observed(
+    tmp_path: Path,
+) -> None:
+    """Test the raw file's version equals the source's version for the same release"""
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    observe = imf_weo_source.observe_fn
+    assert observe is not None
+
+    with _patched_weo():
+        observation = observe()
+        result = imf_weo_raw_file(
+            context=dg.build_asset_context(), raw_file_store=file_store
+        )
+
+    assert isinstance(observation, dg.ObserveResult)
+    assert observation.metadata is not None
+    assert isinstance(result, dg.MaterializeResult)
+    assert (
+        meta(result, "version", dg.TextMetadataValue).value
+        == observation.metadata["version"].value
+    )
 
 
 def test_imf_weo_raw_file_raises_when_the_release_cannot_be_served(
@@ -265,9 +291,10 @@ def test_imf_weo_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert result.data_version == dg.DataVersion("October;2025")
     metadata = result.metadata
     assert metadata is not None
-    latest_release = metadata["latest_release"]
-    assert isinstance(latest_release, dg.TextMetadataValue)
-    assert latest_release.value == "October 2025"
+    assert set(metadata) == {"version"}
+    version = metadata["version"]
+    assert isinstance(version, dg.TextMetadataValue)
+    assert version.value == "October 2025"
 
 
 def test_imf_weo_source_observe_fn_raises_when_lookup_fails() -> None:
@@ -670,3 +697,4 @@ def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
     assert ingestion.metadata["dagster/uri"].value == destination
+    assert set(ingestion.metadata) == {"dagster/uri"}

@@ -1,6 +1,7 @@
 import json
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -58,13 +59,14 @@ def patch_release_date():
     )
 
 
-def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> None:
+def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> dict:
     """Stand-in for the download: write the frame as each of the six XLSX files."""
     for filename in BULK_XLSX_URLS:
         df.to_excel(folder / filename, index=False, engine="openpyxl")
+    return {filename: {"url": url} for filename, url in BULK_XLSX_URLS.items()}
 
 
-def _fake_download(df: pd.DataFrame) -> Callable[[UPath], None]:
+def _fake_download(df: pd.DataFrame) -> Callable[[UPath], dict]:
     return lambda folder: _write_fake_downloads(folder, df)
 
 
@@ -235,9 +237,12 @@ def test_world_bank_ids_source_observe_fn_returns_metadata_and_data_version() ->
     )
     metadata = result.metadata
     assert metadata is not None
-    file_metadata = metadata["A_D.xlsx"]
-    assert isinstance(file_metadata, dg.JsonMetadataValue)
-    assert file_metadata.data == {
+    assert set(metadata) == {"files"}
+    files = metadata["files"]
+    assert isinstance(files, dg.JsonMetadataValue)
+    assert files.data is not None
+    assert list(files.data) == list(BULK_XLSX_URLS)
+    assert files.data["A_D.xlsx"] == {
         "etag": '"etag-A_D.xlsx-v1"',
         "last_modified": "Thu, 14 May 2026 17:51:34 GMT",
         "content_length": 132758204,
@@ -418,6 +423,9 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert result.value == output_file
     assert meta(result, "dagster/uri", dg.TextMetadataValue).value == output_file
     assert file_size.value is not None and file_size.value > 0
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
+        source_df
+    ) * len(BULK_XLSX_URLS)
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
     assert check.passed
@@ -448,6 +456,53 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     ]
     recorded = read_extraction_metadata(raw_dir, release_names=("source",))
     assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
+
+
+def test_ids_raw_file_reports_the_headers_of_the_files_it_downloaded(
+    tmp_path: Path,
+) -> None:
+    """Test the raw file reports the headers of its own downloads
+
+    The World Bank can republish between the observation and the download, so the
+    GET responses here carry a newer version than the HEAD responses.
+    """
+    workbook = BytesIO()
+    pd.DataFrame({"Country Code": ["AFG"]}).to_excel(
+        workbook, index=False, engine="openpyxl"
+    )
+    content = workbook.getvalue()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        filename = request.url.path.rsplit("/", 1)[1]
+        if request.method == "HEAD":
+            return httpx.Response(
+                200, headers=_get_mock_head_headers(filename=filename, version="v1")
+            )
+        headers = _get_mock_head_headers(filename=filename, version="v2")
+        # Let httpx set the length of the served content
+        headers.pop("content-length")
+        return httpx.Response(200, headers=headers, content=content)
+
+    with _mock_http(handler), patch_release_date():
+        result = world_bank_ids_raw_file(
+            context=dg.build_asset_context(),
+            raw_file_store=UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+        )
+
+    assert isinstance(result, dg.MaterializeResult)
+    assert meta(result, "files", dg.JsonMetadataValue).data == {
+        filename: {
+            "etag": f'"etag-{filename}-v2"',
+            "last_modified": "Fri, 15 May 2026 17:51:34 GMT",
+            "content_length": len(content),
+            "version_id": "2026-05-15T17:51:34.3247738Z",
+            "url": url,
+        }
+        for filename, url in BULK_XLSX_URLS.items()
+    }
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
+        BULK_XLSX_URLS
+    )
 
 
 def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
@@ -528,9 +583,19 @@ def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:
         return httpx.Response(200, content=f"payload for {request.url.path}".encode())
 
     with _mock_http(handler):
-        download_ids_bulk_data_files(UPath(tmp_path))
+        files = download_ids_bulk_data_files(UPath(tmp_path))
 
     assert requested == list(BULK_XLSX_URLS.values())
+    assert files == {
+        filename: {
+            "etag": None,
+            "last_modified": None,
+            "content_length": len(f"payload for {httpx.URL(url).path}"),
+            "version_id": None,
+            "url": url,
+        }
+        for filename, url in BULK_XLSX_URLS.items()
+    }
     for filename, url in BULK_XLSX_URLS.items():
         written = (tmp_path / filename).read_bytes()
         assert written == f"payload for {httpx.URL(url).path}".encode()
@@ -1162,4 +1227,4 @@ def test_ids_ingestion_ingests_the_bundle_the_export_wrote(
     assert str(args[0]) == bundle
     assert kwargs["import_name"] == import_name
     assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination
+    assert ingestion.metadata == {"dagster/uri": dg.TextMetadataValue(destination)}

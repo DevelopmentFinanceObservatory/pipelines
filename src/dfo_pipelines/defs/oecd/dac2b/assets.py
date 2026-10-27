@@ -69,7 +69,7 @@ def oecd_dac2b_source() -> dg.ObserveResult:
 
     return dg.ObserveResult(
         metadata={
-            "url": dg.MetadataValue.text(url),
+            "dagster/uri": dg.MetadataValue.text(url),
             "version": dg.MetadataValue.text(version),
         },
         data_version=data_version,
@@ -98,7 +98,7 @@ def oecd_dac2b_raw_file(
     directory.mkdir(parents=True, exist_ok=True)
     file_path = directory / "data.parquet"
     tmp_path = directory / "table2b_data.parquet"
-    url, _ = resolve_dac2b_bulk_file()
+    url, version = resolve_dac2b_bulk_file()
     release_date = fetch_bulk_file_release_date(url)
     bulk_download_dac2b(save_to_path=str(directory), use_raw_cache=False)
     tmp_path.rename(file_path)
@@ -113,6 +113,8 @@ def oecd_dac2b_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(file_path)),
             "file_size": dg.MetadataValue.int(file_size),
+            "version": dg.MetadataValue.text(version),
+            "dagster/row_count": dg.MetadataValue.int(rows),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
@@ -290,6 +292,5 @@ def oecd_dac2b_dc_ingestion(
     return dg.MaterializeResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(OECD_DAC2B_EXPORT_SPEC.import_name),
         },
     )
