@@ -281,7 +281,7 @@ def test_dc_export_marks_only_projected_rows_with_a_measurement_method(
 
 @pytest.mark.parametrize("table", TABLES)
 def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, table: str
+    tmp_path: Path, table: str, knowledge_graph: KnowledgeGraphResource
 ) -> None:
     """Test each ingestion is handed its own export's directory under its import name"""
     spec, export_asset = TABLES[table]
@@ -291,13 +291,6 @@ def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
         connection.execute(_provenance_sql(table))
         connection.execute(_statvars_sql(table))
         connection.execute(_observations_sql(table))
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{spec.import_name}"
 
     with patch(

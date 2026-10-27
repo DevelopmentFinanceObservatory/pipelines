@@ -11,7 +11,10 @@ import logging
 from pathlib import Path
 
 from dcp_tools.gcp_utilities.clients import get_gcs_client
-from dcp_tools.gcp_utilities.ingestion import run_ingestion_workflow
+from dcp_tools.gcp_utilities.ingestion import (
+    check_ingestion_workflow_contract,
+    run_ingestion_workflow,
+)
 from dcp_tools.gcp_utilities.settings import KGSettings
 from dcp_tools.gcp_utilities.storage import sync_directory_to_gcs
 from upath import UPath
@@ -38,6 +41,8 @@ def ingest_bundle(
 
     Raises:
         ValueError: If the bundle is not on local disk, or holds no files to upload.
+        WorkflowContractError: If the workflow does not come from a Data Commons
+            Platform 1.1.6 stack, or its definition cannot be read.
     """
     # dcp-tools uploads from local disk.
     if bundle.protocol not in ("", "file"):
@@ -51,6 +56,8 @@ def ingest_bundle(
         for path in directory.rglob("*")
     ):
         raise ValueError(f"Found no bundle to ingest at {bundle}")
+    # Before the sync, so nothing uploads to a stack dcp-tools can't ingest into.
+    check_ingestion_workflow_contract(settings)
 
     folder = f"{settings.gcs_input_folder_path}/{import_name}"
     bucket = get_gcs_client(settings.gcp_credentials).bucket(settings.gcs_bucket_name)
@@ -59,5 +66,7 @@ def ingest_bundle(
     log.info(f"Synced {bundle} to {destination}")
 
     log.info(f"Starting the ingestion workflow for {import_name}")
-    run_ingestion_workflow(settings, imports=import_name)
+    run_ingestion_workflow(
+        settings, imports=import_name, skip_workflow_contract_check=True
+    )
     return destination

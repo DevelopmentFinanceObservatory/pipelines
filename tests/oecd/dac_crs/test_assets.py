@@ -687,17 +687,12 @@ def test_dac_crs_dc_export_maps_the_crs_dimensions_to_ontology_properties(
     )
 
 
-def test_dac_crs_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_dac_crs_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     create_dc_models(duckdb)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     import_name = CRS_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 

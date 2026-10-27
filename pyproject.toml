@@ -22,7 +22,7 @@ dependencies = [
     "universal-pathlib>=0.3.10",
     "pandas>=3.0.5",
     "imf-reader>=2.2.0",
-    "dcp-tools>=1.0.1",
+    "dcp-tools>=1.2.0",
     "dfo-ontology",
     "oda-data==2.8.1",
     "pyyaml>=6.0",

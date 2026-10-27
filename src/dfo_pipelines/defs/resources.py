@@ -1,6 +1,5 @@
 import re
 from datetime import date
-from pathlib import Path
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
@@ -26,16 +25,13 @@ class UPathFileStoreResource(dg.ConfigurableResource):
 class KnowledgeGraphResource(dg.ConfigurableResource):
     """Data Commons knowledge graph a bundle is ingested into
 
-    dcp-tools can read its own settings from the environment, but it rejects any
-    variable it does not recognise. Reading them here instead puts them on
-    Dagster's config surface, where a missing one fails a run at launch and names
-    the variable.
+    Reading the settings here puts them on Dagster's config surface, where a
+    missing one fails a run at launch and names the variable.
     """
 
     project_id: str
     region: str
     bucket_name: str
-    prep_job_name: str
     workflow_name: str
     service_account: str | None = None
 
@@ -46,15 +42,9 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
             gcp_project_id=self.project_id,
             gcp_region=self.region,
             gcs_bucket_name=self.bucket_name,
-            ingestion_prep_job_name=self.prep_job_name,
             ingestion_workflow_name=self.workflow_name,
             ingestion_service_account=self.service_account,
-            # Required by KGSettings but read by nothing on the ingestion path,
-            # which is handed the bundle's directory and never writes an output.
-            local_path=Path("."),
-            gcs_output_folder_path="",
-            # KGSettings otherwise reads .env itself and forbids any variable it
-            # does not declare, which is every other variable in this project.
+            # Stops .env setting what this leaves unset, e.g. GCS_INPUT_FOLDER_PATH.
             _env_file=None,
         )
 
