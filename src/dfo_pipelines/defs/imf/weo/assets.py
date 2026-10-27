@@ -53,7 +53,7 @@ def imf_weo_source() -> dg.ObserveResult:
     latest = versions[0]
     month, year = latest
     return dg.ObserveResult(
-        metadata={"latest_release": dg.MetadataValue.text(f"{month} {year}")},
+        metadata={"version": dg.MetadataValue.text(f"{month} {year}")},
         data_version=dg.DataVersion(f"{month};{year}"),
     )
 
@@ -100,7 +100,8 @@ def imf_weo_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(file_path)),
             "file_size": dg.MetadataValue.int(file_size),
-            "version": dg.MetadataValue.text(f"{version[0]};{version[1]}"),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+            "version": dg.MetadataValue.text(f"{version[0]} {version[1]}"),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

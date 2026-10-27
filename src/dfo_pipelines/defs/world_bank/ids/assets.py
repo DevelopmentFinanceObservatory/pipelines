@@ -136,10 +136,7 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
     return dg.ObserveResult(
-        metadata={
-            filename: dg.MetadataValue.json(file_metadata)
-            for filename, file_metadata in files.items()
-        },
+        metadata={"files": dg.MetadataValue.json(files)},
         data_version=data_version,
     )
 
@@ -168,6 +165,7 @@ def world_bank_ids_raw_file(
     directory.mkdir(parents=True, exist_ok=True)
 
     source_release_date = fetch_ids_release_date()
+    files = fetch_ids_bulk_file_metadata()
     download_ids_bulk_data_files(directory)
 
     output_file = directory / "data.parquet"
@@ -189,6 +187,8 @@ def world_bank_ids_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(output_file)),
             "file_size": dg.MetadataValue.int(file_size),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+            "files": dg.MetadataValue.json(files),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

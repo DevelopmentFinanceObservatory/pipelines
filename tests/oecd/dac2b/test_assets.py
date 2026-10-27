@@ -106,7 +106,7 @@ def test_dac2b_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert result.data_version == dg.DataVersion(f"{DAC2B_TEST_URL};v20260801")
     metadata = result.metadata
     assert metadata is not None
-    url_meta = metadata["url"]
+    url_meta = metadata["dagster/uri"]
     version_meta = metadata["version"]
     assert isinstance(url_meta, dg.TextMetadataValue)
     assert isinstance(version_meta, dg.TextMetadataValue)
@@ -328,6 +328,8 @@ def test_dac2b_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
         "file_size": dg.IntMetadataValue(10210),
+        "version": dg.TextMetadataValue("0x8DEDC2882EAC20B"),
+        "dagster/row_count": dg.IntMetadataValue(25),
     }
     [check] = result.check_results
     assert check.check_name == "file_not_empty"

@@ -58,6 +58,17 @@ def patch_release_date():
     )
 
 
+BULK_FILE_METADATA = {"A_D.xlsx": {"etag": "etag-A_D.xlsx-v1"}}
+
+
+def patch_bulk_file_metadata():
+    """Serve the bulk files' HEAD metadata without a network call"""
+    return patch(
+        "dfo_pipelines.defs.world_bank.ids.assets.fetch_ids_bulk_file_metadata",
+        return_value=BULK_FILE_METADATA,
+    )
+
+
 def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> None:
     """Stand-in for the download: write the frame as each of the six XLSX files."""
     for filename in BULK_XLSX_URLS:
@@ -235,9 +246,10 @@ def test_world_bank_ids_source_observe_fn_returns_metadata_and_data_version() ->
     )
     metadata = result.metadata
     assert metadata is not None
-    file_metadata = metadata["A_D.xlsx"]
-    assert isinstance(file_metadata, dg.JsonMetadataValue)
-    assert file_metadata.data == {
+    files = metadata["files"]
+    assert isinstance(files, dg.JsonMetadataValue)
+    assert files.data is not None
+    assert files.data["A_D.xlsx"] == {
         "etag": '"etag-A_D.xlsx-v1"',
         "last_modified": "Thu, 14 May 2026 17:51:34 GMT",
         "content_length": 132758204,
@@ -396,6 +408,7 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     )
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch("dfo_pipelines.defs.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
@@ -418,6 +431,10 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert result.value == output_file
     assert meta(result, "dagster/uri", dg.TextMetadataValue).value == output_file
     assert file_size.value is not None and file_size.value > 0
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
+        source_df
+    ) * len(BULK_XLSX_URLS)
+    assert meta(result, "files", dg.JsonMetadataValue).data == BULK_FILE_METADATA
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
     assert check.passed
@@ -457,6 +474,7 @@ def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(empty_df),
@@ -499,6 +517,7 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch("dfo_pipelines.defs.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
@@ -737,6 +756,7 @@ def test_ids_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
 
     with (
         patch_release_date(),
+        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),

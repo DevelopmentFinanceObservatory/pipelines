@@ -89,7 +89,7 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
 
     return dg.ObserveResult(
         metadata={
-            "url": dg.MetadataValue.text(url),
+            "dagster/uri": dg.MetadataValue.text(url),
             "version": dg.MetadataValue.text(version),
         },
         data_version=data_version,
@@ -134,6 +134,8 @@ def oecd_dac_crs_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(file_path)),
             "file_size": dg.MetadataValue.int(file_size),
+            "version": dg.MetadataValue.text(version),
+            "dagster/row_count": dg.MetadataValue.int(rows),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

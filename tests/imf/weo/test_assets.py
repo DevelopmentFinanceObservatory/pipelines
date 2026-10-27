@@ -96,7 +96,8 @@ def test_imf_weo_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
         "file_size": dg.IntMetadataValue((raw_dir / "data.parquet").stat().st_size),
-        "version": dg.TextMetadataValue("April;2026"),
+        "dagster/row_count": dg.IntMetadataValue(FIXTURE_ROWS),
+        "version": dg.TextMetadataValue("April 2026"),
     }
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
@@ -148,7 +149,7 @@ def test_imf_weo_raw_file_pins_the_download_to_the_resolved_release(
 
     fetch.assert_called_once_with(version=("April", 2026))
     assert isinstance(result, dg.MaterializeResult)
-    assert meta(result, "version", dg.TextMetadataValue).value == "April;2026"
+    assert meta(result, "version", dg.TextMetadataValue).value == "April 2026"
 
 
 def test_imf_weo_raw_file_raises_when_the_release_cannot_be_served(
@@ -265,9 +266,9 @@ def test_imf_weo_source_observe_fn_returns_metadata_and_data_version() -> None:
     assert result.data_version == dg.DataVersion("October;2025")
     metadata = result.metadata
     assert metadata is not None
-    latest_release = metadata["latest_release"]
-    assert isinstance(latest_release, dg.TextMetadataValue)
-    assert latest_release.value == "October 2025"
+    version = metadata["version"]
+    assert isinstance(version, dg.TextMetadataValue)
+    assert version.value == "October 2025"
 
 
 def test_imf_weo_source_observe_fn_raises_when_lookup_fails() -> None:

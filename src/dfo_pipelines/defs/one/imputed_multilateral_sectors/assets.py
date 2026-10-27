@@ -403,7 +403,11 @@ def one_imputed_multilateral_sectors_raw_file(
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(file_path)),
             "file_size": dg.MetadataValue.int(file_size),
-            "row_count": dg.MetadataValue.int(rows),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+            "crs_version": dg.MetadataValue.text(observed_before["crs"]),
+            "multisystem_version": dg.MetadataValue.text(
+                observed_before["multisystem"]
+            ),
             **build_quality_metadata(data, provenance=provenance),
         },
         check_results=[

@@ -817,7 +817,11 @@ def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
 
     assert isinstance(result, dg.MaterializeResult)
     assert result.value == str(directory / "data.parquet")
-    assert meta(result, "row_count", dg.IntMetadataValue).value == 3
+    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 3
+    assert meta(result, "crs_version", dg.TextMetadataValue).value == CRS_VERSION
+    assert (
+        meta(result, "multisystem_version", dg.TextMetadataValue).value == MULTI_VERSION
+    )
     assert meta(result, "crs_release_id", dg.TextMetadataValue).value == CRS_VERSION
     assert (
         meta(result, "multisystem_release_id", dg.TextMetadataValue).value
