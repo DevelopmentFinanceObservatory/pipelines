@@ -176,20 +176,16 @@ def test_ingest_refuses_a_bundle_not_on_local_disk(
     gcp.sync_directory_to_gcs.assert_not_called()
 
 
-def test_knowledge_graph_settings_ignore_the_env_file(
+def test_knowledge_graph_settings_build_beside_the_project_env_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     knowledge_graph: KnowledgeGraphResource,
 ) -> None:
-    """Test a .env file sets nothing the resource leaves unset"""
-    default = knowledge_graph.settings.gcs_input_folder_path
-    (tmp_path / ".env").write_text(
-        "DUCKDB_PATH=elsewhere.duckdb\nGCS_INPUT_FOLDER_PATH=elsewhere\n"
-    )
+    """Test the settings build with a .env holding variables KGSettings doesn't declare"""
+    (tmp_path / ".env").write_text("DUCKDB_PATH=elsewhere.duckdb\n")
     monkeypatch.chdir(tmp_path)
 
     settings = knowledge_graph.settings
 
-    assert settings.gcs_input_folder_path == default != "elsewhere"
     assert settings.gcs_bucket_name == knowledge_graph.bucket_name
     assert settings.ingestion_workflow_name == knowledge_graph.workflow_name

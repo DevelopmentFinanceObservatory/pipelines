@@ -44,8 +44,6 @@ class KnowledgeGraphResource(dg.ConfigurableResource):
             gcs_bucket_name=self.bucket_name,
             ingestion_workflow_name=self.workflow_name,
             ingestion_service_account=self.service_account,
-            # Stops .env setting what this leaves unset, e.g. GCS_INPUT_FOLDER_PATH.
-            _env_file=None,
         )
 
 
