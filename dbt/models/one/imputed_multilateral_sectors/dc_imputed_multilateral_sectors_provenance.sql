@@ -40,7 +40,7 @@ extraction as (
         strftime(
             greatest(metadata.crs_release_date, metadata.multisystem_release_date),
             '%Y-%m-%d'
-        ) as source_release_date,
+        ) as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as access_date,
         -- CRS and Members' Total Use each have their own publication cycle
@@ -69,7 +69,7 @@ select
     'https://www.oecd.org/en/about/terms-conditions.html' as license,
     'dcid:OECDTermsAndConditions' as license_type,
     'P3M' as source_release_frequency,
-    extraction.source_release_date,
+    extraction.imported_source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,

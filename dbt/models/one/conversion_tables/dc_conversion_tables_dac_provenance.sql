@@ -20,7 +20,7 @@ source_release as (
     select
         strftime(
             greatest(dac1.source_release_date, weo.source_release_date), '%Y-%m-%d'
-        ) as source_release_date
+        ) as imported_source_release_date
     from {{ source("oecd_dac1", "raw_dac1_metadata") }} as dac1
     cross join {{ source("imf_weo", "raw_weo_metadata") }} as weo
 ),
@@ -41,7 +41,7 @@ select
     'https://www.oecd.org/en/about/terms-conditions.html,'
     || 'https://www.imf.org/external/terms.htm' as license,
     'P6M' as source_release_frequency,
-    source_release.source_release_date,
+    source_release.imported_source_release_date,
     extraction.last_data_refresh_date,
     {{ var("conversion_tables_deflator_base_year") }} as deflator_base_year,
     observation_range.earliest_observation_date,

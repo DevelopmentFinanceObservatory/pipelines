@@ -769,7 +769,7 @@ select
     'https://example.org/terms' as license,
     'dcid:TestLicenseType' as license_type,
     'P1Y' as source_release_frequency,
-    '2026-09-22' as source_release_date,
+    '2026-09-22' as imported_source_release_date,
     '2026-12' as next_source_release_date,
     '2023' as earliest_observation_date,
     '2024' as latest_observation_date

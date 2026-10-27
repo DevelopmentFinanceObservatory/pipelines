@@ -29,7 +29,7 @@ metadata as (
 
 extraction as (
     select
-        strftime(metadata.source_release_date, '%Y-%m-%d') as source_release_date,
+        strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
         case
             when metadata.release_month < 12 then metadata.release_year || '-12'
             else metadata.following_year || '-12'
@@ -53,7 +53,7 @@ select
     'https://datacatalog.worldbank.org/public-licenses?fragment=cc' as license,
     'dcid:CreativeCommonsAttributionLicense' as license_type,
     'P1Y' as source_release_frequency,
-    extraction.source_release_date,
+    extraction.imported_source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,

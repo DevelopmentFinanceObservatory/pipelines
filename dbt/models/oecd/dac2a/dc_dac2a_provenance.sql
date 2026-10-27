@@ -9,7 +9,7 @@ with metadata as (
 extraction as (
     select
         metadata.release_year as source_release_year,
-        strftime(metadata.source_release_date, '%Y-%m-%d') as source_release_date,
+        strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as access_date,
         {{ next_oecd_release_date('metadata.source_release_date') }}
@@ -34,7 +34,7 @@ select
     'https://www.oecd.org/en/about/terms-conditions.html' as license,
     'dcid:OECDTermsAndConditions' as license_type,
     'P3M' as source_release_frequency,
-    extraction.source_release_date,
+    extraction.imported_source_release_date,
     extraction.next_source_release_date,
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,

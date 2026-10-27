@@ -498,7 +498,7 @@ select
     'IMF World Economic Outlook (WEO)' as name,
     'source/InternationalMonetaryFund' as source,
     'https://data.imf.org/en/datasets/IMF.RES:WEO' as url,
-    '2026-09-22' as source_release_date;
+    '2026-09-22' as imported_source_release_date;
 
 create or replace table imf_weo.dc_weo_statvars as
 select

@@ -515,7 +515,7 @@ models:
           the mean gap. next_source_release_date carries the exact month.
         data_tests:
           - not_null
-      - name: source_release_date
+      - name: imported_source_release_date
         data_type: string
         description: Date of the later of the two releases, as YYYY-MM-DD
         data_tests:

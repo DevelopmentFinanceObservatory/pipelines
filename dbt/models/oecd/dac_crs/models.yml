@@ -587,7 +587,7 @@ models:
           their mean. next_source_release_date carries the exact month.
         data_tests:
           - not_null
-      - name: source_release_date
+      - name: imported_source_release_date
         data_type: string
         description: Date the OECD published the CRS release, as YYYY-MM-DD
         data_tests:

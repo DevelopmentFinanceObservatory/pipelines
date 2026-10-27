@@ -50,7 +50,7 @@ select
     'https://example.org/dac1,https://example.org/weo' as source_data_url,
     'https://example.org/terms' as license,
     'P6M' as source_release_frequency,
-    '2026-09-22' as source_release_date,
+    '2026-09-22' as imported_source_release_date,
     '2026-10-01T14:03:11Z' as last_data_refresh_date,
     2024 as deflator_base_year,
     '2023' as earliest_observation_date,

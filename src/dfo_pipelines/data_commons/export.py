@@ -6,9 +6,8 @@ provenance. The dbt models are the interface — every column a model emits is
 handed to the dcp-tools call that serialises it, so a pipeline publishes another
 property by adding a column rather than by changing this module.
 
-The module itself writes four properties onto every provenance: the pipeline
-documentation from the repository's docs directory, as markdown; the provenance
-model's `source_release_date` column, as `importedSourceReleaseDate`;
+The module itself writes three properties onto every provenance: the pipeline
+documentation from the repository's docs directory, as markdown;
 `lastDataRefreshDate`, the export's UTC date, unless the provenance model supplies
 one; and `conversionRecipe`, from `ExportSpec.conversion_recipe`. The recipe is a
 platform contract. dfo-apis refuses to convert a series whose provenance declares no
@@ -52,11 +51,6 @@ DOCUMENTATION_FILES = {
 
 # The provenance property `ExportSpec.conversion_recipe` is written onto.
 CONVERSION_RECIPE_PROPERTY = "conversionRecipe"
-
-# The provenance model column every pipeline emits, and the property it is written
-# onto.
-SOURCE_RELEASE_DATE_COLUMN = "source_release_date"
-SOURCE_RELEASE_DATE_PROPERTY = "importedSourceReleaseDate"
 
 
 class ConversionRecipe(StrEnum):
@@ -134,10 +128,9 @@ class ExportSpec:
 
     Raises:
         ValueError: If `provenance_column_to_property` maps a column onto
-            `conversionRecipe`, `importedSourceReleaseDate`, `lastDataRefreshDate`
-            or a property the export writes from `DOCUMENTATION_FILES`, if there is
-            no observation input, or if one input's file pattern would match
-            another's files.
+            `conversionRecipe`, `lastDataRefreshDate` or a property the export
+            writes from `DOCUMENTATION_FILES`, if there is no observation input,
+            or if one input's file pattern would match another's files.
     """
 
     import_name: str
@@ -157,16 +150,14 @@ class ExportSpec:
     def __post_init__(self) -> None:
         reserved = DOCUMENTATION_FILES.keys() | {
             CONVERSION_RECIPE_PROPERTY,
-            SOURCE_RELEASE_DATE_PROPERTY,
             "lastDataRefreshDate",
         }
         clashes = sorted(set(self.provenance_column_to_property.values()) & reserved)
         if clashes:
             raise ValueError(
                 f"{self.import_name}: provenance_column_to_property maps onto "
-                f"{clashes}, which the export writes from conversion_recipe, "
-                f"{SOURCE_RELEASE_DATE_COLUMN}, the export date and the "
-                "documentation files"
+                f"{clashes}, which the export writes from conversion_recipe, the "
+                "export date and the documentation files"
             )
         if not self.observation_inputs:
             raise ValueError(f"{self.import_name}: no observation inputs")
@@ -259,8 +250,8 @@ def export_bundle(
 
     Raises:
         ValueError: If the provenance or source model does not hold exactly one
-            row, the provenance model lacks `source_release_date` or a column
-            `spec.provenance_column_to_property` maps, it holds a value in one
+            row, the provenance model lacks a column
+            `spec.provenance_column_to_property` maps or holds a value in one
             that `_provenance_property_value` refuses, or a written observation
             file matches other than exactly one observation input's pattern.
         FileNotFoundError: If `spec.docs_dir` is missing a documentation file.
@@ -280,16 +271,13 @@ def export_bundle(
 
     log.info("Registering Provenance nodes")
     (provenance,) = get_model_rows(connection, spec.provenance_model)
-    column_to_property = spec.provenance_column_to_property | {
-        SOURCE_RELEASE_DATE_COLUMN: SOURCE_RELEASE_DATE_PROPERTY
-    }
-    if missing := column_to_property.keys() - provenance.keys():
+    if missing := spec.provenance_column_to_property.keys() - provenance.keys():
         raise ValueError(
             f"{spec.provenance_model} lacks the mapped columns {sorted(missing)}"
         )
     mapped_properties = {
         property_name: _provenance_property_value(column, provenance.pop(column))
-        for column, property_name in column_to_property.items()
+        for column, property_name in spec.provenance_column_to_property.items()
     }
     recipe = (
         {}

@@ -274,12 +274,12 @@ unit_tests:
           - {downloaded_at: "2026-09-11 00:00:00+00", crs_release_date: "2026-08-03", multisystem_release_date: "2025-12-18"}
     expect:
       rows:
-        - {source_release_date: "2026-08-03", next_source_release_date: "2026-09", license_attribution: "ONE (2026), Imputed Multilateral Sectors, https://docs.one.org/methodologies/data/oda/imputed-multilateral-sectors/ (accessed on 2026-09-11), computed from OECD (2026), Creditor Reporting System (CRS), https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_CRS@DF_CRS/ (accessed on 2026-09-11) and OECD (2025), Members' Total Use of the Multilateral System, https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_MULTI@DF_MULTI/ (accessed on 2026-09-11)"}
+        - {imported_source_release_date: "2026-08-03", next_source_release_date: "2026-09", license_attribution: "ONE (2026), Imputed Multilateral Sectors, https://docs.one.org/methodologies/data/oda/imputed-multilateral-sectors/ (accessed on 2026-09-11), computed from OECD (2026), Creditor Reporting System (CRS), https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_CRS@DF_CRS/ (accessed on 2026-09-11) and OECD (2025), Members' Total Use of the Multilateral System, https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_MULTI@DF_MULTI/ (accessed on 2026-09-11)"}
 
   - name: provenance_takes_members_total_use_release_date_when_it_is_the_later_one
     model: dc_imputed_multilateral_sectors_provenance
     description: >
-      source_release_date is the later of the two sources' release dates, here
+      imported_source_release_date is the later of the two sources' release dates, here
       Members' Total Use's.
     given:
       - input: ref('dc_imputed_multilateral_sectors_observations')
@@ -290,7 +290,7 @@ unit_tests:
           - {downloaded_at: "2026-07-01 00:00:00+00", crs_release_date: "2026-04-10", multisystem_release_date: "2026-06-20"}
     expect:
       rows:
-        - {source_release_date: "2026-06-20"}
+        - {imported_source_release_date: "2026-06-20"}
 
   - name: provenance_takes_members_total_use_next_release_when_it_is_the_earlier_one
     model: dc_imputed_multilateral_sectors_provenance
