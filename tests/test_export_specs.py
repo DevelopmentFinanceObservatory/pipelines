@@ -7,6 +7,7 @@ import dfo_pipelines.defs
 import dfo_pipelines.defs.export_specs
 from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.definitions import defs
+from dfo_pipelines.defs.automation import EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 
 
@@ -62,15 +63,21 @@ def test_export_specs_mint_unique_provenance_dcids() -> None:
 
 
 def test_export_specs_version_their_exports_by_documentation() -> None:
-    """Test each spec's export asset takes the spec's documentation version"""
+    """Test each spec's export asset takes its documentation version and automates on it"""
     graph = defs().resolve_asset_graph()
-    code_versions = {
-        spec.import_name: graph.get(
-            dg.AssetKey(f"{spec.import_name}_dc_export")
-        ).code_version
+    nodes = {
+        spec.import_name: graph.get(dg.AssetKey(f"{spec.import_name}_dc_export"))
         for spec in EXPORT_SPECS
+    }
+    code_versions = {name: node.code_version for name, node in nodes.items()}
+    automation_conditions = {
+        name: node.automation_condition for name, node in nodes.items()
     }
 
     assert code_versions == {
         spec.import_name: spec.documentation_version for spec in EXPORT_SPECS
+    }
+    assert automation_conditions == {
+        spec.import_name: EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS
+        for spec in EXPORT_SPECS
     }

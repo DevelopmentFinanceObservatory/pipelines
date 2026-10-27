@@ -24,7 +24,10 @@ from dfo_pipelines.data_commons.export import (
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.defs.automation import (
+    EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
+    EAGER_WHEN_CHECKS_PASS,
+)
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.resources import (
@@ -529,7 +532,7 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
 
 @dg.asset(
     group_name="one_imputed_multilateral_sectors",
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
+    automation_condition=EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
     code_version=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(
