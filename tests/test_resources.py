@@ -2,8 +2,11 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+import dagster as dg
 import pytest
+from pydantic import ValidationError
 
+from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.resources import KnowledgeGraphResource, UPathFileStoreResource
 
 # KGSettings fields the resource leaves to dcp-tools' defaults
@@ -58,3 +61,28 @@ def test_knowledge_graph_settings_ignore_environment(
         )
 
     assert knowledge_graph.settings == expected
+
+
+def _rejects_undeclared_keyword(resource_type: type[dg.ConfigurableResource]) -> bool:
+    """Whether constructing the resource with an undeclared keyword argument raises"""
+    try:
+        resource_type(undeclared="value")
+    except ValidationError as error:
+        return any(detail["type"] == "extra_forbidden" for detail in error.errors())
+    return False
+
+
+def test_project_resources_reject_undeclared_keyword_arguments() -> None:
+    """Test every resource class the project defines raises on an undeclared keyword"""
+    project_resource_types = {
+        key: type(resource)
+        for key, resource in (defs().resources or {}).items()
+        if type(resource).__module__.startswith("dfo_pipelines")
+    }
+
+    assert project_resource_types
+    assert [
+        key
+        for key, resource_type in project_resource_types.items()
+        if not _rejects_undeclared_keyword(resource_type)
+    ] == []

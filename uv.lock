@@ -814,6 +814,7 @@ dependencies = [
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pyarrow" },
+    { name = "pydantic" },
     { name = "pyyaml" },
     { name = "universal-pathlib" },
 ]
@@ -849,6 +850,7 @@ requires-dist = [
     { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "pandas", specifier = ">=3.0.5" },
     { name = "pyarrow", specifier = ">=23.0.0" },
+    { name = "pydantic", specifier = ">=2.13" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "universal-pathlib", specifier = ">=0.3.10" },
 ]
