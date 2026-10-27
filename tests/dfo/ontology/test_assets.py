@@ -329,16 +329,9 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
 
 
 def test_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, compiler: Any
+    tmp_path: Path, compiler: Any, knowledge_graph: KnowledgeGraphResource
 ) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
 
     with patch(

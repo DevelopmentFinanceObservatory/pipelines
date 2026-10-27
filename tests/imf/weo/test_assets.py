@@ -635,18 +635,13 @@ def test_imf_weo_dc_export_writes_each_property_the_statvar_sets(
     )
 
 
-def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(tmp_path: Path) -> None:
+def test_imf_weo_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
+) -> None:
     """Test the ingestion is handed the export's directory under its import name"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     with duckdb.get_connection() as connection:
         connection.execute(DC_MODELS_SQL)
-    knowledge_graph = KnowledgeGraphResource(
-        project_id="test-project",
-        region="test-region",
-        bucket_name="test-bucket",
-        prep_job_name="test-prep-job",
-        workflow_name="test-workflow",
-    )
     import_name = IMF_WEO_EXPORT_SPEC.import_name
     destination = f"gs://test-bucket/ingestion/input/{import_name}"
 
