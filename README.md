@@ -45,7 +45,7 @@ On a fresh environment, materialize the dbt seeds, and any other asset with no p
 
 ### Ingestion
 
-The identity that starts the ingestion workflow also needs `roles/workflows.viewer`. Each `*_dc_ingestion` asset reads the workflow's definition before it uploads the bundle, and stops unless the workflow comes from a Data Commons Platform 1.1.6 stack.
+The identity that starts the ingestion workflow also needs `roles/workflows.viewer`. Each `*_dc_ingestion` asset reads the workflow's definition before it uploads the bundle, and stops if the workflow comes from a Data Commons Platform stack the installed dcp-tools can't start.
 
 ## Running dbt
 

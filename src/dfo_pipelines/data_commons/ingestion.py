@@ -41,8 +41,8 @@ def ingest_bundle(
 
     Raises:
         ValueError: If the bundle is not on local disk, or holds no files to upload.
-        WorkflowContractError: If the workflow does not come from a Data Commons
-            Platform 1.1.6 stack, or its definition cannot be read.
+        WorkflowContractError: If the workflow comes from a Data Commons Platform
+            stack dcp-tools can't start, or its definition cannot be read.
     """
     # dcp-tools uploads from local disk.
     if bundle.protocol not in ("", "file"):
