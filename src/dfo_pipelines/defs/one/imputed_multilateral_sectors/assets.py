@@ -530,6 +530,7 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
 @dg.asset(
     group_name="one_imputed_multilateral_sectors",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(
             [

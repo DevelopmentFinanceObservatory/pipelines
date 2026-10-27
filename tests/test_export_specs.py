@@ -1,9 +1,12 @@
 import importlib
 from pathlib import Path
 
+import dagster as dg
+
 import dfo_pipelines.defs
 import dfo_pipelines.defs.export_specs
 from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 
 
@@ -56,3 +59,18 @@ def test_export_specs_mint_unique_provenance_dcids() -> None:
     dcids = [spec.minted_provenance_dcid for spec in EXPORT_SPECS]
 
     assert len(dcids) == len(set(dcids))
+
+
+def test_export_specs_version_their_exports_by_documentation() -> None:
+    """Test each spec's export asset takes the spec's documentation version"""
+    graph = defs().resolve_asset_graph()
+    code_versions = {
+        spec.import_name: graph.get(
+            dg.AssetKey(f"{spec.import_name}_dc_export")
+        ).code_version
+        for spec in EXPORT_SPECS
+    }
+
+    assert code_versions == {
+        spec.import_name: spec.documentation_version for spec in EXPORT_SPECS
+    }

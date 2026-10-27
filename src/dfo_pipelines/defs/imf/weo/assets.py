@@ -222,6 +222,7 @@ IMF_WEO_EXPORT_SPEC = ExportSpec(
 @dg.asset(
     group_name="imf_weo",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=IMF_WEO_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(["imf_weo", "dc_weo_observations"]),
         dg.AssetKey(["imf_weo", "dc_weo_provenance"]),

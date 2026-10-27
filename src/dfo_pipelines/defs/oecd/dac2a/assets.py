@@ -230,6 +230,7 @@ OECD_DAC2A_EXPORT_SPEC = ExportSpec(
 @dg.asset(
     group_name="oecd_dac2a",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=OECD_DAC2A_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(["oecd_dac2a", "dc_dac2a_observations"]),
         dg.AssetKey(["oecd_dac2a", "dc_dac2a_provenance"]),

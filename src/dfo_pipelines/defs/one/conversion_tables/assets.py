@@ -116,6 +116,7 @@ def _export(
 @dg.asset(
     group_name="one_conversion_tables",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=DAC_EXPORT_SPEC.documentation_version,
     deps=_dbt_model_keys(table="dac"),
 )
 def one_conversion_tables_dac_dc_export(
@@ -135,6 +136,7 @@ def one_conversion_tables_dac_dc_export(
 @dg.asset(
     group_name="one_conversion_tables",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=IMF_EXPORT_SPEC.documentation_version,
     deps=_dbt_model_keys(table="imf"),
 )
 def one_conversion_tables_imf_dc_export(

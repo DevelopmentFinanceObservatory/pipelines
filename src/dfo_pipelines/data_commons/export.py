@@ -14,6 +14,7 @@ platform contract. dfo-apis refuses to convert a series whose provenance declare
 recipe, so every export states its recipe, or that it has none, on its spec.
 """
 
+import hashlib
 import logging
 import tempfile
 from dataclasses import dataclass, field
@@ -177,6 +178,16 @@ class ExportSpec:
         `dcid:provenance/OECDCreditorReportingSystem`.
         """
         return mint_dcid(prefix="provenance", token=self.provenance_dcid)
+
+    @property
+    def documentation_version(self) -> str:
+        """Hex sha256 of the `DOCUMENTATION_FILES` alone, not of the export code"""
+        digest = hashlib.sha256()
+        for file_name in DOCUMENTATION_FILES.values():
+            content = (self.docs_dir / file_name).read_bytes()
+            # The length prefix keeps text moved between files from hashing the same.
+            digest.update(len(content).to_bytes(8, "big") + content)
+        return digest.hexdigest()
 
 
 @dataclass(frozen=True, kw_only=True)

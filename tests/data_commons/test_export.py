@@ -563,6 +563,54 @@ def test_export_bundle_fails_before_writing_when_a_documentation_file_is_missing
     assert not any(out_dir.iterdir())
 
 
+def spec_with_documentation(tmp_path: Path, name: str, texts: list[str]) -> ExportSpec:
+    """The fixture spec over a docs directory holding `texts`, one per file"""
+    docs_dir = tmp_path / name
+    docs_dir.mkdir()
+    for file_name, text in zip(DOCUMENTATION_FILES.values(), texts, strict=True):
+        (docs_dir / file_name).write_text(text)
+    return replace(EXPORT_SPEC, docs_dir=docs_dir)
+
+
+def documentation_texts() -> list[str]:
+    """One distinct text per documentation file"""
+    return [f"text {index}" for index in range(len(DOCUMENTATION_FILES))]
+
+
+def test_documentation_version_is_stable_while_the_documentation_is(
+    tmp_path: Path,
+) -> None:
+    """Test two docs directories with the same files share a version"""
+    first = spec_with_documentation(tmp_path, "first", documentation_texts())
+    second = spec_with_documentation(tmp_path, "second", documentation_texts())
+
+    assert first.documentation_version == second.documentation_version
+
+
+@pytest.mark.parametrize("changed", range(len(DOCUMENTATION_FILES)))
+def test_documentation_version_changes_with_each_documentation_file(
+    tmp_path: Path, changed: int
+) -> None:
+    """Test a change to any one documentation file changes the version"""
+    texts = documentation_texts()
+    original = spec_with_documentation(tmp_path, "original", texts)
+    texts[changed] += " changed"
+    edited = spec_with_documentation(tmp_path, "edited", texts)
+
+    assert edited.documentation_version != original.documentation_version
+
+
+def test_documentation_version_changes_when_text_moves_between_files(
+    tmp_path: Path,
+) -> None:
+    """Test moving text from one documentation file to the other changes the version"""
+    rest = documentation_texts()[2:]
+    original = spec_with_documentation(tmp_path, "original", ["ab", "c", *rest])
+    moved = spec_with_documentation(tmp_path, "moved", ["a", "bc", *rest])
+
+    assert moved.documentation_version != original.documentation_version
+
+
 def test_export_bundle_requires_exactly_one_provenance(tmp_path: Path) -> None:
     """Test the export fails when the provenance model holds two rows"""
     connection = connect(tmp_path)

@@ -404,6 +404,7 @@ IDS_EXPORT_SPEC = ExportSpec(
 @dg.asset(
     group_name="world_bank_ids",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=IDS_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(["world_bank_ids", "dc_ids_debt_observations"]),
         dg.AssetKey(["world_bank_ids", "dc_ids_economy_observations"]),

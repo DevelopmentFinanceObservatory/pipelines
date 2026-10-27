@@ -241,6 +241,7 @@ CRS_EXPORT_SPEC = ExportSpec(
 @dg.asset(
     group_name="oecd_dac_crs",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
+    code_version=CRS_EXPORT_SPEC.documentation_version,
     deps=[
         dg.AssetKey(["oecd_dac_crs", "dc_dac_crs_observations"]),
         dg.AssetKey(["oecd_dac_crs", "dc_dac_crs_provenance"]),
