@@ -6,7 +6,7 @@
         the month it targets, even after that month has passed with nothing
         published.
     -#}
-    {%- set months = var("release_calendars")[dataset] | map(attribute="month") | sort -%}
+    {%- set months = var("release_calendars")[dataset].months | sort -%}
     case
         {%- for month in months %}
         when extract(month from {{ release_date }}) < {{ month }}
