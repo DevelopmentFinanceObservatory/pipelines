@@ -1224,6 +1224,7 @@ select
     '2026-12' as next_data_refresh_date,
     '2021' as earliest_observation_date,
     '2022' as latest_observation_date,
+    null::varchar as partial_observation_date,
     'Test description' as description,
     'Test attribution' as license_attribution
 """

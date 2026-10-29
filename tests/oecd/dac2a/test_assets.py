@@ -492,7 +492,8 @@ select
     'OECD DAC2a' as name,
     'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
     'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2a_Data.zip' as url,
-    '2026-09-22' as imported_source_release_date;
+    '2026-09-22' as imported_source_release_date,
+    null::varchar as partial_observation_date;
 
 create or replace table oecd_dac2a.dc_dac2a_statvars as
 select * from (values

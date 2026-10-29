@@ -228,6 +228,9 @@ OECD_DAC2A_EXPORT_SPEC = ExportSpec(
     },
     docs_dir=DOCS_ROOT / "oecd" / "dac2a",
     constant_observation_properties={"observationPeriod": "P1Y"},
+    provenance_column_to_property={
+        "partial_observation_date": "partialObservationDate"
+    },
 )
 
 

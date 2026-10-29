@@ -29,3 +29,36 @@ seeds:
         description: URL of the licence terms
         data_tests:
           - not_null
+  - name: properties
+    description: >
+      Provenance properties the platform's pipelines write that neither base Data
+      Commons nor the ontology defines.
+    config:
+      column_types:
+        dcid: string
+        name: string
+        description: string
+        domain: string
+        range: string
+    columns:
+      - name: dcid
+        description: DCID of the property node
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: Name of the property
+        data_tests:
+          - not_null
+      - name: description
+        description: One-line description of the property
+        data_tests:
+          - not_null
+      - name: domain
+        description: DCID of the class the property is written on
+        data_tests:
+          - not_null
+      - name: range
+        description: DCID of the type of the property's values
+        data_tests:
+          - not_null

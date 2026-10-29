@@ -4,12 +4,11 @@ The OECD publishes DAC2B in April, June, September and December. The complete ta
 downloaded from the OECD each time it is republished, and replaces the previous copy,
 so the data reflects the OECD's latest release.
 
-## Exclude the partial preliminary year
+## Mark the partial year
 
-Before each full release, the OECD publishes preliminary data for the year that release
-covers, as reporters submit it. Until then, that year is partial, so the pipeline
-excludes it. Support for partial years is in development. Partial years will be marked
-incomplete, so they don't lead to incorrect or confusing analyses.
+The OECD publishes data for a year as donors report it, and its final release in
+December of the following year covers every donor. Until then, the year is partial. The
+pipeline publishes it, and the import's provenance names it in `partialObservationDate`.
 
 ## Standardise providers and recipients
 

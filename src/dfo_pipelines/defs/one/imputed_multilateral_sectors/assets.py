@@ -531,6 +531,9 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
     },
     docs_dir=DOCS_ROOT / "one" / "imputed_multilateral_sectors",
     constant_observation_properties={"observationPeriod": "P1Y"},
+    provenance_column_to_property={
+        "partial_observation_date": "partialObservationDate"
+    },
 )
 
 

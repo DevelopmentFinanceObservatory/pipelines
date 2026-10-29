@@ -1,0 +1,2 @@
+dcid,name,description,domain,range
+dcid:partialObservationDate,partial observation date,Date for which the current data import holds only part of the source's data.,dcid:Provenance,schema:Text

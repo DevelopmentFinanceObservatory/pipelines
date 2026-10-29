@@ -19,9 +19,7 @@ with source_totals as (
             + coalesce(sum(cast(usd_grant_equiv as decimal(38, 12))), 0)
         ) * 1000000 as total
     from {{ source("oecd_dac_crs", "raw_dac_crs") }}
-    where
-        bi_multi is distinct from 2
-        and {{ exclude_incomplete_years("oecd_dac_crs") }}
+    where bi_multi is distinct from 2
     group by year
 ),
 

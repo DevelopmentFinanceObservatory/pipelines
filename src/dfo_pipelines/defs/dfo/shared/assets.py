@@ -15,12 +15,16 @@ from dfo_pipelines.defs.resources import (
 
 IMPORT_NAME = "dfo_shared"
 LICENSE_TYPES_SEED = "dfo_shared.license_types"
+PROPERTIES_SEED = "dfo_shared.properties"
 
 
 @dg.asset(
     group_name="dfo_shared",
     automation_condition=EAGER_WHEN_CHECKS_PASS,
-    deps=[dg.AssetKey(LICENSE_TYPES_SEED.split("."))],
+    deps=[
+        dg.AssetKey(LICENSE_TYPES_SEED.split(".")),
+        dg.AssetKey(PROPERTIES_SEED.split(".")),
+    ],
 )
 def dfo_shared_dc_export(
     context: dg.AssetExecutionContext,
@@ -50,6 +54,7 @@ def dfo_shared_dc_export(
 
     with duckdb.get_connection() as connection:
         license_types = get_model_rows(connection, LICENSE_TYPES_SEED)
+        properties = get_model_rows(connection, PROPERTIES_SEED)
     for license_type in license_types:
         manager.add_node(
             dcid=license_type["dcid"],
@@ -58,16 +63,33 @@ def dfo_shared_dc_export(
             description=license_type["description"],
             additional_properties={"url": escape_markdown(license_type["url"])},
         )
+    for schema_property in properties:
+        manager.add_node(
+            dcid=schema_property["dcid"],
+            name=schema_property["name"],
+            type_of="Property",
+            description=schema_property["description"],
+            additional_properties={
+                "domainIncludes": schema_property["domain"],
+                "rangeIncludes": schema_property["range"],
+                # Provisional until the ontology defines it.
+                "isProvisional": "schema:True",
+            },
+        )
 
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
     manager.export_all(str(out_dir))
 
-    context.log.info(f"Exported {len(license_types)} licence types to {out_dir}")
+    context.log.info(
+        f"Exported {len(license_types)} licence types and {len(properties)}"
+        f" properties to {out_dir}"
+    )
     return dg.MaterializeResult(
         value=str(out_dir),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(out_dir)),
             "license_type_count": dg.MetadataValue.int(len(license_types)),
+            "property_count": dg.MetadataValue.int(len(properties)),
         },
     )
 

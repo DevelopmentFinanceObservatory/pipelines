@@ -20,13 +20,6 @@ clean-targets:
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
 vars:
-  # Years a source has published only in part so far, by import.
-  incomplete_years:
-    oecd_dac_crs: [2025]
-    oecd_dac2a: [2025]
-    oecd_dac2b: [2025]
-    one_imputed_multilateral_sectors: [2025]
-
   # The year every conversion-table deflator series is rebased to equal 100 in,
   # written onto both table provenances as deflatorBaseYear. It follows the base
   # year of the DAC's published constant prices, which the
@@ -34,30 +27,24 @@ vars:
   # checks against DAC1 before any rebasing.
   conversion_tables_deflator_base_year: 2024
 
-  # The months each dataset publishes in.
+  # The months each dataset publishes in, and the month of the following year
+  # whose release completes a year's data.
   release_calendars:
     oecd_dac_crs:
-      - {month: 4}
-      - {month: 6}
-      - {month: 9}
-      - {month: 12}
+      months: [4, 6, 9, 12]
+      completing_release_month: 12
     oecd_dac1:
-      - {month: 4}
-      - {month: 6}
-      - {month: 9}
-      - {month: 12}
+      months: [4, 6, 9, 12]
     oecd_dac2a:
-      - {month: 4}
-      - {month: 6}
-      - {month: 9}
-      - {month: 12}
+      months: [4, 6, 9, 12]
+      completing_release_month: 12
     oecd_dac2b:
-      - {month: 4}
-      - {month: 6}
-      - {month: 9}
-      - {month: 12}
+      months: [4, 6, 9, 12]
+      completing_release_month: 12
     oecd_multisystem:
-      - {month: 12}
+      months: [12]
+      completing_release_month: 12
+
 
 models:
   dfo_pipelines:
