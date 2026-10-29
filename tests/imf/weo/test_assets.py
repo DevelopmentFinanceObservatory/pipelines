@@ -98,6 +98,7 @@ def test_imf_weo_raw_file_writes_parquet(tmp_path: Path) -> None:
         "file_size": dg.IntMetadataValue((raw_dir / "data.parquet").stat().st_size),
         "dagster/row_count": dg.IntMetadataValue(FIXTURE_ROWS),
         "version": dg.TextMetadataValue("April 2026"),
+        "source_release_date": dg.TextMetadataValue(PUBLICATION_DATE.isoformat()),
     }
     [check] = result.check_results
     assert check.check_name == "file_not_empty"

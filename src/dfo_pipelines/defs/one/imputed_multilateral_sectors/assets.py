@@ -412,6 +412,10 @@ def one_imputed_multilateral_sectors_raw_file(
                 observed_before["multisystem"]
             ),
             **build_quality_metadata(data, provenance=provenance),
+            "crs_release_date": dg.MetadataValue.text(release_dates["crs"].isoformat()),
+            "multisystem_release_date": dg.MetadataValue.text(
+                release_dates["multisystem"].isoformat()
+            ),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

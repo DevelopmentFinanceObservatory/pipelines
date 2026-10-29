@@ -329,6 +329,7 @@ def test_dac1_raw_file_writes_parquet(tmp_path: Path) -> None:
         "file_size": dg.IntMetadataValue((FIXTURES / "data.parquet").stat().st_size),
         "version": dg.TextMetadataValue("0x8DEDC2882EAC20B"),
         "dagster/row_count": dg.IntMetadataValue(25),
+        "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
