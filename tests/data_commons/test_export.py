@@ -577,38 +577,36 @@ def documentation_texts() -> list[str]:
     return [f"text {index}" for index in range(len(DOCUMENTATION_FILES))]
 
 
-def test_documentation_version_is_stable_while_the_documentation_is(
-    tmp_path: Path,
+# Each edit as the documentation texts before and after it.
+DOCUMENTATION_EDITS = {
+    **{
+        f"{file_name} changed": (
+            documentation_texts(),
+            [
+                f"{text} changed" if index == changed else text
+                for index, text in enumerate(documentation_texts())
+            ],
+        )
+        for changed, file_name in enumerate(DOCUMENTATION_FILES.values())
+    },
+    "text moved between files": (
+        ["ab", "c", *documentation_texts()[2:]],
+        ["a", "bc", *documentation_texts()[2:]],
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("original", "edited"), DOCUMENTATION_EDITS.values(), ids=DOCUMENTATION_EDITS
+)
+def test_documentation_version_changes_with_each_documentation_edit(
+    tmp_path: Path, original: list[str], edited: list[str]
 ) -> None:
-    """Test two docs directories with the same files share a version"""
-    first = spec_with_documentation(tmp_path, "first", documentation_texts())
-    second = spec_with_documentation(tmp_path, "second", documentation_texts())
+    """Test an edit to any documentation file, or text moved between them, changes the version"""
+    before = spec_with_documentation(tmp_path, "before", original)
+    after = spec_with_documentation(tmp_path, "after", edited)
 
-    assert first.documentation_version == second.documentation_version
-
-
-@pytest.mark.parametrize("changed", range(len(DOCUMENTATION_FILES)))
-def test_documentation_version_changes_with_each_documentation_file(
-    tmp_path: Path, changed: int
-) -> None:
-    """Test a change to any one documentation file changes the version"""
-    texts = documentation_texts()
-    original = spec_with_documentation(tmp_path, "original", texts)
-    texts[changed] += " changed"
-    edited = spec_with_documentation(tmp_path, "edited", texts)
-
-    assert edited.documentation_version != original.documentation_version
-
-
-def test_documentation_version_changes_when_text_moves_between_files(
-    tmp_path: Path,
-) -> None:
-    """Test moving text from one documentation file to the other changes the version"""
-    rest = documentation_texts()[2:]
-    original = spec_with_documentation(tmp_path, "original", ["ab", "c", *rest])
-    moved = spec_with_documentation(tmp_path, "moved", ["a", "bc", *rest])
-
-    assert moved.documentation_version != original.documentation_version
+    assert after.documentation_version != before.documentation_version
 
 
 def test_export_bundle_requires_exactly_one_provenance(tmp_path: Path) -> None:
