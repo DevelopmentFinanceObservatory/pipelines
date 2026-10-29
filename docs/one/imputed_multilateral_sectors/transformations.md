@@ -32,16 +32,10 @@ source's token moves between the two observations: `oda-data` resolves its own r
 
 ## Mark the partial year
 
-The OECD publishes data for a year as reporters submit it, and its final release in December of the following
-year covers every reporter. Until then, only some donors have reported, so the year is partial. The pipeline
-publishes it and marks it. The import's provenance names the year in `partialObservationDate`, in the same
-format as `latestObservationDate`. The year is partial while either the CRS file or the Members' Total Use
-file the pipeline read is dated before 1 December of the following year. Once both are dated on or after that
-day, the property is left off.
-
-Before publishing, the pipeline checks the mark against the data. Among the three years ending at the newest,
-the marked year must have fewer than half as many donors reporting as the best-covered year, and every other
-year must have at least half. When the calendar and the data disagree, the build fails.
+The OECD publishes data for a year as donors report it, and its final release in December of the following
+year covers every donor. Until then, the year is partial. The pipeline publishes it, and the import's
+provenance names it in `partialObservationDate`. For this import, the year stays partial until both the CRS
+and Members' Total Use have had that final release.
 
 ## Compute the imputed spending
 

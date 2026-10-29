@@ -6,17 +6,9 @@ so the data reflects the OECD's latest release.
 
 ## Mark the partial year
 
-The OECD publishes data for a year as reporters submit it, and its final release in
-December of the following year covers every reporter. Until then, only some donors
-have reported, so the year is partial. The pipeline publishes it and marks it. The
-import's provenance names the year in `partialObservationDate`, in the same format as
-`latestObservationDate`. The mark stays until the pipeline holds a file dated on or
-after 1 December of the following year. The property is then left off.
-
-Before publishing, the pipeline checks the mark against the data. Among the three years
-ending at the newest, the marked year must have fewer than half as many donors reporting
-as the best-covered year, and every other year must have at least half. When the
-calendar and the data disagree, the build fails.
+The OECD publishes data for a year as donors report it, and its final release in
+December of the following year covers every donor. Until then, the year is partial. The
+pipeline publishes it, and the import's provenance names it in `partialObservationDate`.
 
 ## Standardise providers and recipients
 
