@@ -4,6 +4,8 @@ template_vars_module: .template_vars
 
 attributes:
   project: '{{ context.project_root }}/dbt'
+  include_metadata:
+    - row_count
   translation:
     automation_condition: >-
       {{ eager_when_checks_pass
