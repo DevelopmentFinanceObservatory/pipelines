@@ -5,7 +5,10 @@ import dagster as dg
 import pytest
 
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.defs.automation import automation_sensor_default_status
+from dfo_pipelines.defs.automation import (
+    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+    automation_sensor_default_status,
+)
 
 SENSOR_NAME = "automation_condition_sensor"
 
@@ -961,3 +964,91 @@ def test_a_failed_rate_diagnostic_stops_every_export_reading_its_table(
         key.to_user_string(): 0 if key in stopped_export_keys else 1
         for key in export_keys
     }
+
+
+SYNTHETIC_PARENT_KEY = dg.AssetKey("parent")
+SYNTHETIC_PARENT_CHECK_KEY = dg.AssetCheckKey(SYNTHETIC_PARENT_KEY, "parent_check")
+SYNTHETIC_EXPORT_KEY = dg.AssetKey("export")
+
+
+def _synthetic_export_definitions(code_version: str) -> dg.Definitions:
+    """A parent with a blocking check, and an export at `code_version` below it"""
+
+    @dg.asset(key=SYNTHETIC_PARENT_KEY)
+    def parent() -> None: ...
+
+    @dg.asset_check(asset=parent, name=SYNTHETIC_PARENT_CHECK_KEY.name, blocking=True)
+    def parent_check() -> dg.AssetCheckResult:
+        return dg.AssetCheckResult(passed=True)
+
+    @dg.asset(
+        key=SYNTHETIC_EXPORT_KEY,
+        deps=[parent],
+        automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+        code_version=code_version,
+    )
+    def export() -> None: ...
+
+    return dg.Definitions(assets=[parent, export], asset_checks=[parent_check])
+
+
+def _report_parent_check(instance: dg.DagsterInstance, *, passed: bool) -> None:
+    """Report an evaluation of the parent's check, with no new materialization"""
+    instance.report_runless_asset_event(
+        dg.AssetCheckEvaluation(
+            asset_key=SYNTHETIC_PARENT_KEY,
+            check_name=SYNTHETIC_PARENT_CHECK_KEY.name,
+            passed=passed,
+        )
+    )
+
+
+def _export_requests(
+    instance: dg.DagsterInstance,
+    code_version: str,
+    previous: dg.EvaluateAutomationConditionsResult,
+) -> tuple[dg.EvaluateAutomationConditionsResult, int]:
+    """Tick with the export at `code_version`, returning the result and its requests"""
+    result = dg.evaluate_automation_conditions(
+        defs=_synthetic_export_definitions(code_version),
+        instance=instance,
+        cursor=previous.cursor,
+    )
+    return result, result.get_num_requested(SYNTHETIC_EXPORT_KEY)
+
+
+def _materialized_synthetic_graph(
+    instance: dg.DagsterInstance,
+) -> dg.EvaluateAutomationConditionsResult:
+    """Materialize the parent, with its check passing, then the export, at version 1"""
+    baseline = dg.evaluate_automation_conditions(
+        defs=_synthetic_export_definitions("1"), instance=instance
+    )
+    for key in (SYNTHETIC_PARENT_KEY, SYNTHETIC_EXPORT_KEY):
+        instance.report_runless_asset_event(dg.AssetMaterialization(asset_key=key))
+    _report_parent_check(instance, passed=True)
+    settled, requested = _export_requests(instance, "1", baseline)
+    assert requested == 0
+    return settled
+
+
+def test_a_new_code_version_requests_the_export_once() -> None:
+    """Test a changed code version alone requests an up-to-date export on one tick"""
+    with dg.DagsterInstance.ephemeral() as instance:
+        settled = _materialized_synthetic_graph(instance)
+        changed, requested_on_change = _export_requests(instance, "2", settled)
+        _, requested_after = _export_requests(instance, "2", changed)
+
+    assert (requested_on_change, requested_after) == (1, 0)
+
+
+def test_a_new_code_version_waits_for_the_parent_checks_to_pass() -> None:
+    """Test a version change during a failed blocking check is held until it passes"""
+    with dg.DagsterInstance.ephemeral() as instance:
+        settled = _materialized_synthetic_graph(instance)
+        _report_parent_check(instance, passed=False)
+        held, requested_while_failed = _export_requests(instance, "2", settled)
+        _report_parent_check(instance, passed=True)
+        _, requested_once_passed = _export_requests(instance, "2", held)
+
+    assert (requested_while_failed, requested_once_passed) == (0, 1)

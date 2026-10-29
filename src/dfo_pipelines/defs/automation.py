@@ -31,3 +31,10 @@ EAGER_WHEN_CHECKS_PASS = (
         )
     )
 ).with_label("eager_when_checks_pass")
+
+# eager() ignores code versions, and an export's code version is its documentation.
+EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS = EAGER_WHEN_CHECKS_PASS.replace(
+    old=dg.AutomationCondition.any_deps_updated(),
+    new=dg.AutomationCondition.any_deps_updated()
+    | dg.AutomationCondition.code_version_changed(),
+).with_label("eager_on_deps_or_code_change_when_checks_pass")

@@ -563,6 +563,52 @@ def test_export_bundle_fails_before_writing_when_a_documentation_file_is_missing
     assert not any(out_dir.iterdir())
 
 
+def spec_with_documentation(tmp_path: Path, name: str, texts: list[str]) -> ExportSpec:
+    """The fixture spec over a docs directory holding `texts`, one per file"""
+    docs_dir = tmp_path / name
+    docs_dir.mkdir()
+    for file_name, text in zip(DOCUMENTATION_FILES.values(), texts, strict=True):
+        (docs_dir / file_name).write_text(text)
+    return replace(EXPORT_SPEC, docs_dir=docs_dir)
+
+
+def documentation_texts() -> list[str]:
+    """One distinct text per documentation file"""
+    return [f"text {index}" for index in range(len(DOCUMENTATION_FILES))]
+
+
+# Each edit as the documentation texts before and after it.
+DOCUMENTATION_EDITS = {
+    **{
+        f"{file_name} changed": (
+            documentation_texts(),
+            [
+                f"{text} changed" if index == changed else text
+                for index, text in enumerate(documentation_texts())
+            ],
+        )
+        for changed, file_name in enumerate(DOCUMENTATION_FILES.values())
+    },
+    "text moved between files": (
+        ["ab", "c", *documentation_texts()[2:]],
+        ["a", "bc", *documentation_texts()[2:]],
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("original", "edited"), DOCUMENTATION_EDITS.values(), ids=DOCUMENTATION_EDITS
+)
+def test_documentation_version_changes_with_each_documentation_edit(
+    tmp_path: Path, original: list[str], edited: list[str]
+) -> None:
+    """Test an edit to any documentation file, or text moved between them, changes the version"""
+    before = spec_with_documentation(tmp_path, "before", original)
+    after = spec_with_documentation(tmp_path, "after", edited)
+
+    assert after.documentation_version != before.documentation_version
+
+
 def test_export_bundle_requires_exactly_one_provenance(tmp_path: Path) -> None:
     """Test the export fails when the provenance model holds two rows"""
     connection = connect(tmp_path)
