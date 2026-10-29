@@ -27,6 +27,7 @@ from dfo_pipelines.defs.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
+from dfo_pipelines.defs.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_skills"
 # Where the skills repository keeps the skills it offers for install, which
@@ -419,12 +420,9 @@ def _read_skill(skill_path: UPath, *, root: str) -> _Skill:
 def _run_git(*args: str, cwd: Path | None = None) -> str:
     """Run a git command and return its stdout, failing rather than prompting"""
     try:
-        result = subprocess.run(
+        result = run_logged(
             ["git", *args],
             cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=False,
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
             timeout=GIT_TIMEOUT_SECONDS,
         )

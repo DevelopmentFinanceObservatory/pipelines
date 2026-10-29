@@ -21,7 +21,7 @@ dependencies = [
     "pyarrow>=23.0.0",
     "universal-pathlib>=0.3.10",
     "pandas>=3.0.5",
-    "imf-reader>=2.2.0",
+    "imf-reader>=2.3.0",
     "dcp-tools>=1.2.0",
     "dfo-ontology",
     "oda-data==2.8.1",

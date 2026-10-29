@@ -101,7 +101,7 @@ def compiler() -> Iterator[Any]:
     Compiles successfully. A test that needs another outcome reassigns
     `side_effect` to a differently configured `fake_compile`.
     """
-    with patch("dfo_pipelines.defs.dfo.ontology.assets.subprocess.run") as mock:
+    with patch("dfo_pipelines.defs.subprocesses.subprocess.run") as mock:
         mock.side_effect = fake_compile()
         yield mock
 

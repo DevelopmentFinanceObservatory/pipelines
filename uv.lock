@@ -844,7 +844,7 @@ requires-dist = [
     { name = "dcp-tools", specifier = ">=1.2.0" },
     { name = "dfo-ontology", git = "https://github.com/DevelopmentFinanceObservatory/ontology?rev=617bdb685e79022494132ef3614674c232b395fc" },
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "imf-reader", specifier = ">=2.2.0" },
+    { name = "imf-reader", specifier = ">=2.3.0" },
     { name = "oda-data", specifier = "==2.8.1" },
     { name = "oda-reader", specifier = ">=1.11.2" },
     { name = "openpyxl", specifier = ">=3.1.0" },
@@ -1404,7 +1404,7 @@ wheels = [
 
 [[package]]
 name = "imf-reader"
-version = "2.2.0"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -1413,9 +1413,9 @@ dependencies = [
     { name = "readerkit" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/26/f6ed424490fb49798c86eb5990448a4bba1ad7d5821c34857b9053e46ed5/imf_reader-2.2.0.tar.gz", hash = "sha256:3f725d5759b0d78875833ee9a5c66cd27d61c31bd8a553ff71eee05b5e628b57", size = 51023, upload-time = "2026-08-14T17:42:33.462Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/3b/67edd08e13c35886a0fcc56f3bd58f904286ec5e7dc5a7f6f05ed7d70c23/imf_reader-2.3.0.tar.gz", hash = "sha256:9cab989a4fd93f311b97439531f2e67797bd6b401a80182650029aff4c7e6afd", size = 52467, upload-time = "2026-10-28T10:53:05.227Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/0b/f039227891003395030935c2efeba61f72048fd6cbc7c38f678024964f68/imf_reader-2.2.0-py3-none-any.whl", hash = "sha256:b7decf529540b0d923e5fc39e5afaf899ce46d7e199b7163d1ad346bde954a4a", size = 59523, upload-time = "2026-08-14T17:42:32.392Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/11/6a2908720eeec1d946d010d5631f7dbf4fcf1ee473ae24e7faf1bf2bfef5/imf_reader-2.3.0-py3-none-any.whl", hash = "sha256:e0d56ad284ff79d0f2602384fab1281ca83d7524fcd34bf4441651b33edd19e5", size = 59490, upload-time = "2026-10-28T10:53:03.671Z" },
 ]
 
 [[package]]

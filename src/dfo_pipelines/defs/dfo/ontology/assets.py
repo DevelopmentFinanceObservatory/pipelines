@@ -1,5 +1,4 @@
 import shutil
-import subprocess
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -15,6 +14,7 @@ from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
+from dfo_pipelines.defs.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
@@ -60,7 +60,7 @@ def dfo_ontology_raw_directory(
 
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
-        result = subprocess.run(
+        result = run_logged(
             [
                 "dfo-ontology",
                 "compile",
@@ -68,10 +68,7 @@ def dfo_ontology_raw_directory(
                 "prod",
                 "--output",
                 str(staging_path / ONTOLOGY_MCF),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
+            ]
         )
         if result.returncode != 0:
             raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
