@@ -1,12 +1,12 @@
-{% macro next_source_release_date(calendar, release_date) -%}
+{% macro next_source_release_date(dataset, release_date) -%}
     {#-
-        The first month in the release calendar after the given release,
+        The first month in the dataset's release calendar after the given release,
         rolling into the calendar's first month of the following year once its
         last has been published. If a release is late, this holds at the month
         it targets rather than skipping ahead once that month has passed with
         nothing published.
     -#}
-    {%- set months = var("release_calendars")[calendar] | map(attribute="month") | sort -%}
+    {%- set months = var("release_calendars")[dataset] | map(attribute="month") | sort -%}
     case
         {%- for month in months %}
         when extract(month from {{ release_date }}) < {{ month }}
