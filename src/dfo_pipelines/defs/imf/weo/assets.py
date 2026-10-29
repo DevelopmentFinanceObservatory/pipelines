@@ -90,10 +90,11 @@ def imf_weo_raw_file(
     version = weo.get_weo_versions()[0]
     dataframe = weo.fetch_data_with_metadata(version=version)
     dataframe.to_parquet(file_path, compression="gzip")
+    release_date = fetch_weo_publication_date(version)
     write_extraction_metadata(
         directory,
         downloaded_at=downloaded_at,
-        release_dates={"source": fetch_weo_publication_date(version)},
+        release_dates={"source": release_date},
     )
     rows = dataframe.index.size
     file_size = file_path.stat().st_size
@@ -105,6 +106,7 @@ def imf_weo_raw_file(
             "file_size": dg.MetadataValue.int(file_size),
             "dagster/row_count": dg.MetadataValue.int(rows),
             "version": dg.MetadataValue.text(f"{version[0]} {version[1]}"),
+            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

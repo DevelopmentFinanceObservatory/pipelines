@@ -126,10 +126,11 @@ def oecd_dac_crs_raw_file(
     download_path.rename(file_path)
     rows = pq.read_metadata(file_path).num_rows
     file_size = file_path.stat().st_size
+    release_date = parse_crs_release_date(version)
     write_extraction_metadata(
         directory,
         downloaded_at=downloaded_at,
-        release_dates={"source": parse_crs_release_date(version)},
+        release_dates={"source": release_date},
     )
     context.log.info(f"Wrote OECD DAC CRS data to {file_path}")
     return dg.MaterializeResult(
@@ -139,6 +140,7 @@ def oecd_dac_crs_raw_file(
             "file_size": dg.MetadataValue.int(file_size),
             "version": dg.MetadataValue.text(version),
             "dagster/row_count": dg.MetadataValue.int(rows),
+            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

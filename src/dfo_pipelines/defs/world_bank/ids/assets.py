@@ -192,6 +192,9 @@ def world_bank_ids_raw_file(
             "file_size": dg.MetadataValue.int(file_size),
             "dagster/row_count": dg.MetadataValue.int(rows),
             "files": dg.MetadataValue.json(files),
+            "source_release_date": dg.MetadataValue.text(
+                source_release_date.isoformat()
+            ),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))

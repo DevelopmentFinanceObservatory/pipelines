@@ -435,6 +435,9 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
         source_df
     ) * len(BULK_XLSX_URLS)
     assert meta(result, "files", dg.JsonMetadataValue).data == BULK_FILE_METADATA
+    assert meta(result, "source_release_date", dg.TextMetadataValue).value == (
+        SOURCE_RELEASE_DATE.isoformat()
+    )
     [check] = result.check_results
     assert check.check_name == "file_not_empty"
     assert check.passed

@@ -828,6 +828,11 @@ def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
         == MULTI_VERSION
     )
     assert meta(result, "package_version", dg.TextMetadataValue).value == "2.8.1"
+    assert meta(result, "crs_release_date", dg.TextMetadataValue).value == "2026-08-01"
+    assert (
+        meta(result, "multisystem_release_date", dg.TextMetadataValue).value
+        == "2026-07-15"
+    )
     assert (
         meta(result, "value_share_status_imputed", dg.FloatMetadataValue).value == 1.0
     )

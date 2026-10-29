@@ -118,6 +118,7 @@ def oecd_dac1_raw_file(
             "file_size": dg.MetadataValue.int(file_size),
             "version": dg.MetadataValue.text(version),
             "dagster/row_count": dg.MetadataValue.int(rows),
+            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
         },
         check_results=[
             dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
