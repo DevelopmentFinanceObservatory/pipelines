@@ -7,7 +7,7 @@ import dfo_pipelines.defs
 import dfo_pipelines.defs.export_specs
 from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.defs.automation import EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS
+from dfo_pipelines.defs.automation import EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 
 
@@ -78,6 +78,6 @@ def test_export_specs_version_their_exports_by_documentation() -> None:
         spec.import_name: spec.documentation_version for spec in EXPORT_SPECS
     }
     assert automation_conditions == {
-        spec.import_name: EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS
+        spec.import_name: EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS
         for spec in EXPORT_SPECS
     }

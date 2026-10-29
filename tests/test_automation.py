@@ -6,7 +6,7 @@ import pytest
 
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.automation import (
-    EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
+    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     automation_sensor_default_status,
 )
 
@@ -984,7 +984,7 @@ def _synthetic_export_definitions(code_version: str) -> dg.Definitions:
     @dg.asset(
         key=SYNTHETIC_EXPORT_KEY,
         deps=[parent],
-        automation_condition=EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
+        automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
         code_version=code_version,
     )
     def export() -> None: ...

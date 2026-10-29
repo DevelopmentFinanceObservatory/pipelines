@@ -17,7 +17,7 @@ from dfo_pipelines.data_commons.export import (
     export_bundle,
 )
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.defs.automation import EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS
+from dfo_pipelines.defs.automation import EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.resources import (
@@ -115,7 +115,7 @@ def _export(
 
 @dg.asset(
     group_name="one_conversion_tables",
-    automation_condition=EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
+    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     code_version=DAC_EXPORT_SPEC.documentation_version,
     deps=_dbt_model_keys(table="dac"),
 )
@@ -135,7 +135,7 @@ def one_conversion_tables_dac_dc_export(
 
 @dg.asset(
     group_name="one_conversion_tables",
-    automation_condition=EAGER_OR_NEW_CODE_VERSION_WHEN_CHECKS_PASS,
+    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     code_version=IMF_EXPORT_SPEC.documentation_version,
     deps=_dbt_model_keys(table="imf"),
 )
