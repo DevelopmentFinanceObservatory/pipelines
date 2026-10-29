@@ -438,6 +438,9 @@ def _run_git(*args: str, cwd: Path | None = None) -> str:
             "Check the repository URL and, if the repository is private, that git "
             "can authenticate to GitHub"
         )
+    for output in (result.stdout.strip(), result.stderr.strip()):
+        if output:
+            dg.get_dagster_logger().info(output)
     return result.stdout.strip()
 
 

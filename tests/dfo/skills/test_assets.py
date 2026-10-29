@@ -31,7 +31,7 @@ from dfo_pipelines.defs.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from tests.helpers import AutomationHarness, meta
+from tests.helpers import AutomationHarness, logged_messages, meta
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -149,6 +149,21 @@ def test_raw_directory_copies_the_skills_at_the_head_of_main(
 def _stub_ontology_raw_directory() -> str:
     """A compiled ontology, standing in for the one the ontology pipeline writes"""
     return str(FIXTURES / "ontology")
+
+
+def test_raw_directory_logs_what_git_prints(tmp_path: Path, upstream: Path) -> None:
+    """Test git's output reaches the run log, and an empty stream does not"""
+    messages = logged_messages(
+        [dfo_skills_raw_directory],
+        {
+            "raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+            "skills_repository": SKILLS_REPOSITORY,
+        },
+    )
+
+    assert any(message.startswith("Cloning into") for message in messages)
+    assert git(upstream, "rev-parse", "HEAD") in messages
+    assert "" not in messages
 
 
 def test_raw_directory_check_fails_when_only_the_template_exists(

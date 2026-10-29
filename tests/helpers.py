@@ -54,6 +54,20 @@ def list_parquet_first_row(parquet_file: Path) -> list:
     ]
 
 
+def logged_messages(
+    assets: list[dg.AssetsDefinition], resources: dict[str, object]
+) -> list[str]:
+    """The run log's messages from materializing the assets, other than event records"""
+    instance = dg.DagsterInstance.ephemeral()
+    result = dg.materialize(assets, resources=resources, instance=instance)
+    assert result.success
+    return [
+        entry.user_message
+        for entry in instance.all_logs(result.run_id)
+        if entry.dagster_event is None
+    ]
+
+
 class AutomationHarness:
     """Drives a source and its raw assets against an ephemeral instance, as the daemon does.
 

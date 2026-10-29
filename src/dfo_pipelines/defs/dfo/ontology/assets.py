@@ -75,6 +75,9 @@ def dfo_ontology_raw_directory(
         )
         if result.returncode != 0:
             raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
+        for output in (result.stdout.strip(), result.stderr.strip()):
+            if output:
+                context.log.info(output)
         expected_files = [
             staging_path / name
             for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
