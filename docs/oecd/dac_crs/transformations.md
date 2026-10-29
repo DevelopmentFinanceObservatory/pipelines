@@ -3,14 +3,14 @@
 The complete CRS file is downloaded from the OECD each time the pipeline runs, and
 replaces the previous copy, so the data reflects the OECD's latest release.
 
-## Mark the partial preliminary year
+## Mark the partial year
 
-Before each full release, the OECD publishes preliminary data for the year that release
-covers, as reporters submit it. Until then, that year is partial. The pipeline publishes
-it and marks it. The import's provenance names the year in `partialObservationDate`, in
-the same format as `latestObservationDate`. The mark stays until the pipeline holds a
-file dated on or after 1 December of the following year, the December release that
-completes the year. The property is then left off.
+The OECD publishes data for a year as reporters submit it, and its final release in
+December of the following year covers every reporter. Until then, only some donors
+have reported, so the year is partial. The pipeline publishes it and marks it. The
+import's provenance names the year in `partialObservationDate`, in the same format as
+`latestObservationDate`. The mark stays until the pipeline holds a file dated on or
+after 1 December of the following year. The property is then left off.
 
 Before publishing, the pipeline checks the mark against the data. Among the three years
 ending at the newest, the marked year must have fewer than half as many donors reporting

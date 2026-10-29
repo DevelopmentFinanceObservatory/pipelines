@@ -30,13 +30,14 @@ when `oda-data`'s recorded release disagrees with the token observed before the 
 source's token moves between the two observations: `oda-data` resolves its own release identity through a
 7-day HTTP annotation cache, so it can otherwise report a release that no longer matches what was read.
 
-## Mark the partial preliminary year
+## Mark the partial year
 
-Before each full release, the OECD publishes preliminary data for the year that release covers, as reporters
-submit it. Until then, that year is partial. The pipeline publishes it and marks it. The import's provenance
-names the year in `partialObservationDate`, in the same format as `latestObservationDate`. The year is partial
-while either the CRS file or the Members' Total Use file the pipeline read is dated before 1 December of the
-following year, the December release that completes it. Once both are dated on or after that day, the property is left off.
+The OECD publishes data for a year as reporters submit it, and its final release in December of the following
+year covers every reporter. Until then, only some donors have reported, so the year is partial. The pipeline
+publishes it and marks it. The import's provenance names the year in `partialObservationDate`, in the same
+format as `latestObservationDate`. The year is partial while either the CRS file or the Members' Total Use
+file the pipeline read is dated before 1 December of the following year. Once both are dated on or after that
+day, the property is left off.
 
 Before publishing, the pipeline checks the mark against the data. Among the three years ending at the newest,
 the marked year must have fewer than half as many donors reporting as the best-covered year, and every other

@@ -1,15 +1,17 @@
-## 2026-10-29 Partial preliminary year published, marked as partial
+## 2026-10-29 Partial year published, marked as partial
 
 ### Changed
 
-- The partial preliminary year published ahead of the next full release is included, and
-  the import's provenance marks it with `partialObservationDate`.
+- The partial year, which only some donors have reported ahead of the OECD's final
+  release in December, is included, and the import's provenance marks it with
+  `partialObservationDate`.
 
-## 2026-10-15 Partial preliminary year excluded
+## 2026-10-15 Partial year excluded
 
 ### Changed
 
-- The partial preliminary year published ahead of the next full release is excluded.
+- The partial year, which only some donors have reported ahead of the OECD's final
+  release in December, is excluded.
 
 ## 2026-10-14 First release
 
