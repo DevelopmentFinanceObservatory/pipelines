@@ -30,6 +30,8 @@ metadata as (
 
 extraction as (
     select
+        metadata.crs_release_date,
+        metadata.multisystem_release_date,
         cast(metadata.crs_release_year as varchar) as crs_release_year,
         cast(metadata.multisystem_release_year as varchar)
             as multisystem_release_year,
@@ -43,8 +45,8 @@ extraction as (
         ) as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as access_date,
-        -- CRS and Members' Total Use each have their own release calendar;
-        -- the source next in line is whichever of the two comes first.
+        -- CRS and Members' Total Use each have their own release calendar.
+        -- The source next in line is whichever of the two comes first.
         least(
             {{ next_source_release_date('oecd_dac_crs', 'metadata.crs_release_date') }},
             {{ next_source_release_date('oecd_multisystem', 'metadata.multisystem_release_date') }}
@@ -73,6 +75,23 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
+    -- The newest year is partial while either source still holds it in part.
+    coalesce(
+        {{
+            partial_observation_date(
+                'oecd_dac_crs',
+                'extraction.crs_release_date',
+                'observation_range.latest_observation_date'
+            )
+        }},
+        {{
+            partial_observation_date(
+                'oecd_multisystem',
+                'extraction.multisystem_release_date',
+                'observation_range.latest_observation_date'
+            )
+        }}
+    ) as partial_observation_date,
     'Imputed Multilateral Sectors is ONE''s estimate of how each DAC '
     || 'donor''s core contributions to multilateral organisations are '
     || 'spent, by recipient and sector. ONE computes it from the OECD '

@@ -486,6 +486,7 @@ select
     '2026-12' as next_source_release_date,
     '1973' as earliest_observation_date,
     '1974' as latest_observation_date,
+    '1974' as partial_observation_date,
     'Test Source (2026), Test Provenance (accessed on 2026-08-18)'
         as license_attribution
 """
@@ -643,6 +644,16 @@ def test_dac_crs_dc_export_writes_the_conversion_recipe_onto_the_provenance_node
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
+
+
+def test_dac_crs_dc_export_writes_the_partial_year_onto_the_provenance_node(
+    tmp_path: Path,
+) -> None:
+    """Test the Provenance node carries the partial year as partialObservationDate"""
+    _, out_dir = run_export(tmp_path)
+
+    provenance = (out_dir / "provenance.mcf").read_text()
+    assert 'partialObservationDate: "1974"\n' in provenance
 
 
 def test_dac_crs_dc_export_maps_the_crs_dimensions_to_ontology_properties(

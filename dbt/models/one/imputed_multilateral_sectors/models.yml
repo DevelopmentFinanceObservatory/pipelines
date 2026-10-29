@@ -544,6 +544,17 @@ models:
         description: Latest year an observation is reported against
         data_tests:
           - not_null
+      - name: partial_observation_date
+        data_type: string
+        description: >
+          The newest year, as an ISO 8601 year, until both the CRS and Members'
+          Total Use files are dated on or after 1 December of the following
+          year. Null once both are held.
+        data_tests:
+          - partial_year_matches_reporter_coverage:
+              arguments:
+                staged: ref('stg_imputed_multilateral_sectors')
+                reporter: donor_code
       - name: license_attribution
         data_type: string
         description: >

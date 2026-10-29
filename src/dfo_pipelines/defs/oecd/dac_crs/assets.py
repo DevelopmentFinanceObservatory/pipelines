@@ -240,6 +240,9 @@ CRS_EXPORT_SPEC = ExportSpec(
     },
     docs_dir=DOCS_ROOT / "oecd" / "dac_crs",
     constant_observation_properties={"observationPeriod": "P1Y"},
+    provenance_column_to_property={
+        "partial_observation_date": "partialObservationDate"
+    },
 )
 
 

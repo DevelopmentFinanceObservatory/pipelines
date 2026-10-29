@@ -8,6 +8,7 @@ with metadata as (
 
 extraction as (
     select
+        metadata.source_release_date,
         metadata.release_year as source_release_year,
         strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
@@ -38,6 +39,13 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
+    {{
+        partial_observation_date(
+            'oecd_dac_crs',
+            'extraction.source_release_date',
+            'observation_range.latest_observation_date'
+        )
+    }} as partial_observation_date,
     'The Creditor Reporting System (CRS) is the OECD Development Assistance '
     || 'Committee''s activity-level database of development finance. Each record '
     || 'is a project, programme or contribution reported by a bilateral provider, '

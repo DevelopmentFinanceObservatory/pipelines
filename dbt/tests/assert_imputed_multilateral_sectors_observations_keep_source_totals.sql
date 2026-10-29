@@ -11,7 +11,6 @@ with source_totals as (
         cast(year as integer) as year,
         sum(cast(value as decimal(38, 12))) * 1000000 as total
     from {{ source("one_imputed_multilateral_sectors", "raw_imputed_multilateral_sectors") }}
-    where {{ exclude_incomplete_years("one_imputed_multilateral_sectors") }}
     group by year
 ),
 

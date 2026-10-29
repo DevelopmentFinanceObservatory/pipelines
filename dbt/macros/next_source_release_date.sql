@@ -2,9 +2,9 @@
     {#-
         The first month in the dataset's release calendar after the given release,
         rolling into the calendar's first month of the following year once its
-        last has been published. If a release is late, this holds at the month
-        it targets rather than skipping ahead once that month has passed with
-        nothing published.
+        last has been published. If a release is late, this keeps returning
+        the month it targets, even after that month has passed with nothing
+        published.
     -#}
     {%- set months = var("release_calendars")[dataset] | map(attribute="month") | sort -%}
     case

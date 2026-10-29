@@ -17,49 +17,6 @@ unit_tests:
         - {usd_commitment: 10}
         - {usd_commitment: 30}
 
-  - name: stg_dac_crs_excludes_incomplete_years
-    model: stg_dac_crs
-    description: A year incomplete_years lists for the CRS is not staged.
-    overrides:
-      vars:
-        incomplete_years: {oecd_dac_crs: [2025]}
-    given:
-      - input: source('oecd_dac_crs', 'raw_dac_crs')
-        rows:
-          - {year: 2024, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 1, usd_commitment: 10}
-          - {year: 2025, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 1, usd_commitment: 20}
-    expect:
-      rows:
-        - {year: 2024, usd_commitment: 10}
-
-  - name: stg_dac_crs_keeps_every_year_when_none_is_listed
-    model: stg_dac_crs
-    description: An import with no years listed in incomplete_years keeps every year.
-    overrides:
-      vars:
-        incomplete_years: {}
-    given:
-      - input: source('oecd_dac_crs', 'raw_dac_crs')
-        rows:
-          - {year: 2025, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 1, usd_commitment: 20}
-    expect:
-      rows:
-        - {year: 2025, usd_commitment: 20}
-
-  - name: stg_dac_crs_keeps_a_row_with_no_year
-    model: stg_dac_crs
-    description: A row with no year is staged, so the not_null test on year still catches it.
-    overrides:
-      vars:
-        incomplete_years: {oecd_dac_crs: [2025]}
-    given:
-      - input: source('oecd_dac_crs', 'raw_dac_crs')
-        rows:
-          - {year: null, donor_code: 1, recipient_code: 1059, category: 10, finance_t: 110, aid_t: A01, purpose_code: 11110, bi_multi: 1, usd_commitment: 10}
-    expect:
-      rows:
-        - {year: null, usd_commitment: 10}
-
   - name: resolved_resolves_entities_within_their_own_code_system
     model: int_dac_crs_resolved
     description: >
@@ -308,3 +265,23 @@ unit_tests:
         - {next_source_release_date: "2026-09"}
         - {next_source_release_date: "2026-12"}
         - {next_source_release_date: "2027-04"}
+
+  - name: provenance_flags_the_newest_year_until_the_december_file_completes_it
+    model: dc_dac_crs_provenance
+    description: >
+      The newest year is partial until a file dated on or after 1 December of
+      the following year, the release that completes it.
+    given:
+      - input: ref('dc_dac_crs_observations')
+        rows:
+          - {date: 2025}
+      - input: source('oecd_dac_crs', 'raw_dac_crs_metadata')
+        rows:
+          - {downloaded_at: "2026-12-20 00:00:00+00", source_release_date: "2026-04-16"}
+          - {downloaded_at: "2026-12-20 00:00:00+00", source_release_date: "2026-11-30"}
+          - {downloaded_at: "2026-12-20 00:00:00+00", source_release_date: "2026-12-01"}
+    expect:
+      rows:
+        - {imported_source_release_date: "2026-04-16", partial_observation_date: "2025"}
+        - {imported_source_release_date: "2026-11-30", partial_observation_date: "2025"}
+        - {imported_source_release_date: "2026-12-01", partial_observation_date: null}

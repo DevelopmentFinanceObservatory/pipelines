@@ -470,6 +470,17 @@ models:
         description: Latest year the observations cover, read from them, as an ISO 8601 year
         data_tests:
           - not_null
+      - name: partial_observation_date
+        data_type: string
+        description: >
+          The newest year, as an ISO 8601 year, until a file dated on or after
+          1 December of the following year completes it. Null once that file
+          is held.
+        data_tests:
+          - partial_year_matches_reporter_coverage:
+              arguments:
+                staged: ref('stg_dac2b')
+                reporter: donor_code
       - name: license_attribution
         data_type: string
         description: >
