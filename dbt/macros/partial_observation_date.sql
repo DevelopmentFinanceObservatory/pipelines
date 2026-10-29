@@ -1,16 +1,16 @@
-{% macro partial_observation_date(calendar, release_date, latest_observation_date) -%}
+{% macro partial_observation_date(dataset, release_date, latest_observation_date) -%}
     {#-
         The newest year held, as an ISO 8601 year, while the release predates
-        the calendar's release that completes it in the following year; null
+        the release in the dataset's calendar that completes it in the following year; null
         once it is complete.
     -#}
     {%- set completing_months = [] -%}
-    {%- for release in var("release_calendars")[calendar] if release.get("completes_previous_year") -%}
+    {%- for release in var("release_calendars")[dataset] if release.get("completes_previous_year") -%}
         {%- do completing_months.append(release.month) -%}
     {%- endfor -%}
     {%- if completing_months | length != 1 -%}
         {{ exceptions.raise_compiler_error(
-            "release_calendars." ~ calendar ~ " must flag exactly one month completes_previous_year"
+            "release_calendars." ~ dataset ~ " must flag exactly one month completes_previous_year"
         ) }}
     {%- endif -%}
     case
