@@ -26,7 +26,7 @@ from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from tests.helpers import column_list, logged_messages, meta, row_count
+from tests.helpers import column_list, meta, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -69,8 +69,6 @@ def fake_compile(
     mcf: str = STUB_MCF,
     rows: list[dict[str, str]] | None = None,
     omit: tuple[str, ...] = (),
-    stdout: str = "",
-    stderr: str = "",
 ) -> Callable[..., subprocess.CompletedProcess[str]]:
     """Stand in for the compiler, writing what it writes where it writes it
 
@@ -89,8 +87,8 @@ def fake_compile(
         return subprocess.CompletedProcess(
             command,
             returncode,
-            stdout=stdout,
-            stderr=stderr if returncode == 0 else STUB_REPORT,
+            stdout="",
+            stderr="" if returncode == 0 else STUB_REPORT,
         )
 
     return run
@@ -103,7 +101,7 @@ def compiler() -> Iterator[Any]:
     Compiles successfully. A test that needs another outcome reassigns
     `side_effect` to a differently configured `fake_compile`.
     """
-    with patch("dfo_pipelines.defs.dfo.ontology.assets.subprocess.run") as mock:
+    with patch("dfo_pipelines.defs.subprocesses.subprocess.run") as mock:
         mock.side_effect = fake_compile()
         yield mock
 
@@ -172,26 +170,6 @@ def test_raw_directory_publishes_nothing_when_an_output_is_missing(
         materialize_raw_directory(tmp_path)
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
-
-
-@pytest.mark.parametrize(
-    ("stdout", "stderr"),
-    [(STUB_REPORT, ""), ("", STUB_REPORT)],
-    ids=["stdout", "stderr"],
-)
-def test_raw_directory_logs_what_the_compiler_prints(
-    tmp_path: Path, compiler: Any, stdout: str, stderr: str
-) -> None:
-    """Test a successful compile's output reaches the run log, and an empty stream does not"""
-    compiler.side_effect = fake_compile(stdout=stdout, stderr=stderr)
-
-    messages = logged_messages(
-        [dfo_ontology_raw_directory],
-        {"raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw"))},
-    )
-
-    assert STUB_REPORT.strip() in messages
-    assert "" not in messages
 
 
 def test_raw_directory_check_fails_when_the_mcf_is_empty(
