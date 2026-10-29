@@ -12,7 +12,7 @@ extraction as (
         strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as access_date,
-        {{ next_oecd_release_date('metadata.source_release_date') }}
+        {{ next_source_release_date('oecd_dac1', 'metadata.source_release_date') }}
             as next_source_release_date
     from metadata
 ),

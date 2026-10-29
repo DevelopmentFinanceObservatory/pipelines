@@ -300,8 +300,8 @@ unit_tests:
       release out to April of the following year, but a Members' Total Use
       release earlier that same year still expects its next release this
       December - before that April - so it is the date that wins here. This
-      proves next_multisystem_release_date's output actually reaches
-      least(), not just next_oecd_release_date's.
+      proves the Members' Total Use calendar's output actually reaches
+      least(), not just the CRS calendar's.
     given:
       - input: ref('dc_imputed_multilateral_sectors_observations')
         rows:

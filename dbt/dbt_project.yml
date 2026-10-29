@@ -34,6 +34,31 @@ vars:
   # checks against DAC1 before any rebasing.
   conversion_tables_deflator_base_year: 2024
 
+  # The months each dataset publishes in.
+  release_calendars:
+    oecd_dac_crs:
+      - {month: 4}
+      - {month: 6}
+      - {month: 9}
+      - {month: 12}
+    oecd_dac1:
+      - {month: 4}
+      - {month: 6}
+      - {month: 9}
+      - {month: 12}
+    oecd_dac2a:
+      - {month: 4}
+      - {month: 6}
+      - {month: 9}
+      - {month: 12}
+    oecd_dac2b:
+      - {month: 4}
+      - {month: 6}
+      - {month: 9}
+      - {month: 12}
+    oecd_multisystem:
+      - {month: 12}
+
 models:
   dfo_pipelines:
     dfo:
