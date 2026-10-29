@@ -546,10 +546,7 @@ models:
           - not_null
       - name: partial_observation_date
         data_type: string
-        description: >
-          The newest year, as an ISO 8601 year, until both the CRS and Members'
-          Total Use files are dated on or after 1 December of the following
-          year. Null once both are held.
+        description: Year the import holds only part of the source's data for, as an ISO 8601 year; null when no year is partial
         data_tests:
           - partial_year_matches_reporter_coverage:
               arguments:
