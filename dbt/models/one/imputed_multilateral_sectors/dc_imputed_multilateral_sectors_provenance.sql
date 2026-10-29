@@ -43,12 +43,11 @@ extraction as (
         ) as imported_source_release_date,
         strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
             as access_date,
-        -- CRS and Members' Total Use each have their own publication cycle
-        -- (next_oecd_release_date, next_multisystem_release_date); the source
-        -- next in line is whichever of the two comes first.
+        -- CRS and Members' Total Use each have their own release calendar;
+        -- the source next in line is whichever of the two comes first.
         least(
-            {{ next_oecd_release_date('metadata.crs_release_date') }},
-            {{ next_multisystem_release_date('metadata.multisystem_release_date') }}
+            {{ next_source_release_date('oecd_dac_crs', 'metadata.crs_release_date') }},
+            {{ next_source_release_date('oecd_multisystem', 'metadata.multisystem_release_date') }}
         ) as next_source_release_date
     from metadata
 ),
