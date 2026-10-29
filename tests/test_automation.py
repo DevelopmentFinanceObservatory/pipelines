@@ -211,10 +211,13 @@ DFO_SKILLS_ASSET_KEYS = {
     dg.AssetKey("dfo_skills_dc_export"),
 }
 
-DFO_SHARED_LICENSE_TYPES_KEY = dg.AssetKey(["dfo_shared", "license_types"])
+DFO_SHARED_SEED_KEYS = {
+    dg.AssetKey(["dfo_shared", "license_types"]),
+    dg.AssetKey(["dfo_shared", "properties"]),
+}
 DFO_SHARED_EXPORT_KEY = dg.AssetKey("dfo_shared_dc_export")
 
-DFO_SHARED_ASSET_KEYS = {DFO_SHARED_LICENSE_TYPES_KEY, DFO_SHARED_EXPORT_KEY}
+DFO_SHARED_ASSET_KEYS = {*DFO_SHARED_SEED_KEYS, DFO_SHARED_EXPORT_KEY}
 
 CRS_PARENT_KEYS = SHARED_MAPPING_KEYS | {CRS_RAW_METADATA_KEY}
 
@@ -773,11 +776,9 @@ def test_code_mapping_is_requested_once_its_parents_are_materialized() -> None:
     assert requested_counts == {CODE_MAPPING_KEY.to_user_string(): 1}
 
 
-def test_shared_export_is_requested_when_the_license_types_seed_updates() -> None:
-    """Test a re-seeded licence types table rebuilds the shared export"""
-    requested_counts = _requested_counts(
-        {DFO_SHARED_EXPORT_KEY}, {DFO_SHARED_LICENSE_TYPES_KEY}
-    )
+def test_shared_export_is_requested_when_its_seeds_update() -> None:
+    """Test re-seeded shared tables rebuild the shared export"""
+    requested_counts = _requested_counts({DFO_SHARED_EXPORT_KEY}, DFO_SHARED_SEED_KEYS)
 
     assert requested_counts == {DFO_SHARED_EXPORT_KEY.to_user_string(): 1}
 

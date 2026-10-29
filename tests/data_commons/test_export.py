@@ -761,12 +761,27 @@ def test_export_bundle_writes_a_mapped_provenance_value(
     assert "deflator_base_year" not in provenance
 
 
+def test_export_bundle_leaves_off_a_mapped_provenance_property_holding_null(
+    tmp_path: Path,
+) -> None:
+    """Test a mapped provenance column holding NULL writes no arc for its property"""
+    out_dir = export_with_provenance_column(
+        tmp_path,
+        column="partial_observation_date",
+        value_sql="null::varchar",
+        property_name="partialObservationDate",
+    )
+
+    provenance = (out_dir / "provenance.mcf").read_text()
+    assert "partialObservationDate" not in provenance
+    assert "partial_observation_date" not in provenance
+
+
 @pytest.mark.parametrize(
     "value_sql",
     [
         pytest.param("date '2026-09-22'", id="date"),
         pytest.param("timestamp '2026-09-22 10:00:00'", id="timestamp"),
-        pytest.param("null::varchar", id="null"),
         pytest.param("true", id="boolean"),
         pytest.param("2024.5::double", id="float"),
     ],

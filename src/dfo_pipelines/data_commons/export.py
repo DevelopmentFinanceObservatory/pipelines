@@ -123,8 +123,9 @@ class ExportSpec:
         provenance_column_to_property: Maps a provenance model column to an
             ontology property `add_provenance` has no keyword argument for, e.g.
             `deflator_base_year` to `deflatorBaseYear`. The column must hold an
-            integer or a string; `export_bundle` raises `ValueError` for anything
-            else, since `add_provenance` writes the value into the MCF as given.
+            integer, a string or NULL, which leaves the property off;
+            `export_bundle` raises `ValueError` for anything else, since
+            `add_provenance` writes the value into the MCF as given.
             Every other provenance column must be an `add_provenance` keyword.
 
     Raises:
@@ -287,8 +288,9 @@ def export_bundle(
             f"{spec.provenance_model} lacks the mapped columns {sorted(missing)}"
         )
     mapped_properties = {
-        property_name: _provenance_property_value(column, provenance.pop(column))
+        property_name: _provenance_property_value(column, value)
         for column, property_name in spec.provenance_column_to_property.items()
+        if (value := provenance.pop(column)) is not None
     }
     recipe = (
         {}

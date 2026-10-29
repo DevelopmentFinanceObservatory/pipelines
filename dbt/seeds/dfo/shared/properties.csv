@@ -1,0 +1,2 @@
+dcid,name,description,domain,range
+dcid:partialObservationDate,partial observation date,"A year the source is still collecting, so totals across reporters for it are incomplete.",dcid:Provenance,schema:Text
