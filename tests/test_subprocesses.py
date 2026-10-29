@@ -20,9 +20,7 @@ def messages_from_running(code: str) -> list[str]:
 @pytest.mark.parametrize("stream", ["stdout", "stderr"])
 def test_run_logged_logs_a_stream_with_output(stream: str) -> None:
     """Test a stream's output reaches the run log, and the other, empty one does not"""
-    messages = messages_from_running(
-        f"import sys; print('printed', file=sys.{stream})"
-    )
+    messages = messages_from_running(f"import sys; print('printed', file=sys.{stream})")
 
     assert "printed" in messages
     assert "" not in messages
