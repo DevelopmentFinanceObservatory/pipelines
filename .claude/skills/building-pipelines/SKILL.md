@@ -1,6 +1,6 @@
 ---
 name: building-pipelines
-description: Build, change or review a data pipeline in DevelopmentFinanceObservatory/pipelines, from a source nobody has ingested yet through to a Data Commons import bundle. Covers what has to be settled before any code, the Dagster asset chain, the stg/int/dc dbt layering, the layered pull request stack, the CI gates, the traps that have cost real time, and how to review a pull request there. Use when adding or changing a pipeline in that repository, or reviewing a pull request that touches one.
+description: Build, change or review a data pipeline in this repository, from a source nobody has ingested yet through to a Data Commons import bundle. Covers what has to be settled before any code, the Dagster asset chain, the stg/int/dc dbt layering, the layered pull request stack, the CI gates, the traps that have cost real time, and how to review a pull request. Use when adding or changing a pipeline, or reviewing a pull request that touches one.
 ---
 
 # Building and reviewing DFO pipelines
