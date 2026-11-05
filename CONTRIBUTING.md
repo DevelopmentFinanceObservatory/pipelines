@@ -12,7 +12,7 @@ Questions about the data are best raised on the website, where the team can tria
 | request a new source or dataset                                                        | "Submit Request" on the [roadmap](https://developmentfinance.org/data/roadmap)                   |
 | report a bug or failing step in a pipeline, a setup problem, or an error in these docs | an issue in this repository                                                                      |
 | report a problem with a concept, property or code list in the ontology                 | an issue in the [ontology repository](https://github.com/DevelopmentFinanceObservatory/ontology) |
-| improve an agent skill                                                                 | an issue in the [skills repository](https://github.com/DevelopmentFinanceObservatory/skills)     |
+| improve a skill for using DFO data                                                     | an issue in the [skills repository](https://github.com/DevelopmentFinanceObservatory/skills)     |
 
 ## Contributing code
 
