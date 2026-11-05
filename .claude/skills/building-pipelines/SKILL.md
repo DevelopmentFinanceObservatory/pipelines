@@ -15,7 +15,7 @@ Read `references/layers.md` when splitting the work into pull requests, and `ref
 
 A pipeline is built from decisions made before any code: the model (StatVars, constraints, provenance) and the build choices (source and dataset names, how a new release is detected, how provenance dates are set, which conversion recipe applies, which quality checks run). If you find yourself deciding a modelling question while writing SQL, stop: it belongs with those decisions, where someone can disagree with it.
 
-Every node the pipeline references, such as the population type, measurement method, each constraint property and the Source node, has to exist in the ontology before the bundle means anything. No test enforces this, so the build passes and publishes dcids that resolve to nothing.
+Every node the pipeline references, such as the population type, measurement method, each constraint property and the Source node, has to be defined before the bundle means anything: in the bundle itself, the DFO ontology, the shared nodes or base Data Commons. No test enforces this, so the build passes and publishes dcids that resolve to nothing.
 
 ## Rules the code does not show
 
