@@ -36,7 +36,7 @@ The source asset exists so the chain reruns when the publisher republishes rathe
 
 An asset that reads its upstream's value takes it by parameter name, so Dagster wires `<source>_<dataset>_raw_table(<source>_<dataset>_raw_file: str)` without an import. One that only needs to run after its upstream declares it in `deps`.
 
-Every automated Python asset uses `automation_condition=EAGER_WHEN_CHECKS_PASS` from `defs/automation.py`, and every Python asset check sets `blocking=True`. dbt models get the same condition through `dbt_ingest/defs.yaml`. Plain `eager()` ignores a failed check on the next tick, so bad data flows on.
+Automated Python assets use the conditions in `defs/automation.py`: `EAGER_WHEN_CHECKS_PASS`, or for an export `EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS` with `code_version` set from the spec's `documentation_version`, so a docs change re-exports. Every Python asset check sets `blocking=True`. dbt models get the same condition through `dbt_ingest/defs.yaml`. Plain `eager()` ignores a failed check on the next tick, so bad data flows on.
 
 The ingestion is the exception: it declares no automation condition, because an ingest rewrites the shared graph. It takes the bundle directory the export returns as its value, and depends on `dfo_ontology_dc_ingestion` and `dfo_shared_dc_ingestion`, since the bundle links to their nodes. Ingest those first, and never ingest a bundle whose dcids are not yet defined: the graph accepts it and the references dangle.
 
@@ -58,7 +58,7 @@ One directory, `dbt/models/<source>/<dataset>/`, layered:
 - `stg_<dataset>.sql` casts the columns the pipeline consumes and nothing else. Narrow `sources.yml` to those columns.
 - `int_<dataset>_resolved.sql` resolves source codes to ontology dcids through `ref("code_mapping")`.
 - One or more `int_<dataset>_<step>.sql` models reach the published grain and map onto Data Commons vocabulary, minting the StatVar dcid through `mint_statvar_dcid`.
-- `dc_<dataset>_statvars.sql`, `dc_<dataset>_observations.sql`, `dc_<dataset>_provenance.sql` are what the export reads.
+- A statvars model, one or more observations models and a provenance model, plus a source model where the pipeline defines its Source, are what the export reads.
 
 Every model declares a contract, and every column carries `not_null` unless it can legitimately be null, in which case its description says why. `+schema: <source>_<dataset>` in `dbt_project.yml` is mandatory: `generate_schema_name.sql` raises a compiler error for any model without one.
 

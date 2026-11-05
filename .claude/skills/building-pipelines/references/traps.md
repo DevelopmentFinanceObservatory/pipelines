@@ -92,7 +92,7 @@ Mint the StatVar dcid in one model and carry it through. Joining back on the col
 
 `mint_statvar_dcid` never reads it, so a measurement method belongs on the observation, not in the StatVar's identity. Keeping it off the identity means the series is not reminted when the production method changes.
 
-Every property column the observation CSV carries must appear in `ExportSpec.observation_property_to_column`, measurementMethod included, or dcp-tools drops it from the bundle without error.
+Every property column the observation CSV carries must appear in the `property_to_column` of its `ObservationInput` in `ExportSpec.observation_inputs`, measurementMethod included, or dcp-tools drops it from the bundle without error.
 
 ## CI
 

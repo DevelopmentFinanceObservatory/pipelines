@@ -4,7 +4,7 @@ Use the layer names below verbatim: a reviewer recognises "entity resolution lay
 
 These layers are for a statistical pipeline. A pipeline that publishes only nodes has no dbt models, so it needs fewer layers, cut by the same rule.
 
-Each layer automates what it adds, and adds its assets and models to the README automation section, so every merged layer runs on its own.
+Each layer automates what it adds, and adds its assets and models to automation, so every merged layer runs on its own.
 
 Each layer is one issue and one pull request.
 
@@ -42,7 +42,7 @@ A unit test asserting the minted StatVar dcid as a literal string belongs here. 
 
 ## 6. DC schema mapping layer
 
-The three `dc_*` models and the rest of the unit tests.
+The `dc_*` models and the rest of the unit tests.
 
 The provenance model reads the metadata table from layer 2 and is where the Source dcid, the license and the release calendar live.
 
@@ -54,11 +54,11 @@ The StatVar model carries the source's indicator codes as `sourceIndicatorCode`,
 
 ## 8. Export to MCF/CSV
 
-The `ExportSpec` and export asset with its automation test. The export returns the bundle directory as its value.
+The `ExportSpec` and export asset with its automation test. The export returns the bundle directory as its value. `conversion_recipe` has no default: set a recipe or `None` explicitly, since dfo-apis converts nothing from a provenance without one.
 
 ## 9. DCP ingestion step
 
-The ingestion asset, a test that runs the export and the ingestion together with `ingest_bundle` patched and checks the bundle path and import name it receives, and the README line saying it runs by hand.
+The ingestion asset, a test that runs the export and the ingestion together with `ingest_bundle` patched and checks the bundle path and import name it receives, and a docstring saying it runs by hand.
 
 ## Mechanics
 
