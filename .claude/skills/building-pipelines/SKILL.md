@@ -1,6 +1,6 @@
 ---
 name: building-pipelines
-description: Build, change or review a data pipeline in DevelopmentFinanceObservatory/pipelines, from a source nobody has ingested yet through to a Data Commons import bundle. Covers the modelling and ontology work the team does before any code, the Dagster asset chain, the stg/int/dc dbt layering, the layered pull request stack, the CI gates, the traps that have cost real time, and how to review a pull request there. Use when adding or changing a pipeline in that repository, or reviewing a pull request that touches one.
+description: Build, change or review a data pipeline in DevelopmentFinanceObservatory/pipelines, from a source nobody has ingested yet through to a Data Commons import bundle. Covers what has to be settled before any code, the Dagster asset chain, the stg/int/dc dbt layering, the layered pull request stack, the CI gates, the traps that have cost real time, and how to review a pull request there. Use when adding or changing a pipeline in that repository, or reviewing a pull request that touches one.
 ---
 
 # Building and reviewing DFO pipelines
@@ -11,16 +11,11 @@ Some pipelines publish only nodes, with no observations, such as the DFO ontolog
 
 Read `references/layers.md` for what each layer owns, `references/traps.md` before writing code, and `references/verification.md` before claiming anything passes. When reviewing, start at [Reviewing a pull request](#reviewing-a-pull-request).
 
-## Order of work
+## Before building
 
-**Modelling, then ontology, then pipeline.** The team's process puts two steps before the code, and skipping them produces a pipeline that builds green and publishes dcids that resolve to nothing. Every reference this pipeline emits — population type, measurement method, every constraint property, the Source node in the provenance — has to exist in the concept store before a bundle means anything. None of that is enforced by any test, so the build passes either way and the failure appears only after publication.
+A pipeline is built from decisions made before any code: the model (StatVars, constraints, provenance) and the build choices (source and dataset names, how a new release is detected, how provenance dates are set, which conversion recipe applies, which quality checks run). If you find yourself deciding a modelling question while writing SQL, stop: it belongs with those decisions, where someone can disagree with it.
 
-Before writing code:
-
-1. **A Drive folder and a Pipeline Specification.** Copy the shape of the existing ones. The specification is where the source's grain, its revision behaviour, its known quality problems and its StatVar identity get settled, and it is the artifact the rest of the team reviews.
-2. **Ontology notes**, naming every node to mint or widen, with the reasoning. Send these to whoever owns the concept store and let them land first. A node that turns out to need a different shape is cheap to change before the models hardcode it and expensive after.
-
-Then build. If you find yourself deciding modelling questions while writing SQL, stop: that decision belongs in the specification, where someone can disagree with it.
+Every node the pipeline references, such as the population type, measurement method, each constraint property and the Source node, has to exist in the ontology before the bundle means anything. No test enforces this, so the build passes and publishes dcids that resolve to nothing.
 
 ## The asset chain
 
@@ -54,7 +49,7 @@ A pipeline that publishes only nodes keeps what makes any pipeline safe to autom
 - blocking checks and `EAGER_WHEN_CHECKS_PASS`
 - a `<source>_<dataset>_dc_export` that writes its own import
 
-It skips what only statistical data needs: the StatVar identity in the specification, the stg/int/dc dbt layering, and the observation CSVs. Its raw step often stores a directory rather than a file, and its export writes MCF nodes directly. Model it on the existing node pipeline closest to it, not on the statistical chain.
+It skips what only statistical data needs: the StatVar identity, the stg/int/dc dbt layering, and the observation CSVs. Its raw step often stores a directory rather than a file, and its export writes MCF nodes directly. Model it on the existing node pipeline closest to it, not on the statistical chain.
 
 ## The dbt layering
 

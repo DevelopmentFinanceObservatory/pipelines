@@ -6,7 +6,7 @@ These layers are for a statistical pipeline. A pipeline that publishes only node
 
 Each layer automates what it adds, and adds its assets and models to the README automation section, so every merged layer runs on its own.
 
-Each layer is one issue and one pull request. Open an epic first, `Build <dataset> pipeline`, with a task list of the layers, then the layer issues under it. Layer issue bodies are an imperative sentence, a bullet list of concrete deliverables naming real assets, models and checks, then a bare closing sentence: `Done when <observable outcome>, and the code is merged to the dev branch.` No `### Done when` heading; that shape belongs to bug issues.
+Each layer is one issue and one pull request.
 
 ## 1. Extraction step
 
