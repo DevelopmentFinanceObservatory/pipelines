@@ -1,11 +1,20 @@
 # AGENTS.md
 
+## Making Changes
+
+- Run every step of every job in `.github/workflows/ci.yml` from a script, against a DuckDB file of its own for each worktree, deleted before each run. CI runs a bare `dbt build`, and a narrowed `--select` proves less than it appears to.
+- After renaming or moving dbt models, run `dbt parse --warn-error`. dbt drops the tests of a `models.yml` entry and the config of a `dbt_project.yml` path that no longer match a model, with only a warning.
+- Prove each new test by breaking the code it covers: make the smallest change that makes its claim false, watch it fail, restore, and watch it pass. A contract can stop the mutated model building, so rebuild everything downstream before running the test.
+- Changes to pipelines follow the `building-pipelines` skill in `.claude/skills/`.
+
 ## Code Review Rules
 
 This section covers how to review a pull request in this repo.
 
 - Verify all findings before commenting
 - Drop low-priority findings that will be made irrelevant by higher-priority findings
+- Report blocking findings apart from the rest, each with the concrete failure it causes
+- When responding to a review, answer every finding with a fix, a reasoned decline, or why it is a false positive
 
 The following sections are in roughly priority order.
 

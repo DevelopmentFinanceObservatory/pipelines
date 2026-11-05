@@ -36,10 +36,6 @@ Date-partitioned paths are keyed to the day rather than the run. Clear the parti
 
 CI runs a bare `dbt build` with no `--select`. Run that. Narrowing needs `--indirect-selection=cautious` to mean anything, and even then proves less.
 
-### dbt drops tests and config with only a warning
-
-A `models.yml` entry whose name no longer matches a model drops that model's tests, and a `dbt_project.yml` path that matches no model drops its config. Either way `dbt build` prints a warning and exits 0. After renaming or moving models, run `dbt parse --warn-error`, which fails on both.
-
 ### Left joins are load-bearing and unguarded by default
 
 Every join to `code_mapping` is a left join so an unmapped code yields a null that `not_null` catches. Nothing enforces that: an inner join drops the unmapped rows instead, and every test still passes. Add `dbt_utils.equal_rowcount` against the upstream model. It catches fan-out too, from any mapping with more than one row per code.
