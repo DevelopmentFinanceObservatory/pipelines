@@ -15,6 +15,7 @@ This section covers how to review a pull request in this repo.
 - Drop low-priority findings that will be made irrelevant by higher-priority findings
 - Report blocking findings apart from the rest, each with the concrete failure it causes
 - When responding to a review, answer every finding with a fix, a reasoned decline, or why it is a false positive
+- For a pull request that touches a pipeline (`src/dfo_pipelines/defs/`, `dbt/`), also check it against `.claude/skills/building-pipelines/references/traps.md`, and that it holds only what its layer owns in `.claude/skills/building-pipelines/references/layers.md`
 
 The following sections are in roughly priority order.
 

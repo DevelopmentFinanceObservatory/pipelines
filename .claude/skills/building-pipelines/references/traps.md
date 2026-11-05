@@ -34,11 +34,9 @@ Date-partitioned paths are keyed to the day rather than the run. Clear the parti
 
 `dbt build --select +path:models/<source>/<dataset>` on a fresh database fails on other pipelines' tests whatever your code does. dbt's default indirect test selection is eager, so selecting `code_mapping` as an upstream pulls in every test that refers to it, including tests on models outside the selection that never get built. The run fails on models you did not touch, which trains you to read failures as noise.
 
-CI runs a bare `dbt build` with no `--select`. Run that. Narrowing needs `--indirect-selection=cautious` to mean anything, and even then proves less.
-
 ### Left joins are load-bearing and unguarded by default
 
-Every join to `code_mapping` is a left join so an unmapped code yields a null that `not_null` catches. Nothing enforces that: an inner join drops the unmapped rows instead, and every test still passes. Add `dbt_utils.equal_rowcount` against the upstream model. It catches fan-out too, from any mapping with more than one row per code.
+Every join that resolves a source row's codes through `code_mapping` is a left join, so an unmapped code yields a null that `not_null` catches. Nothing enforces that: an inner join drops the unmapped rows instead, and every test still passes. Add `dbt_utils.equal_rowcount` against the upstream model. It catches fan-out too, from any mapping with more than one row per code.
 
 ### Filters and NULLs hide what they drop
 
@@ -58,7 +56,7 @@ A seed referenced only from tests, such as a codelist for a relationship test, i
 
 ### `union all by name` is strict on BigQuery
 
-DuckDB fills a missing column with NULL; BigQuery refuses. Select every column on both sides, casting NULL where one side has none.
+Deployed runs use BigQuery. DuckDB fills a missing column with NULL; BigQuery refuses. Select every column on both sides, casting NULL where one side has none.
 
 ## Data Commons export
 
@@ -72,13 +70,13 @@ Nothing tests the dcids the models write as literals, such as a measured propert
 
 Data Commons assigns an observation's entities by sorting their property names, so a blank entity shifts the next one into its slot and the import succeeds with the wrong data. Test every entity column with `not_null`.
 
-### Each import owns its name and its provenance
+### Each import owns its provenance
 
-`importName` decides where the bundle is stored, so two imports sharing one overwrite each other. An ingest deletes every edge carrying the import's provenance, so a file attributed to the wrong provenance is deleted by another pipeline's refresh.
+An ingest deletes every edge carrying the import's provenance, so a file attributed to the wrong provenance is deleted by another pipeline's refresh.
 
 ### Encode free text in MCF
 
-MCF has no escape for a quote, so a quoted value ends at the next quote, and dcp-tools deletes line breaks from every value. Encode free text before writing it, and test the encoding with quotes, a trailing backslash and several lines.
+MCF has no escape for a quote, so a quoted value ends at the next quote, and dcp-tools deletes line breaks from every value. Encode free text with `escape_markdown` in `data_commons/mcf.py`, and test the encoding with quotes, a trailing backslash and several lines.
 
 ### Mint the dcid once
 
