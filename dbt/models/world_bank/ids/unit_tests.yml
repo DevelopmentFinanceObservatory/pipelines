@@ -5,7 +5,10 @@ unit_tests:
     description: >
       Every source column reaches the output column it stands for, trimmed and
       cast. Padding is included because production source data pads Country Code
-      on every row, and Counterpart-Area Name and Series Code on some. Two
+      on every row, and Counterpart-Area Name and Series Code on some. The
+      bulk files store some Counterpart-Area Code cells as numbers, so the
+      Zambia row's "2" must come out zero-padded as "002", as stored in the
+      Afghanistan row. Two
       source rows, so that rows are shown to be handled independently rather
       than only the first surviving, and a zero value, so that "no value" stays
       distinct from "zero".
@@ -23,7 +26,7 @@ unit_tests:
           - "Country Code": "ZMB       "
             "Country Name": "Zambia"
             "Counterpart-Area Name": "Belgium"
-            "Counterpart-Area Code": "002"
+            "Counterpart-Area Code": "2"
             "Series Name": "Debt service, bilateral"
             "Series Code": "DT.TDS.BLAT.CD"
             "2023": "10"

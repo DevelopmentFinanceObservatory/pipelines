@@ -5,7 +5,15 @@ with unpivoted as (
         trim("Country Code") as country_code,
         trim("Country Name") as country_name,
         trim("Counterpart-Area Name") as counterpart_name,
-        trim("Counterpart-Area Code") as counterpart_code,
+        -- Counterpart codes are three-digit strings ("004"), but the bulk XLSX
+        -- files store some cells as numbers, which arrive as "4". Restore the
+        -- zero padding so both forms resolve to the same creditor. Letter codes
+        -- such as WLD pass through.
+        case
+            when regexp_full_match(trim("Counterpart-Area Code"), '[0-9]{1,2}')
+                then lpad(trim("Counterpart-Area Code"), 3, '0')
+            else trim("Counterpart-Area Code")
+        end as counterpart_code,
         trim("Series Name") as series_name,
         trim("Series Code") as series_code
     from (  -- unpivot drops rows with NULL value automatically
