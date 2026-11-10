@@ -396,3 +396,299 @@ models:
           USD at the OECD DAC exchange rate
         data_tests:
           - not_null
+
+  - name: int_climate_finance_aggregated
+    description: >
+      The three climate finance imports at their published grain, in one shape:
+      ONE Data's figures summed over the Bi_Multi code, the OECD's commitments
+      summed per year, provider and recipient, and the UNFCCC totals summed over
+      the type of funding. Materialized because it aggregates over every source
+      row.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - import_name
+              - family
+              - flow
+              - method
+              - attribution
+              - year
+              - financing_provider
+              - financing_recipient
+    columns:
+      - name: import_name
+        data_type: string
+        description: >
+          The import the figure belongs to: one_climate_finance, oecd_crdf or
+          unfccc_btr
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [one_climate_finance, oecd_crdf, unfccc_btr]
+      - name: family
+        data_type: string
+        description: >
+          received, finance measured as the amount a provider gives, or
+          provided, a provider's attributed share of multilateral finance
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [received, provided]
+      - name: flow
+        data_type: string
+        description: commitments, or gross disbursements
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [commitments, disbursements]
+      - name: method
+        data_type: string
+        description: >
+          The weighting, ONE Data's (ONE) or the OECD's full value (OECD). Null
+          for the UNFCCC totals, which the parties estimate themselves.
+      - name: attribution
+        data_type: string
+        description: >
+          How a provider's core contributions to multilaterals are attributed
+          to it: by the multilateral's climate spending share (contributions) or
+          by the OECD's outflow shares (outflows). Null for the OECD's and the
+          UNFCCC figures.
+      - name: year
+        data_type: integer
+        description: Year of the commitment or disbursement
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the recipient. Null for the UNFCCC totals, which cover every recipient.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: value
+        data_type: decimal(38,12)
+        description: Climate finance, current USD
+        data_tests:
+          - not_null
+      - name: adaptation
+        data_type: decimal(38,12)
+        description: >
+          The part counted towards adaptation, current USD. Under the OECD's
+          full value it includes the cross-cutting part. Null for the UNFCCC
+          totals.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: mitigation
+        data_type: decimal(38,12)
+        description: >
+          The part counted towards mitigation, current USD. Under the OECD's
+          full value it includes the cross-cutting part. Null for the UNFCCC
+          totals.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: cross_cutting
+        data_type: decimal(38,12)
+        description: >
+          The part counted towards both adaptation and mitigation, current USD.
+          Null for the UNFCCC totals.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: unsplit
+        data_type: decimal(38,12)
+        description: >
+          The attributed part with no split by objective, current USD. Null for
+          the UNFCCC totals.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: no_adaptation_marker
+        data_type: decimal(38,12)
+        description: >
+          The part of value with no adaptation marker, held in mitigation,
+          current USD. Null for the UNFCCC totals.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+
+  - name: int_climate_finance_mapped
+    description: >
+      The three climate finance imports mapped onto the Data Commons
+      vocabulary, one row per figure and climate change policy objective, with
+      minted StatVar DCIDs and names. Materialized because the observation
+      models and several tests read it.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - import_name
+              - statvar_dcid
+              - financing_provider
+              - financing_recipient
+              - year
+              - measurement_method
+    columns:
+      - name: import_name
+        data_type: string
+        description: >
+          The import the observation belongs to: one_climate_finance, oecd_crdf
+          or unfccc_btr
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [one_climate_finance, oecd_crdf, unfccc_btr]
+      - name: statvar_dcid
+        data_type: string
+        description: DCID of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: statvar_name
+        data_type: string
+        description: Human-readable name of the StatVar this observation measures
+        data_tests:
+          - not_null
+      - name: population_type
+        data_type: string
+        description: >
+          DCID of the population the StatVar measures, FinancialObligation for
+          commitments and FinancialFlow for disbursements
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["dcid:FinancialObligation", "dcid:FinancialFlow"]
+      - name: measured_property
+        data_type: string
+        description: >
+          DCID of the property measured: amount for finance received and the
+          UNFCCC totals, attributedAmount for finance provided
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["dcid:amount", "dcid:attributedAmount"]
+      - name: stat_type
+        data_type: string
+        description: DCID of the statistic type, measuredValue throughout
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: The properties that constrain the StatVar, in the order its DCID lists them
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, Gross for disbursements, null for commitments
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialFlow'"
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type, Disbursement for disbursements, null for commitments
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialFlow'"
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type, Commitment for commitments, null for disbursements
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialObligation'"
+      - name: climate_policy_objective
+        data_type: string
+        description: >
+          DCID of the climate change policy objective the finance is counted
+          towards: the total, or one of its four disjoint parts
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - dcid:ClimateChangePolicyObjective
+                  - dcid:AdaptationOnlyClimateChangePolicyObjective
+                  - dcid:MitigationOnlyClimateChangePolicyObjective
+                  - dcid:CrossCuttingClimateChangePolicyObjective
+                  - dcid:UnspecifiedClimateChangePolicyObjective
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID of the measurement qualifier, Nominal throughout
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          DCID of the measurement method: the weighting, marker assignment and,
+          for finance provided, attribution rule that produced the figure, or
+          Estimated for the UNFCCC totals
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - dcid:MarkerScoreWeightingHighestMarkerAssignment
+                  - dcid:FullValueMarkerWeightingJointMarkerAssignment
+                  - dcid:MarkerScoreWeightingHighestMarkerAssignmentSpendingShareAttribution
+                  - dcid:MarkerScoreWeightingHighestMarkerAssignmentFundingShareAttribution
+                  - dcid:FullValueMarkerWeightingJointMarkerAssignmentSpendingShareAttribution
+                  - dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution
+                  - dcid:Estimated
+      - name: financing_provider
+        data_type: string
+        description: DCID of the provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: DCID of the recipient. Null for the UNFCCC totals, which cover every recipient.
+        data_tests:
+          - not_null:
+              config:
+                where: "import_name != 'unfccc_btr'"
+      - name: unit
+        data_type: string
+        description: DCID of the unit, CurrencyUSD throughout
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year of the commitment or disbursement
+        data_tests:
+          - not_null
+      - name: value
+        data_type: decimal(38,12)
+        description: Climate finance counted towards the objective, current USD, unrounded
+        data_tests:
+          - not_null

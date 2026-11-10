@@ -1,0 +1,698 @@
+unit_tests:
+  - name: aggregated_sums_each_import_over_its_summed_dimension
+    model: int_climate_finance_aggregated
+    description: >
+      Summing is this model's purpose: ONE Data's figures over the Bi_Multi
+      code, the OECD's over the Bi_Multi code, and the UNFCCC totals over the
+      type of funding. Two rows differing only in that dimension collapse into
+      one row holding their sum in every amount, not a max, min or first value,
+      while a row in another group is left alone. The UNFCCC status picks the
+      flow.
+    given:
+      - input: ref('int_climate_finance_spending_resolved')
+        rows:
+          - {
+              family: received,
+              flow: commitments,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              bi_multi: 1,
+              value: 10,
+              adaptation: 1,
+              mitigation: 2,
+              cross_cutting: 3,
+              unsplit: 4,
+              no_adaptation_marker: 5,
+            }
+          - {
+              family: received,
+              flow: commitments,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              bi_multi: 4,
+              value: 20,
+              adaptation: 10,
+              mitigation: 20,
+              cross_cutting: 30,
+              unsplit: 40,
+              no_adaptation_marker: 50,
+            }
+          - {
+              family: received,
+              flow: commitments,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R2,
+              bi_multi: 1,
+              value: 7,
+              adaptation: 1,
+              mitigation: 1,
+              cross_cutting: 1,
+              unsplit: 1,
+              no_adaptation_marker: 1,
+            }
+      - input: ref('int_climate_finance_crdf_commitments_resolved')
+        rows:
+          - {
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              bi_multi: 1,
+              climate_usd: 5,
+              adaptation_usd: 3,
+              mitigation_usd: 4,
+              overlap_usd: 2,
+            }
+          - {
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              bi_multi: 6,
+              climate_usd: 50,
+              adaptation_usd: 30,
+              mitigation_usd: 40,
+              overlap_usd: 20,
+            }
+          - {
+              year: 2023,
+              financing_provider: P1,
+              financing_recipient: R1,
+              bi_multi: 1,
+              climate_usd: 9,
+              adaptation_usd: 9,
+              mitigation_usd: 0,
+              overlap_usd: 0,
+            }
+      - input: ref('int_climate_finance_btr_totals_resolved')
+        rows:
+          - {
+              party: AAA,
+              financing_provider: P1,
+              year: 2022,
+              status: committed,
+              funding: oda,
+              face_usd_at_dac: 100,
+            }
+          - {
+              party: AAA,
+              financing_provider: P1,
+              year: 2022,
+              status: committed,
+              funding: oof,
+              face_usd_at_dac: 200,
+            }
+          - {
+              party: AAA,
+              financing_provider: P1,
+              year: 2022,
+              status: disbursed,
+              funding: oda,
+              face_usd_at_dac: 40,
+            }
+    expect:
+      rows:
+        - {
+            import_name: one_climate_finance,
+            family: received,
+            flow: commitments,
+            method: ONE,
+            attribution: contributions,
+            year: 2022,
+            financing_provider: P1,
+            financing_recipient: R1,
+            value: 30,
+            adaptation: 11,
+            mitigation: 22,
+            cross_cutting: 33,
+            unsplit: 44,
+            no_adaptation_marker: 55,
+          }
+        - {
+            import_name: one_climate_finance,
+            family: received,
+            flow: commitments,
+            method: ONE,
+            attribution: contributions,
+            year: 2022,
+            financing_provider: P1,
+            financing_recipient: R2,
+            value: 7,
+            adaptation: 1,
+            mitigation: 1,
+            cross_cutting: 1,
+            unsplit: 1,
+            no_adaptation_marker: 1,
+          }
+        - {
+            import_name: oecd_crdf,
+            family: received,
+            flow: commitments,
+            method: OECD,
+            attribution: null,
+            year: 2022,
+            financing_provider: P1,
+            financing_recipient: R1,
+            value: 55,
+            adaptation: 33,
+            mitigation: 44,
+            cross_cutting: 22,
+            unsplit: 0,
+            no_adaptation_marker: 0,
+          }
+        - {
+            import_name: oecd_crdf,
+            family: received,
+            flow: commitments,
+            method: OECD,
+            attribution: null,
+            year: 2023,
+            financing_provider: P1,
+            financing_recipient: R1,
+            value: 9,
+            adaptation: 9,
+            mitigation: 0,
+            cross_cutting: 0,
+            unsplit: 0,
+            no_adaptation_marker: 0,
+          }
+        - {
+            import_name: unfccc_btr,
+            family: received,
+            flow: commitments,
+            method: null,
+            attribution: null,
+            year: 2022,
+            financing_provider: P1,
+            financing_recipient: null,
+            value: 300,
+            adaptation: null,
+            mitigation: null,
+            cross_cutting: null,
+            unsplit: null,
+            no_adaptation_marker: null,
+          }
+        - {
+            import_name: unfccc_btr,
+            family: received,
+            flow: disbursements,
+            method: null,
+            attribution: null,
+            year: 2022,
+            financing_provider: P1,
+            financing_recipient: null,
+            value: 40,
+            adaptation: null,
+            mitigation: null,
+            cross_cutting: null,
+            unsplit: null,
+            no_adaptation_marker: null,
+          }
+
+  - name: mapped_resplits_each_figure_by_its_marker_assignment
+    model: int_climate_finance_mapped
+    description: >
+      Under joint marker assignment (the OECD's full value, and the OECD's own
+      commitments) adaptation and mitigation each hold the cross-cutting part,
+      which comes out of both. Under highest-marker assignment (ONE Data's
+      weighting) they hold none of it, and nothing comes out. Finance with no
+      adaptation marker moves from mitigation to the unspecified part under
+      both. The two received rows describe the same finance under each method,
+      so their parts agree; a negative figure splits the same way. An
+      unspecified part that rounds to 0.00 is left out, and the UNFCCC total
+      has no parts.
+    given:
+      - input: ref('int_climate_finance_aggregated')
+        rows:
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              flow: commitments,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 100,
+              adaptation: 30,
+              mitigation: 50,
+              cross_cutting: 20,
+              unsplit: 0,
+              no_adaptation_marker: 10,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              flow: commitments,
+              method: OECD,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 100,
+              adaptation: 50,
+              mitigation: 70,
+              cross_cutting: 20,
+              unsplit: 0,
+              no_adaptation_marker: 10,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: provided,
+              flow: disbursements,
+              method: OECD,
+              attribution: outflows,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: -10,
+              adaptation: -6,
+              mitigation: -8,
+              cross_cutting: -4,
+              unsplit: 0,
+              no_adaptation_marker: -1,
+            }
+          - {
+              import_name: oecd_crdf,
+              family: received,
+              flow: commitments,
+              method: OECD,
+              attribution: null,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 100,
+              adaptation: 50,
+              mitigation: 70,
+              cross_cutting: 20,
+              unsplit: 0,
+              no_adaptation_marker: 0.004,
+            }
+          - {
+              import_name: unfccc_btr,
+              family: received,
+              flow: commitments,
+              method: null,
+              attribution: null,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: null,
+              value: 300,
+              adaptation: null,
+              mitigation: null,
+              cross_cutting: null,
+              unsplit: null,
+              no_adaptation_marker: null,
+            }
+      - input: ref('climate_finance_methods')
+        rows:
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              method: ONE,
+              attribution: contributions,
+              measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+              joint_marker_assignment: false,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              method: OECD,
+              attribution: contributions,
+              measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+              joint_marker_assignment: true,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: provided,
+              method: OECD,
+              attribution: outflows,
+              measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+              joint_marker_assignment: true,
+            }
+          - {
+              import_name: oecd_crdf,
+              family: received,
+              method: OECD,
+              attribution: null,
+              measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+              joint_marker_assignment: true,
+            }
+          - {
+              import_name: unfccc_btr,
+              family: received,
+              method: null,
+              attribution: null,
+              measurement_method: "dcid:Estimated",
+              joint_marker_assignment: null,
+            }
+      - input: ref('stat_type_mapping')
+        rows:
+          - { stat_type: measuredValue, dcid_segment: null }
+    expect:
+      rows:
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+            climate_policy_objective: "dcid:ClimateChangePolicyObjective",
+            value: 100,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+            climate_policy_objective: "dcid:AdaptationOnlyClimateChangePolicyObjective",
+            value: 30,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+            climate_policy_objective: "dcid:MitigationOnlyClimateChangePolicyObjective",
+            value: 40,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+            climate_policy_objective: "dcid:CrossCuttingClimateChangePolicyObjective",
+            value: 20,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+            climate_policy_objective: "dcid:UnspecifiedClimateChangePolicyObjective",
+            value: 10,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:ClimateChangePolicyObjective",
+            value: 100,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:AdaptationOnlyClimateChangePolicyObjective",
+            value: 30,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:MitigationOnlyClimateChangePolicyObjective",
+            value: 40,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:CrossCuttingClimateChangePolicyObjective",
+            value: 20,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:UnspecifiedClimateChangePolicyObjective",
+            value: 10,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+            climate_policy_objective: "dcid:ClimateChangePolicyObjective",
+            value: -10,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+            climate_policy_objective: "dcid:AdaptationOnlyClimateChangePolicyObjective",
+            value: -2,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+            climate_policy_objective: "dcid:MitigationOnlyClimateChangePolicyObjective",
+            value: -3,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+            climate_policy_objective: "dcid:CrossCuttingClimateChangePolicyObjective",
+            value: -4,
+          }
+        - {
+            import_name: one_climate_finance,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignmentFundingShareAttribution",
+            climate_policy_objective: "dcid:UnspecifiedClimateChangePolicyObjective",
+            value: -1,
+          }
+        - {
+            import_name: oecd_crdf,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:ClimateChangePolicyObjective",
+            value: 100,
+          }
+        - {
+            import_name: oecd_crdf,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:AdaptationOnlyClimateChangePolicyObjective",
+            value: 30,
+          }
+        - {
+            import_name: oecd_crdf,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:MitigationOnlyClimateChangePolicyObjective",
+            value: 49.996,
+          }
+        - {
+            import_name: oecd_crdf,
+            measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+            climate_policy_objective: "dcid:CrossCuttingClimateChangePolicyObjective",
+            value: 20,
+          }
+        - {
+            import_name: unfccc_btr,
+            measurement_method: "dcid:Estimated",
+            climate_policy_objective: "dcid:ClimateChangePolicyObjective",
+            value: 300,
+          }
+
+  - name: mapped_mints_the_statvars_as_literal_dcids_and_names
+    model: int_climate_finance_mapped
+    description: >
+      climatePolicyObjective is the last constraint, so ONE Data's and the
+      OECD's received commitments mint the same StatVar, dcid and name alike,
+      and the measurement method stays out of both. The UNFCCC totals carry the
+      AllRecipients segment before the qualifier and say "all recipients" in
+      their names, which keeps them apart from the per-recipient received
+      StatVars. Provided finance measures attributedAmount. constraint_properties
+      pins the keys the dcid does not read.
+    given:
+      - input: ref('int_climate_finance_aggregated')
+        rows:
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              flow: commitments,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 1,
+              adaptation: 1,
+              mitigation: 0,
+              cross_cutting: 0,
+              unsplit: 0,
+              no_adaptation_marker: 0,
+            }
+          - {
+              import_name: oecd_crdf,
+              family: received,
+              flow: commitments,
+              method: OECD,
+              attribution: null,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 1,
+              adaptation: 1,
+              mitigation: 0,
+              cross_cutting: 0,
+              unsplit: 0,
+              no_adaptation_marker: 0,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: provided,
+              flow: disbursements,
+              method: ONE,
+              attribution: contributions,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: R1,
+              value: 1,
+              adaptation: 0,
+              mitigation: 1,
+              cross_cutting: 0,
+              unsplit: 0,
+              no_adaptation_marker: 0,
+            }
+          - {
+              import_name: unfccc_btr,
+              family: received,
+              flow: commitments,
+              method: null,
+              attribution: null,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: null,
+              value: 1,
+              adaptation: null,
+              mitigation: null,
+              cross_cutting: null,
+              unsplit: null,
+              no_adaptation_marker: null,
+            }
+          - {
+              import_name: unfccc_btr,
+              family: received,
+              flow: disbursements,
+              method: null,
+              attribution: null,
+              year: 2022,
+              financing_provider: P1,
+              financing_recipient: null,
+              value: 1,
+              adaptation: null,
+              mitigation: null,
+              cross_cutting: null,
+              unsplit: null,
+              no_adaptation_marker: null,
+            }
+      - input: ref('climate_finance_methods')
+        rows:
+          - {
+              import_name: one_climate_finance,
+              family: received,
+              method: ONE,
+              attribution: contributions,
+              measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignment",
+              joint_marker_assignment: false,
+            }
+          - {
+              import_name: one_climate_finance,
+              family: provided,
+              method: ONE,
+              attribution: contributions,
+              measurement_method: "dcid:MarkerScoreWeightingHighestMarkerAssignmentSpendingShareAttribution",
+              joint_marker_assignment: false,
+            }
+          - {
+              import_name: oecd_crdf,
+              family: received,
+              method: OECD,
+              attribution: null,
+              measurement_method: "dcid:FullValueMarkerWeightingJointMarkerAssignment",
+              joint_marker_assignment: true,
+            }
+          - {
+              import_name: unfccc_btr,
+              family: received,
+              method: null,
+              attribution: null,
+              measurement_method: "dcid:Estimated",
+              joint_marker_assignment: null,
+            }
+      - input: ref('stat_type_mapping')
+        rows:
+          - { stat_type: measuredValue, dcid_segment: null }
+    expect:
+      format: dict
+      rows:
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_AdaptationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, adaptation only",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_MitigationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, mitigation only",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_CrossCuttingClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, adaptation and mitigation",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: oecd_crdf,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: oecd_crdf,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_AdaptationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, adaptation only",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: oecd_crdf,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_MitigationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, mitigation only",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: oecd_crdf,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_CrossCuttingClimateChangePolicyObjective_Nominal",
+            statvar_name: "Climate finance commitments, adaptation and mitigation",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:AttributedAmount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal",
+            statvar_name: "Attributed climate finance gross disbursements",
+            constraint_properties: "nettingBasis,financialFlowType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:AttributedAmount_FinancialFlow_Gross_Disbursement_AdaptationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Attributed climate finance gross disbursements, adaptation only",
+            constraint_properties: "nettingBasis,financialFlowType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:AttributedAmount_FinancialFlow_Gross_Disbursement_MitigationOnlyClimateChangePolicyObjective_Nominal",
+            statvar_name: "Attributed climate finance gross disbursements, mitigation only",
+            constraint_properties: "nettingBasis,financialFlowType,climatePolicyObjective",
+          }
+        - {
+            import_name: one_climate_finance,
+            statvar_dcid: "dcid:AttributedAmount_FinancialFlow_Gross_Disbursement_CrossCuttingClimateChangePolicyObjective_Nominal",
+            statvar_name: "Attributed climate finance gross disbursements, adaptation and mitigation",
+            constraint_properties: "nettingBasis,financialFlowType,climatePolicyObjective",
+          }
+        - {
+            import_name: unfccc_btr,
+            statvar_dcid: "dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_AllRecipients_Nominal",
+            statvar_name: "Climate finance commitments to all recipients",
+            constraint_properties: "financialObligationType,climatePolicyObjective",
+          }
+        - {
+            import_name: unfccc_btr,
+            statvar_dcid: "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_AllRecipients_Nominal",
+            statvar_name: "Climate finance gross disbursements to all recipients",
+            constraint_properties: "nettingBasis,financialFlowType,climatePolicyObjective",
+          }

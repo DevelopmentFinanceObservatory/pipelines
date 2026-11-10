@@ -135,6 +135,12 @@ seeds:
           dagster:
             group: imf_weo
     one:
+      climate_finance:
+        +schema: one_climate_finance
+        +quote_columns: true
+        +meta:
+          dagster:
+            group: one_climate_finance
       conversion_tables:
         +schema: one_conversion_tables
         +quote_columns: true
