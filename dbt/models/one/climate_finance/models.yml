@@ -1020,8 +1020,8 @@ models:
       - name: source_data_url
         data_type: string
         description: >
-          Comma-delimited URLs of the three sources the data is computed from,
-          the OECD's CRS and CRDF and the parties' Biennial Transparency Reports
+          Comma-delimited URLs of the OECD's CRS and CRDF and the parties'
+          Biennial Transparency Reports, which the data is computed from
         data_tests:
           - not_null
       - &oecd_license_column
