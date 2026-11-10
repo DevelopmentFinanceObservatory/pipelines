@@ -1,23 +1,23 @@
 {
   "release": "2026a-rc9",
-  "created_at": "2026-11-09T23:24:57.683173Z",
-  "release_json_sha256": "985697905d4987b70faf527b94f7ddace34a7821d6d048355655f8c138bf3463",
+  "created_at": "2026-11-10T14:28:44.071479Z",
+  "release_json_sha256": "a45bd63d7ffa7caf4d3134fa177c7f4318d71123b0ea513911a6349f87ecfda1",
   "pack_sha256": null,
   "package_commit": "efc1ddde3bf99d3e8e6ad787aaf916211d5049c9",
   "package_source_sha256": "46f165075d6c13e85719762a28713b61482a439bd682055dac1cba428a4ef857",
-  "exported_at": "2026-11-10T14:56:54.543599Z",
+  "exported_at": "2026-11-10T15:13:04.006860Z",
   "tables": {
     "spending": {
-      "sha256": "638c4c371bd451682aaba5ad67cd6c36ac89dd14f9056efe493c7b13d5dfcc83",
-      "rows": 6184
+      "sha256": "98d1eafca38a19b2f0937a8a65e7bc73b23a19b71cb71334a46aff2feb63a81b",
+      "rows": 6292
     },
     "crdf_commitments": {
-      "sha256": "50d381028cf031b19ada5831e5e70c9c256928d983939709f88aaea25915afc0",
-      "rows": 10723
+      "sha256": "1f715c6f1a9e0b79bfda390b5a2f192ef0a7b33882a46d2611b20ce94158ed9a",
+      "rows": 5968
     },
     "btr_totals": {
-      "sha256": "3ad958b0458ee2dd4119c892b74a11afc95737c43598eb888f96b1ea3820f6df",
-      "rows": 8
+      "sha256": "da21578417c804ec68daa62da4fc26f464e2a3118713fdfef377d53b634cd690",
+      "rows": 22
     }
   }
 }

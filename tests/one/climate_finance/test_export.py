@@ -118,7 +118,7 @@ def test_export_writes_tables_and_manifest_then_points_latest_at_them(
     manifest = _manifest(root)
     release_json = (RELEASE / "release.json").read_bytes()
     assert manifest.release == NAME
-    assert manifest.created_at.isoformat() == "2026-11-09T23:24:57.683173+00:00"
+    assert manifest.created_at.isoformat() == "2026-11-10T14:28:44.071479+00:00"
     assert manifest.release_json_sha256 == sha256_bytes(release_json)
     assert manifest.pack_sha256 is None
     assert manifest.package_source_sha256 == export_script.package_source_sha256()

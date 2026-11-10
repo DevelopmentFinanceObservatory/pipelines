@@ -20,11 +20,11 @@ pl = pytest.importorskip("polars")
 assert_frame_equal = pytest.importorskip("polars.testing").assert_frame_equal
 export_script = pytest.importorskip("scripts.export_climate_finance_release")
 spending = export_script.spending
-crdf_commitments = export_script.crdf_commitments
 
-# The cut holds Australia and Ireland, developed providers, IDA, a multilateral,
-# and the Gates Foundation, a private foundation.
-AUSTRALIA, IRELAND, IDA, GATES = 801, 21, 905, 1601
+# Providers in the cut (scripts/cut_climate_finance_fixture.py): developed
+# providers, a multilateral, a provider no developed provider contributes to, and a
+# private foundation.
+DENMARK, LUXEMBOURG, IDA, NO_CONTRIBUTOR, GATES = 3, 22, 905, 1045, 1601
 CORE_CONTRIBUTION = 2
 QUERY = ["family", "flow", "method", "attribution"]
 
@@ -62,9 +62,9 @@ def test_spending_holds_every_query_by_bi_multi(
 def test_spending_keeps_every_bi_multi_of_each_view(
     raw_tables: dict[str, Any],
 ) -> None:
-    """Test received holds bilateral rows and IDA's own outflows, and provided the
-    developed providers' bilateral rows beside their core contributions, with none
-    dropped or summed"""
+    """Test received holds bilateral rows and multilaterals' own outflows, and
+    provided the developed providers' bilateral rows beside their core
+    contributions, with none dropped or summed"""
     table = raw_tables["spending"]
     held = {
         family: set(table.filter(pl.col("family") == family)["bi_multi"])
@@ -78,8 +78,8 @@ def test_spending_keeps_every_bi_multi_of_each_view(
         for family in ("received", "provided")
     }
     assert providers == {
-        "received": {AUSTRALIA, IRELAND, IDA},
-        "provided": {AUSTRALIA, IRELAND},
+        "received": {DENMARK, LUXEMBOURG, IDA, NO_CONTRIBUTOR},
+        "provided": {DENMARK, LUXEMBOURG, None},
     }
 
 
@@ -102,14 +102,20 @@ def test_spending_keeps_the_package_objective_parts(
         "OECD": pytest.approx(0, abs=1e-3),
     }
     assert table.filter(pl.col("method") == "OECD")["cross_cutting"].sum() > 0
+    assert table["no_adaptation_marker"].sum() > 0
 
 
-def test_spending_leaves_only_unspread_contributions_without_a_recipient(
+def test_spending_keeps_rows_without_a_provider_or_recipient(
     raw_tables: dict[str, Any],
 ) -> None:
-    """Test only core contributions under the spending share lack a recipient, and
-    recipient 998 stays as the package gives it"""
+    """Test attributed outflows no developed provider takes keep their row with no
+    provider, core contributions with nothing to spread over keep theirs with no
+    recipient, and recipient 998 stays as the package gives it"""
     table = raw_tables["spending"]
+    unattributed = table.filter(pl.col("provider_code").is_null())
+    assert unattributed.select("family", "attribution", "bi_multi").unique().rows() == [
+        ("provided", "outflows", CORE_CONTRIBUTION)
+    ]
     unspread = table.filter(pl.col("recipient_code").is_null())
     assert unspread.select("family", "attribution", "bi_multi").unique().rows() == [
         ("provided", "contributions", CORE_CONTRIBUTION)
@@ -133,24 +139,16 @@ def test_spending_refuses_a_result_for_another_method(release: Any) -> None:
 def test_crdf_commitments_keeps_every_row_of_the_received_years(
     raw_tables: dict[str, Any],
 ) -> None:
-    """Test CRDF commitments keep every row, private grants included, of the years
-    2010 to 2024"""
+    """Test CRDF commitments keep every row of the years 2010 to 2024, private
+    grants, memorandum rows and repeats included, and leave out 2009"""
     table = raw_tables["crdf_commitments"]
-    assert (
-        table.height
-        == pl.scan_parquet(RELEASE / "commitments.parquet")
-        .select(pl.len())
-        .collect()
-        .item()
-    )
+    release_years = pl.read_parquet(RELEASE / "commitments.parquet")["year"]
+    assert release_years.min() == 2009
+    assert table.height == (release_years >= 2010).sum()
+    assert table["year"].min() == 2010
     assert GATES in set(table["provider_code"])
-
-    years = pl.LazyFrame(
-        {column: [None] * 4 for column in table.columns}, schema=table.schema
-    ).with_columns(year=pl.Series([2009, 2010, 2024, 2025], dtype=pl.Int16))
-    stand_in = SimpleNamespace(table=lambda name: years)
-    kept = crdf_commitments(stand_in)
-    assert kept["year"].to_list() == [2010, 2024]
+    assert table["repeat_of"].is_not_null().any()
+    assert table["psi_flag"].is_in([4, 40, 41, 42, 50]).any()
 
 
 def test_btr_totals_is_the_release_table_unchanged(
