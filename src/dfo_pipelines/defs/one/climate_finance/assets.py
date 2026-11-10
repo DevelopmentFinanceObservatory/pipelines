@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import dagster as dg
+from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
@@ -16,7 +17,17 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    load_extraction_metadata,
+    write_extraction_metadata,
+)
+
+SCHEMA = "one_climate_finance"
+# The asset and database table each raw table loads into, by raw file stem.
+RAW_TABLE_KEYS = {
+    stem: dg.AssetKey(f"one_climate_finance_raw_{stem}") for stem in RAW_TABLES
+}
+RAW_TABLE_NAMES = {stem: f"raw_climate_finance_{stem}" for stem in RAW_TABLES}
 
 
 def read_manifest(directory: UPath, *, sha256: str) -> ExportManifest:
@@ -165,4 +176,75 @@ def one_climate_finance_raw_file(
             dg.AssetCheckResult(check_name=f"{stem}_not_empty", passed=count > 0)
             for stem, count in rows.items()
         ],
+    )
+
+
+@dg.multi_asset(
+    specs=[
+        dg.AssetSpec(
+            key,
+            description=f"Raw climate finance {stem} database table",
+            group_name="one_climate_finance",
+            kinds={"duckdb"},
+            automation_condition=EAGER_WHEN_CHECKS_PASS,
+            deps=[one_climate_finance_raw_file],
+        )
+        for stem, key in RAW_TABLE_KEYS.items()
+    ],
+    ins={"one_climate_finance_raw_file": dg.AssetIn()},
+    check_specs=[
+        dg.AssetCheckSpec(name="table_not_empty", asset=key, blocking=True)
+        for key in RAW_TABLE_KEYS.values()
+    ],
+)
+def one_climate_finance_raw_tables(
+    duckdb: DuckDBResource, one_climate_finance_raw_file: str
+):
+    """Raw climate finance database tables, one per raw file"""
+    with duckdb.get_connection() as connection:
+        connection.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
+        for stem, key in RAW_TABLE_KEYS.items():
+            table = f"{SCHEMA}.{RAW_TABLE_NAMES[stem]}"
+            connection.execute(
+                f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet(?)",
+                [str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet")],
+            )
+            rows = connection.sql(f"SELECT COUNT(*) FROM {table}").fetchall()[0][0]
+            yield dg.MaterializeResult(
+                asset_key=key,
+                metadata={
+                    "dagster/table_name": dg.MetadataValue.text(table),
+                    "dagster/row_count": dg.MetadataValue.int(rows),
+                },
+                check_results=[
+                    dg.AssetCheckResult(
+                        asset_key=key, check_name="table_not_empty", passed=rows > 0
+                    )
+                ],
+            )
+
+
+@dg.asset(
+    group_name="one_climate_finance",
+    kinds={"duckdb"},
+    automation_condition=EAGER_WHEN_CHECKS_PASS,
+)
+def one_climate_finance_raw_metadata(
+    duckdb: DuckDBResource, one_climate_finance_raw_file: str
+) -> dg.MaterializeResult:
+    """Extraction metadata for the climate finance raw data"""
+    table = "raw_climate_finance_metadata"
+    with duckdb.get_connection() as connection:
+        rows = load_extraction_metadata(
+            connection,
+            directory=UPath(one_climate_finance_raw_file),
+            schema=SCHEMA,
+            table=table,
+            release_names=("source",),
+        )
+    return dg.MaterializeResult(
+        metadata={
+            "dagster/table_name": dg.MetadataValue.text(f"{SCHEMA}.{table}"),
+            "dagster/row_count": dg.MetadataValue.int(rows),
+        },
     )

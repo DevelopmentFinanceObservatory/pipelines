@@ -1,14 +1,19 @@
 import json
 import shutil
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import dagster as dg
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.defs.one.climate_finance.assets import (
     one_climate_finance_raw_file,
+    one_climate_finance_raw_metadata,
+    one_climate_finance_raw_tables,
     one_climate_finance_source,
 )
 from dfo_pipelines.defs.resources import (
@@ -21,7 +26,10 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import read_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    read_extraction_metadata,
+    write_extraction_metadata,
+)
 from tests.helpers import meta
 from tests.one.climate_finance.conftest import EXPORT
 
@@ -170,10 +178,10 @@ def test_raw_file_copies_the_observed_export(export: Path, tmp_path: Path) -> No
     )
     assert meta(result, "version", dg.TextMetadataValue).value == NAME
     assert (
-        meta(result, "source_release_date", dg.TextMetadataValue).value == "2026-11-09"
+        meta(result, "source_release_date", dg.TextMetadataValue).value == "2026-11-10"
     )
     recorded = read_extraction_metadata(UPath(directory), release_names=("source",))
-    assert recorded.release_dates["source"].isoformat() == "2026-11-09"
+    assert recorded.release_dates["source"].isoformat() == "2026-11-10"
 
 
 @pytest.mark.parametrize("stem", STEMS)
@@ -223,3 +231,116 @@ def test_raw_file_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
     """Test the raw file fails when the source was never observed"""
     with pytest.raises(ValueError, match="has no observation"):
         _materialize(dg.DagsterInstance.ephemeral(), tmp_path)
+
+
+# Each raw file stem and the table it loads into.
+RAW_TABLES = {
+    "spending": "one_climate_finance.raw_climate_finance_spending",
+    "crdf_commitments": "one_climate_finance.raw_climate_finance_crdf_commitments",
+    "btr_totals": "one_climate_finance.raw_climate_finance_btr_totals",
+}
+
+
+def _raw_directory(tmp: Path, **tables: pa.Table) -> Path:
+    """A raw file directory holding the test export's tables, with `tables` in
+    place of those stems"""
+    directory = tmp / "raw_file"
+    directory.mkdir(parents=True)
+    for stem in RAW_TABLES:
+        exported = EXPORT / NAME / f"{stem}.parquet"
+        pq.write_table(
+            tables.get(stem, pq.read_table(exported)), directory / f"{stem}.parquet"
+        )
+    return directory
+
+
+def _load_tables(duckdb: DuckDBResource, directory: Path) -> dg.ExecuteInProcessResult:
+    """Run the raw tables in a run whose raw file returned `directory`"""
+
+    @dg.asset(name="one_climate_finance_raw_file")
+    def raw_file() -> str:
+        return str(directory)
+
+    return dg.materialize(
+        [raw_file, one_climate_finance_raw_tables],
+        resources={"duckdb": duckdb},
+        raise_on_error=False,
+    )
+
+
+def test_raw_tables_replace_each_table_with_its_raw_file(tmp_path: Path) -> None:
+    """Test each raw file loads, as written, into its own table, replacing what an
+    earlier load left there"""
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    exported = {
+        stem: pq.read_table(EXPORT / NAME / f"{stem}.parquet") for stem in RAW_TABLES
+    }
+    earlier = {stem: table.slice(0, 2) for stem, table in exported.items()}
+    _load_tables(duckdb, _raw_directory(tmp_path / "earlier", **earlier))
+
+    result = _load_tables(duckdb, _raw_directory(tmp_path))
+
+    assert result.success
+    with duckdb.get_connection() as connection:
+        for stem, table in RAW_TABLES.items():
+            loaded = connection.sql(f"select * from {table}").to_arrow_table()
+            assert loaded.to_pylist() == exported[stem].to_pylist()
+    assert {
+        materialization.asset_key: materialization.metadata
+        for materialization in result.asset_materializations_for_node(
+            "one_climate_finance_raw_tables"
+        )
+    } == {
+        dg.AssetKey(f"one_climate_finance_raw_{stem}"): {
+            "dagster/table_name": dg.TextMetadataValue(table),
+            "dagster/row_count": dg.IntMetadataValue(exported[stem].num_rows),
+        }
+        for stem, table in RAW_TABLES.items()
+    }
+    assert all(check.passed for check in result.get_asset_check_evaluations())
+
+
+@pytest.mark.parametrize("stem", list(RAW_TABLES))
+def test_raw_tables_check_fails_on_an_empty_file(tmp_path: Path, stem: str) -> None:
+    """Test the blocking check of the table loaded from an empty file fails, and
+    only that one"""
+    empty = pq.read_table(EXPORT / NAME / f"{stem}.parquet").slice(0, 0)
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+
+    result = _load_tables(duckdb, _raw_directory(tmp_path, **{stem: empty}))
+
+    failed = {
+        check.asset_key
+        for check in result.get_asset_check_evaluations()
+        if check.check_name == "table_not_empty" and not check.passed
+    }
+    assert failed == {dg.AssetKey(f"one_climate_finance_raw_{stem}")}
+    assert not result.success
+
+
+def test_raw_metadata_loads_the_release_date(tmp_path: Path) -> None:
+    """Test the metadata table holds the download time and the release's date"""
+    directory = UPath(_raw_directory(tmp_path))
+    downloaded_at = datetime(2026, 11, 10, 12, tzinfo=UTC)
+    write_extraction_metadata(
+        directory,
+        downloaded_at=downloaded_at,
+        release_dates={"source": date(2026, 11, 10)},
+    )
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+
+    result = one_climate_finance_raw_metadata(
+        duckdb=duckdb, one_climate_finance_raw_file=str(directory)
+    )
+
+    assert isinstance(result, dg.MaterializeResult)
+    table = "one_climate_finance.raw_climate_finance_metadata"
+    with duckdb.get_connection() as connection:
+        rows = connection.sql(
+            f"select downloaded_at, source_release_date from {table}"
+        ).fetchall()
+    assert rows == [(downloaded_at, date(2026, 11, 10))]
+    assert result.metadata == {
+        "dagster/table_name": dg.TextMetadataValue(table),
+        "dagster/row_count": dg.IntMetadataValue(1),
+    }

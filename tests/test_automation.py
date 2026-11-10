@@ -253,6 +253,18 @@ IMS_ASSET_KEYS = {
 
 IMS_PARENT_KEYS = SHARED_MAPPING_KEYS | {IMS_RAW_METADATA_KEY}
 
+CLIMATE_FINANCE_ASSET_KEYS = {
+    dg.AssetKey(f"one_climate_finance_{name}")
+    for name in (
+        "source",
+        "raw_file",
+        "raw_spending",
+        "raw_crdf_commitments",
+        "raw_btr_totals",
+        "raw_metadata",
+    )
+}
+
 WEO_SOURCE_KEY = dg.AssetKey("imf_weo_source")
 WEO_RAW_FILE_KEY = dg.AssetKey("imf_weo_raw_file")
 WEO_RAW_TABLE_KEY = dg.AssetKey("imf_weo_raw_table")
@@ -532,6 +544,7 @@ def test_automation_sensor_runs_by_default(
         DFO_SKILLS_ASSET_KEYS,
         DFO_SHARED_ASSET_KEYS,
         CONVERSION_TABLES_ASSET_KEYS,
+        CLIMATE_FINANCE_ASSET_KEYS,
     ],
     ids=[
         "crs",
@@ -544,6 +557,7 @@ def test_automation_sensor_runs_by_default(
         "dfo_skills",
         "dfo_shared",
         "conversion_tables",
+        "climate_finance",
     ],
 )
 def test_automation_sensor_targets_the_automated_assets(

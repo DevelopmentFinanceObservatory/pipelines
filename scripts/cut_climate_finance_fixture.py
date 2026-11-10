@@ -6,21 +6,30 @@ Writes `tests/one/climate_finance/fixtures/release`, the cut, and
 `export_climate_finance_release.py`, which the pipeline's tests read in place of the
 export in GCS.
 
-The cut keeps 2021 and 2022 for Australia (801) and Ireland (21), developed
-providers whose core contributions count under both attribution rules, IDA (905),
-a multilateral whose outflows those contributions spread over, and the Gates
-Foundation (1601), a private foundation the CRDF commitments hold. Core
-contributions to every other channel find no outflows in the cut, so they stay
-without a recipient. Australia's 2021 BTR totals have no face value and Ireland's
-2022 totals no status.
+The cut keeps 2021 and 2022 for these providers:
+
+- Denmark (3), a developed provider whose core contributions count under both
+  attribution rules, with CRDF repeat and memorandum rows and value with no
+  adaptation marker.
+- Luxembourg (22), a developed provider whose BTR totals report committed and
+  disbursed finance, three funding sources, and rows with no status.
+- Indonesia (738), whose BTR totals have no face value, and no other rows.
+- IDA (905), a multilateral whose outflows the contributions spread over.
+- The provider 1045, whose Table 8 share no developed provider in the release
+  contributed to, so its attributed outflows have no provider.
+- The Gates Foundation (1601), a private foundation the CRDF commitments hold.
+
+Core contributions to every other channel find no outflows in the cut, so they
+stay without a recipient.
 
 Tables with a provider keep those providers' rows, and tables with a year those
-years'. `objectives` keeps the rows of the records the other tables keep,
-`developed_providers` every row, and `reflows` none, since only net flows read it.
-As in a published pack, the row-level BTR tables move from `tables` to
-`withheld_tables`. `release.json` keeps the source's other fields, with each table's
-sha256 and row count rewritten, so the package opens the cut as it opens the
-source.
+years'. `commitments` also keeps the earlier commitments the kept disbursements
+link to, whose markers they take. `objectives` keeps the rows of the records the
+other tables keep, `developed_providers` every row, and `reflows` none, since only
+net flows read it. As in a published pack, the row-level BTR tables move from
+`tables` to `withheld_tables`. `release.json` keeps the source's other fields, with
+each table's sha256 and row count rewritten, so the package opens the cut as it
+opens the source.
 
 Run from the repository root with the source release directory, such as a build's
 `assemble/`, and the package at the commit that built it:
@@ -40,7 +49,7 @@ import polars as pl
 from export_climate_finance_release import export_release
 from upath import UPath
 
-PROVIDERS = (21, 801, 905, 1601)
+PROVIDERS = (3, 22, 738, 905, 1045, 1601)
 YEARS = (2021, 2022)
 WITHHELD_TABLES = dict.fromkeys(
     ("btr", "btr_links", "btr_multilateral"),
@@ -70,6 +79,17 @@ def cut_release(source: Path) -> None:
         for name in names
         if name != "objectives"
     }
+    # Disbursements take their markers from the commitments they link to, which
+    # are often of earlier years.
+    frames["commitments"] = pl.concat(
+        [
+            frames["commitments"],
+            pl.read_parquet(source / "commitments.parquet").filter(
+                ~pl.col("year").is_in(YEARS),
+                pl.col("row_id").is_in(frames["disbursements"]["row_id"].implode()),
+            ),
+        ]
+    )
     record_ids = pl.concat(
         [
             frame["record_id"].cast(pl.String)
