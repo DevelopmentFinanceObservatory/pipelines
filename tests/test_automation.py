@@ -816,6 +816,7 @@ def test_dbt_translation_predicate_matches_intended_schemas() -> None:
         "dfo_ontology",
         "one_imputed_multilateral_sectors",
         "one_conversion_tables",
+        "one_climate_finance",
         "imf_weo",
     }
 

@@ -1,0 +1,310 @@
+version: 2
+
+sources:
+  - name: one_climate_finance
+    description: >
+      Climate finance from a climate-finance package release: ONE Data's received
+      and provided estimates, the OECD's CRDF commitments and the parties' Biennial
+      Transparency Report totals
+    tables:
+      - name: raw_climate_finance_spending
+        description: >
+          Climate finance received and provided under ONE Data's and the OECD's
+          methods, current USD, one row per family, flow, method, attribution rule,
+          year, provider, recipient and Bi_Multi code, loaded verbatim from the
+          package's spending query. Only the columns consumed by
+          stg_climate_finance_spending are declared.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_climate_finance_raw_spending"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: spending_required_columns_present
+              arguments:
+                column_list:
+                  - family
+                  - flow
+                  - method
+                  - attribution
+                  - year
+                  - provider_code
+                  - recipient_code
+                  - bi_multi
+                  - value
+                  - adaptation
+                  - mitigation
+                  - cross_cutting
+                  - unsplit
+                  - no_adaptation_marker
+        columns:
+          - name: family
+            data_type: varchar
+            description: >
+              received, the finance recipients receive (the package's recipient
+              view), or provided, the finance each provider gives (its provider
+              view)
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [received, provided]
+          - name: flow
+            data_type: varchar
+            description: commitments, or gross disbursements
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [commitments, disbursements]
+          - name: method
+            data_type: varchar
+            description: The weighting of climate finance, ONE Data's (ONE) or the OECD's full value (OECD)
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [ONE, OECD]
+          - name: attribution
+            data_type: varchar
+            description: >
+              How a provider's core contributions to multilaterals are attributed
+              to it: by the multilateral's climate spending share (contributions)
+              or by the OECD's outflow shares (outflows). Received rows carry
+              contributions.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [contributions, outflows]
+          - name: year
+            data_type: smallint
+            description: Year of the commitment or disbursement
+          - name: provider_code
+            data_type: integer
+            description: >
+              DAC code of the provider. Null on provided rows attributed under the
+              outflows rule whose value no developed provider takes.
+            data_tests:
+              - not_null:
+                  name: only_attributed_outflows_lack_a_provider
+                  description: >
+                    stg_climate_finance_spending drops the rows with no provider,
+                    which are attributed value (Bi_Multi 2) under the outflows
+                    rule that no developed provider takes. A null provider on any
+                    other row would be dropped with them.
+                  config:
+                    where: >
+                      not (
+                          family = 'provided'
+                          and attribution = 'outflows'
+                          and bi_multi = 2
+                      )
+          - name: recipient_code
+            data_type: integer
+            description: >
+              DAC code of the recipient. 998 is developing countries, unspecified.
+              Null on a provided core contribution whose multilateral had no
+              outflows to spread it over.
+          - name: bi_multi
+            data_type: tinyint
+            description: >
+              The CRS Bi_Multi code of the flows behind the row. On provided rows,
+              2 marks core contributions attributed to the provider. Every other
+              code repeats a figure the received rows hold.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  name: received_bi_multi_accepted_values
+                  description: >
+                    stg_climate_finance_spending keeps every received row, and
+                    the aggregation sums them over these codes.
+                  arguments:
+                    values: [1, 3, 4, 7, 8]
+                    quote: false
+                  config:
+                    where: "family = 'received'"
+              - accepted_values:
+                  name: provided_bi_multi_accepted_values
+                  description: >
+                    stg_climate_finance_spending keeps provided rows with code 2
+                    only, so a new code would be dropped unseen.
+                  arguments:
+                    values: [1, 2, 3, 7, 8]
+                    quote: false
+                  config:
+                    where: "family = 'provided'"
+          - name: value
+            data_type: double
+            description: Climate finance, current USD
+          - name: adaptation
+            data_type: double
+            description: The part counted towards adaptation, current USD
+          - name: mitigation
+            data_type: double
+            description: The part counted towards mitigation, current USD
+          - name: cross_cutting
+            data_type: double
+            description: The part counted towards both adaptation and mitigation, current USD
+          - name: unsplit
+            data_type: double
+            description: The attributed part with no split by objective, current USD
+          - name: no_adaptation_marker
+            data_type: double
+            description: >
+              The part of value with no adaptation marker, held in mitigation,
+              current USD
+      - name: raw_climate_finance_crdf_commitments
+        description: >
+          The OECD's climate-related development finance (CRDF) commitments from
+          the recipient perspective, current USD, one row per CRDF row as the
+          package repairs it, loaded verbatim. Only the columns consumed by
+          stg_climate_finance_crdf_commitments are declared.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_climate_finance_raw_crdf_commitments"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: crdf_commitments_required_columns_present
+              arguments:
+                column_list:
+                  - year
+                  - provider_code
+                  - recipient_code
+                  - bi_multi
+                  - climate_usd
+                  - adaptation_usd
+                  - mitigation_usd
+                  - overlap_usd
+        columns:
+          - name: year
+            data_type: smallint
+            description: Year of the commitment
+          - name: provider_code
+            data_type: integer
+            description: DAC code of the provider
+          - name: recipient_code
+            data_type: integer
+            description: DAC code of the recipient. 998 is developing countries, unspecified.
+          - name: bi_multi
+            data_type: tinyint
+            description: >
+              The CRS Bi_Multi code: 1 bilateral, 4 a multilateral's own outflows,
+              6 private grants
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [1, 4, 6]
+                    quote: false
+          - name: climate_usd
+            data_type: double
+            description: Climate-related commitment, current USD
+          - name: adaptation_usd
+            data_type: double
+            description: The part relevant to adaptation, including the overlap, current USD
+          - name: mitigation_usd
+            data_type: double
+            description: The part relevant to mitigation, including the overlap, current USD
+          - name: overlap_usd
+            data_type: double
+            description: The part relevant to both adaptation and mitigation, current USD
+      - name: raw_climate_finance_btr_totals
+        description: >
+          Bilateral climate finance each party reports in its Biennial Transparency
+          Report, one row per party, year, status, funding type, currency and
+          linking, loaded verbatim. Only the columns consumed by
+          stg_climate_finance_btr_totals are declared.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_climate_finance_raw_btr_totals"]
+        data_tests:
+          - dbt_expectations.expect_table_columns_to_contain_set:
+              name: btr_totals_required_columns_present
+              arguments:
+                column_list:
+                  - party
+                  - provider_code
+                  - year
+                  - status
+                  - funding
+                  - face_usd_at_dac
+                  - grant_equiv_usd
+        columns:
+          - name: party
+            data_type: varchar
+            description: ISO 3166 alpha-3 code of the reporting party
+          - name: provider_code
+            data_type: integer
+            description: DAC code of the reporting party
+          - name: year
+            data_type: smallint
+            description: Year the finance was committed or disbursed
+          - name: status
+            data_type: varchar
+            description: committed or disbursed, as the party reports it. Null where the party reports none.
+            data_tests:
+              - accepted_values:
+                  description: >
+                    stg_climate_finance_btr_totals keeps committed and disbursed
+                    rows only, so a new status would be dropped unseen. Null
+                    passes: those rows carry no status to publish under.
+                  arguments:
+                    values: [committed, disbursed]
+          - name: funding
+            data_type: varchar
+            description: The type of funding, oda, oof or other
+          - name: face_usd_at_dac
+            data_type: double
+            description: >
+              Face value as the party reports it in its own currency, converted to
+              USD at the OECD DAC exchange rate. Null where the party reports only
+              a grant equivalent.
+            data_tests:
+              - not_null:
+                  name: only_grant_equivalent_rows_lack_a_face_value
+                  description: >
+                    stg_climate_finance_btr_totals drops the rows with no face
+                    value, which report a grant equivalent instead. A row with
+                    neither would be dropped with them.
+                  config:
+                    where: "grant_equiv_usd is null"
+              - null_for_whole_groups:
+                  name: face_values_cover_whole_party_year_status_groups
+                  description: >
+                    stg_climate_finance_btr_totals drops the rows with no face
+                    value, and int_climate_finance_aggregated sums the rest by
+                    party, year and status into a total to all recipients. A
+                    group with a face value on only some rows would publish a
+                    partial total as the whole.
+                  arguments:
+                    group_by: [party, year, status]
+          - name: grant_equiv_usd
+            data_type: double
+            description: Grant equivalent as the party reports it, in USD at the party's own exchange rate
+      - name: raw_climate_finance_metadata
+        description: >
+          One row containing metadata about the data currently loaded into the raw
+          tables.
+        config:
+          meta:
+            dagster:
+              asset_key: ["one_climate_finance_raw_metadata"]
+        data_tests:
+          - dbt_expectations.expect_table_row_count_to_equal:
+              name: exactly_one_metadata_row
+              arguments:
+                value: 1
+        columns:
+          - name: downloaded_at
+            data_type: timestamp with time zone
+            description: When the release was read
+            data_tests:
+              - not_null
+          - name: source_release_date
+            data_type: date
+            description: When the climate-finance release was built
+            data_tests:
+              - not_null

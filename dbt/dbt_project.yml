@@ -86,6 +86,11 @@ models:
         +meta:
           dagster:
             group: one_conversion_tables
+      climate_finance:
+        +schema: one_climate_finance
+        +meta:
+          dagster:
+            group: one_climate_finance
     imf:
       weo:
         +schema: imf_weo
