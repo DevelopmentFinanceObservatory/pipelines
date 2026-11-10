@@ -16,10 +16,15 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     ONE_CLIMATE_FINANCE_EXPORT_SPEC,
     UNFCCC_BTR_EXPORT_SPEC,
     oecd_crdf_dc_export,
+    oecd_crdf_dc_ingestion,
     one_climate_finance_dc_export,
+    one_climate_finance_dc_ingestion,
     unfccc_btr_dc_export,
+    unfccc_btr_dc_ingestion,
 )
-from dfo_pipelines.defs.resources import UPathFileStoreResource
+from dfo_pipelines.defs.resources import KnowledgeGraphResource, UPathFileStoreResource
+
+ASSETS_MODULE = "dfo_pipelines.defs.one.climate_finance.assets"
 
 DISBURSEMENT_DCID = (
     "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal"
@@ -40,6 +45,7 @@ class Export(NamedTuple):
 
     spec: ExportSpec
     asset: dg.AssetsDefinition
+    ingestion: dg.AssetsDefinition
     provenance_dcid: str
     source: str
     recipient: bool
@@ -48,6 +54,7 @@ class Export(NamedTuple):
 UNFCCC_BTR = Export(
     UNFCCC_BTR_EXPORT_SPEC,
     unfccc_btr_dc_export,
+    unfccc_btr_dc_ingestion,
     "dcid:provenance/UNFCCCBiennialTransparencyReports",
     "dcid:source/UNFCCC",
     recipient=False,
@@ -57,6 +64,7 @@ EXPORTS = [
         Export(
             ONE_CLIMATE_FINANCE_EXPORT_SPEC,
             one_climate_finance_dc_export,
+            one_climate_finance_dc_ingestion,
             "dcid:provenance/ONEClimateFinance",
             "dcid:source/ONEData",
             recipient=True,
@@ -67,6 +75,7 @@ EXPORTS = [
         Export(
             OECD_CRDF_EXPORT_SPEC,
             oecd_crdf_dc_export,
+            oecd_crdf_dc_ingestion,
             "dcid:provenance/OECDClimateRelatedDevelopmentFinance",
             "dcid:dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd",
             recipient=True,
@@ -345,3 +354,59 @@ def test_dc_export_depends_on_the_models_its_spec_reads(export: Export) -> None:
     node = defs().resolve_asset_graph().get(export.asset.key)
 
     assert node.parent_keys == {dg.AssetKey(model.split(".")) for model in read}
+
+
+@pytest.mark.parametrize("export", EXPORTS)
+def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
+    tmp_path: Path, export: Export, knowledge_graph: KnowledgeGraphResource
+) -> None:
+    """Test each ingestion is handed its own export's directory under its import
+    name, and that directory's config registers the import's provenance"""
+    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    _create_dc_models(duckdb, export)
+    destination = f"gs://test-bucket/ingestion/input/{export.spec.import_name}"
+
+    with patch(f"{ASSETS_MODULE}.ingest_bundle", return_value=destination) as ingest:
+        result = dg.materialize(
+            [export.asset, export.ingestion],
+            resources={
+                "duckdb": duckdb,
+                "export_file_store": UPathFileStoreResource(
+                    base_path=str(tmp_path / "processed")
+                ),
+                "knowledge_graph": knowledge_graph,
+            },
+        )
+
+    assert result.success
+    [exported] = result.asset_materializations_for_node(export.asset.key.path[-1])
+    [ingestion] = result.asset_materializations_for_node(export.ingestion.key.path[-1])
+    ingest.assert_called_once()
+    args, kwargs = ingest.call_args
+    assert str(args[0]) == exported.metadata["dagster/uri"].value
+    assert kwargs["import_name"] == export.spec.import_name
+    assert kwargs["settings"] == knowledge_graph.settings
+    config = json.loads((Path(str(args[0])) / "config.json").read_text())
+    assert {file["provenance"] for file in config["inputFiles"]} == {
+        export.provenance_dcid
+    }
+    assert ingestion.metadata == {
+        "dagster/uri": dg.TextMetadataValue(destination),
+        "import_name": dg.TextMetadataValue(export.spec.import_name),
+    }
+
+
+@pytest.mark.parametrize("export", EXPORTS)
+def test_dc_ingestion_is_manual_and_follows_the_export_and_the_shared_nodes(
+    export: Export,
+) -> None:
+    """Test an ingestion carries no automation condition, since it rewrites the
+    shared graph, and waits on its export, the ontology and the shared nodes"""
+    node = defs().resolve_asset_graph().get(export.ingestion.key)
+
+    assert node.automation_condition is None
+    assert node.parent_keys == {
+        export.asset.key,
+        dg.AssetKey(["dfo_ontology_dc_ingestion"]),
+        dg.AssetKey(["dfo_shared_dc_ingestion"]),
+    }
