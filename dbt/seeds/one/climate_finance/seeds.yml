@@ -67,3 +67,31 @@ seeds:
           - not_null:
               config:
                 where: "method is not null"
+
+  - name: unfccc_source
+    description: >
+      Source node for the UNFCCC, which Data Commons does not define. The
+      UNFCCC import defines it.
+    config:
+      column_types:
+        dcid: string
+        name: string
+        url: string
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_unfccc_source_row
+          arguments:
+            value: 1
+    columns:
+      - name: dcid
+        description: DCID of the source node
+        data_tests:
+          - not_null
+      - name: name
+        description: Name of the source
+        data_tests:
+          - not_null
+      - name: url
+        description: URL of the source's website
+        data_tests:
+          - not_null
