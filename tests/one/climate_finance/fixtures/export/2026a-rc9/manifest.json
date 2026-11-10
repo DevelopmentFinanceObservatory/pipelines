@@ -1,0 +1,23 @@
+{
+  "release": "2026a-rc9",
+  "created_at": "2026-11-09T23:24:57.683173Z",
+  "release_json_sha256": "985697905d4987b70faf527b94f7ddace34a7821d6d048355655f8c138bf3463",
+  "pack_sha256": null,
+  "package_commit": "efc1ddde3bf99d3e8e6ad787aaf916211d5049c9",
+  "package_source_sha256": "46f165075d6c13e85719762a28713b61482a439bd682055dac1cba428a4ef857",
+  "exported_at": "2026-11-10T14:56:54.543599Z",
+  "tables": {
+    "spending": {
+      "sha256": "638c4c371bd451682aaba5ad67cd6c36ac89dd14f9056efe493c7b13d5dfcc83",
+      "rows": 6184
+    },
+    "crdf_commitments": {
+      "sha256": "50d381028cf031b19ada5831e5e70c9c256928d983939709f88aaea25915afc0",
+      "rows": 10723
+    },
+    "btr_totals": {
+      "sha256": "3ad958b0458ee2dd4119c892b74a11afc95737c43598eb888f96b1ea3820f6df",
+      "rows": 8
+    }
+  }
+}

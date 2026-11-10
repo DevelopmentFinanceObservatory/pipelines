@@ -97,3 +97,13 @@ class SkillsRepositoryResource(StrictConfigurableResource):
     def skill_url(self, *, root: str, skill_name: str) -> str:
         """Link to a skill's directory on the branch, under the root it sits in"""
         return f"{self.url}/tree/{self.branch}/{root}/{skill_name}"
+
+
+class ClimateFinanceExportResource(StrictConfigurableResource):
+    """Where the climate finance pipeline reads its release's raw tables
+
+    `uri` is an export root that `scripts/export_climate_finance_release.py`
+    writes, a `gs://` URI or a local directory.
+    """
+
+    uri: str

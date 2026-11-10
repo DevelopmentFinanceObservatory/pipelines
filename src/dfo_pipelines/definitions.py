@@ -4,6 +4,7 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.defs.resources import (
+    ClimateFinanceExportResource,
     KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -27,6 +28,9 @@ def defs():
                     region=dg.EnvVar("DCP_REGION"),
                     bucket_name=dg.EnvVar("DCP_BUCKET_NAME"),
                     workflow_name=dg.EnvVar("DCP_WORKFLOW_NAME"),
+                ),
+                "climate_finance_export": ClimateFinanceExportResource(
+                    uri=dg.EnvVar("CLIMATE_FINANCE_EXPORT_URI")
                 ),
                 "skills_repository": SkillsRepositoryResource(
                     url=dg.EnvVar("DFO_SKILLS_REPOSITORY_URL"),

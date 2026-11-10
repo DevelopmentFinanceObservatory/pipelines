@@ -1,0 +1,241 @@
+{
+  "release": "2026a-rc9",
+  "data_format": 6,
+  "created_at": "2026-11-09T23:24:57.683173Z",
+  "package_version": "2.0.0.dev0",
+  "build": {
+    "package_source_sha256": "46f165075d6c13e85719762a28713b61482a439bd682055dac1cba428a4ef857",
+    "python": "3.13.14",
+    "environment_sha256": "2eea4eaf4fa3fcfbcc547dd36f0ef936b01a90b144fb9689bde25cb6989e32e7",
+    "dependencies": {
+      "duckdb": "1.5.6",
+      "numpy": "2.3.3",
+      "oda-reader": "1.12.0",
+      "openpyxl": "3.1.5",
+      "pandas": "2.3.2",
+      "polars": "2.0.0",
+      "pyarrow": "26.0.0",
+      "pydantic": "2.14.1",
+      "pydeflate": "2.6.2",
+      "rapidfuzz": "3.14.1",
+      "resolvekit": "0.1.13",
+      "scikit-learn": "1.9.1",
+      "scipy": "1.18.1",
+      "splink": "5.0.0"
+    },
+    "stage_identities": {
+      "fetch": "d40b4f9eca9ff088ca149829d4a22aed0190a17be38faaf2f27f6eae91f5af59",
+      "normalise": "5aa78e29902bcf05441d6f9c3ae69eb1ae7aefd7034a3a9468dd60eb106af5c1",
+      "link": "0b94aa8bcc529a59a213c94b74b33b8deb2474b579245cdb407b88d375d47684",
+      "allocate": "2da6c8f4ee778aa1280bbe15d037507644673aebc54903d49ab9d8ce55f9b9c5",
+      "fill": "8cdf55dbf3fd8f189f499c8401a48e2961c2d248466a09189516b95330d330e5",
+      "review": "44d64be5b6555a91d89ad0232cb865e28b3acfdb4191167f7adf01dd56e1515f",
+      "label": "4aabe7f6ae9a40f322140aa7a5a058f8706b89faa9e4122e67f38ec99ecacd1f",
+      "flag": "b4eeec57e7c48bb64de719c700c5bdf4be8d31344ca857f0a549701be33aabe5",
+      "measure": "ca5f09302e0326fc58ebe389dfd39218ac24a803b56dab14f389f9750736352a"
+    }
+  },
+  "tables": {
+    "agency_shares": {
+      "sha256": "5f4bc25bad241761ac77e0b98332565361e5aaa4f864840acc1a9172a5219196",
+      "rows": 192
+    },
+    "agency_spending": {
+      "sha256": "cc90059880910a305479cfddf83020b3152b20debb07483e0ed0e95e494d00bd",
+      "rows": 156
+    },
+    "aggregate_estimates": {
+      "sha256": "7b08a4ca7d9725106ca8871d76ad37bcc90a97160d5fddf661d338af10e0a34d",
+      "rows": 0
+    },
+    "btr_coefficients": {
+      "sha256": "54caaab9886d1ffd67f1a6e313b06e0448ae9fb2d9101976ae6c23dcf7ca4dc3",
+      "rows": 4
+    },
+    "btr_crs_earmarked": {
+      "sha256": "381095174adbb2acfa43af6cd5e05e39ae3a80dc79148a6916bd218404993e96",
+      "rows": 234
+    },
+    "btr_crs_unlinked": {
+      "sha256": "01c7a2cc1fa7025494a0097df2369748718f627c446bb42be005689d7d2a8c93",
+      "rows": 8
+    },
+    "btr_institution_groups": {
+      "sha256": "1d89138609243d2c5a8281fd4da880931bd7fd0910b53ad547b940ff269c412d",
+      "rows": 88
+    },
+    "btr_multilateral_totals": {
+      "sha256": "1e975af87990bf475d9c14ba860962e863a22aacc8f647111afa50a1c8d2a90f",
+      "rows": 63
+    },
+    "btr_totals": {
+      "sha256": "3ad958b0458ee2dd4119c892b74a11afc95737c43598eb888f96b1ea3820f6df",
+      "rows": 8
+    },
+    "commitments": {
+      "sha256": "d13d793dad806b5ad498ef786c90f17bd04f864114a398641c7f0ceb2515cbc3",
+      "rows": 10723
+    },
+    "conversion_factors": {
+      "sha256": "697975ce93ac2800620e47e6933ff459aa50d73289b77ba752582cad87c133c7",
+      "rows": 18681
+    },
+    "core_contributions": {
+      "sha256": "806bb52236c4be75880c1170091ef5d1438c6e1de4dcc9434e10386d00d59b6d",
+      "rows": 468
+    },
+    "developed_providers": {
+      "sha256": "16a70d3745bf58e8aa3347d19cb7463ecf90df4c9d589023e3ee02d0d9bca978",
+      "rows": 39
+    },
+    "disbursement_profile": {
+      "sha256": "ce54ac5d1dcb0b50b52db67fec1fef332da0af096985ab2d2f3c882d39e54728",
+      "rows": 65
+    },
+    "disbursements": {
+      "sha256": "cd7ef8441d3e8d0dc438cb39ddbdfceb31646f9e730774f73a5e21db4eb692ca",
+      "rows": 15222
+    },
+    "eurostat_climate_finance": {
+      "sha256": "fc152e89c7f657b1b04a3c53d198b82cb36a9da6ac22806486573303f9201ed5",
+      "rows": 2
+    },
+    "jev_flags": {
+      "sha256": "c14c3132f2a01a2b0b6e0ea7e16967bf27b9114fc04cc64d52a7459746289f9c",
+      "rows": 9293
+    },
+    "modelled": {
+      "sha256": "001125a3e6e88328a82ca1cead6f7e7f0a247d30bf3b22b825203cca4f041b32",
+      "rows": 0
+    },
+    "objectives": {
+      "sha256": "221f21d7e6d0d80f7d76f8b5ef14e8873553914539385d42bd2114338342f8ae",
+      "rows": 24192
+    },
+    "outflow_shares": {
+      "sha256": "dc24d0a98b23d0c73ec27bfa2c3e8e76b1177bd9c74d1c9952adcc2af8de18ff",
+      "rows": 2
+    },
+    "provider_coefficients": {
+      "sha256": "c1b1d411f198b92eaff7899f3bd1c7945181a2759793c089aa76fdeaed1409ce",
+      "rows": 3
+    },
+    "quality": {
+      "sha256": "58f88a86a5b32b7ba41581960ce89c6d80726bb9cb4d0e7869e529626ef4c30a",
+      "rows": 8
+    },
+    "reflows": {
+      "sha256": "5aaf89f00e1b4c68f304e12fe8e922f49fdf5a64b57e69ae0c259e2dcfb44ff4",
+      "rows": 0
+    },
+    "total_flows": {
+      "sha256": "0ab34da8885c8e3efa73d09cb6a1059be9e24c574c852d262be865e288c93a2a",
+      "rows": 5440
+    },
+    "unallocated": {
+      "sha256": "c8a32daf9e5dc98aad62661521c5ae26bef49cbab92f78c228a5fe0e3e65b8ac",
+      "rows": 4
+    },
+    "untraced": {
+      "sha256": "b6288b58a49bcbdf21aa8c38218da42ac5d97c44cf95de23f39905f7da4295fc",
+      "rows": 0
+    }
+  },
+  "source_versions": {
+    "conversion_factors": "pydeflate 2.6.2",
+    "crdf_provider": "f9aec7c6a7115e87807fff9835a3d167284adff3139d5d7d462b4370922a29c9",
+    "crdf_recipient": "d3c51dfd396f2dd00948632c825cba595f8b6476a82041a042f7a1fb558a6257",
+    "crs": "v20261006",
+    "dac_exchange": "90fa276b546a3aa2301d83626c03c89c147ed8fc275ec78860a571314cb2d4d2",
+    "eurostat_sdg_13_50": "2026-04-29",
+    "gcf_projects": "a80a538580019cf2a0b10c729c213eeb3254799ca7cc1be7e884f5e1c23fdaeb",
+    "iati_caf": "674ce12375d7f0db35906922e0bdc8bb2c12f6f802cf5a4e6e974babac18552a",
+    "iati_eib": "bfb9549981943e4b3e61d06a8fbe7ddc8f6daf0e6d3b6c0d81cdbbd715b0f694",
+    "iati_gcf": "d77e418751eda507b3aeea18ba09e4168a699e8003eeaad301aa5fd7c3ce626f",
+    "iati_gef": "ca10926af6ca7005f8f01a557edbd678d2519fd421e74c9807cbf99ea4bc36b2",
+    "iati_idbinvest": "bc5458fa1f2962c25d9bad6e21e95783f2fb9aa088c384ac2857d814f158fc29",
+    "iati_ifcwbg": "8ba3f28acf4c66da208d387926ce612abae859110cdd6400243a0eec1190449a",
+    "imputed_shares": "82b963b711485e764b5fbd2195dbacd8566bbcabbb84b2a551b1185338edd516",
+    "ledger_finances_one_DS00975_2020": "435e0ccf3724c4399caf4f7545f6fc8001075619684a9c5efc92459855f89d34",
+    "ledger_finances_one_DS00975_2021": "5cfa0b43694fb7d9724723df5fd6f1721dd386cf956597113fd634674218b515",
+    "ledger_finances_one_DS00975_2022": "c52c14340fa4df40bc2aff26f2d9231546cb98914aa54cc88073e22794db6ab3",
+    "ledger_finances_one_DS00975_2023": "edf93ddc4d5893db24985686c35e95b972d85e7212339970f8b7ef56a54dda4c",
+    "ledger_finances_one_DS00975_2024": "03d433d98de9c2a001413ccb3878278ae87d3ce87180a5925c7a3ba35891eb38",
+    "ledger_finances_one_DS00976_2020": "3813d4c707ddd5bcd67bc3b9222b1745cd7947997a4aeb969a507e39034228c8",
+    "ledger_finances_one_DS00976_2021": "b23e954b352c8a9a7675b6a0c38db77e156f56e7f1e08422bb864b073ec096c7",
+    "ledger_finances_one_DS00976_2022": "c87ad66a38d1377a60af9f33773ec85b9a458c139b1ce5700aaac1e807841ba4",
+    "ledger_finances_one_DS00976_2023": "5bac4714712c4c0ce47c90e50a370296be51d7248b9604d03170f3631b1dd7a8",
+    "ledger_finances_one_DS00976_2024": "1d40216794c076771fd70a838235a87982150f8f60189acf698168d82992c7ce",
+    "ledger_iati_afdb": "4a7d1826b075f59128a3526c81b04c4cc90493d05505a17592b6484ce088e18d",
+    "ledger_iati_asdb": "4ee8a266149dc740596da0f03f612cf0f43dbbe6f21f6a8c6a45b83d482bd5be",
+    "ledger_iati_bcie": "12b601d0b18ea51b1e1ab4eca9227326a39f56ded99ce05605f6aab5f69893e2",
+    "ledger_iati_ebrd": "25f5239e5ced80b826cf71451bfeb55b814d605e8dfc809bb85bbe331cb3707a",
+    "ledger_iati_gef": "fc3a385d526163ead20a44cf5b9b0f0284f4d8598ba4032d1a81063dc2cdbab0",
+    "ledger_iati_iadb": "d1978cb14ffb4e86601739cd56b4b499a78934bf342839119b6620d0af3108d4",
+    "ledger_iati_isdb": "6ce6640415ccc084e940ab006d9fbe2a7276a5781ab3f51d93efdfe721eb37a9",
+    "ledger_imf_sdr": "c43ace587b513e2459d709d0afe1bc70183ae3713ab160a713e9d92e28b87f43",
+    "multisystem": "022daf91df297b09634854bc5d06003c9063602403f3ba77feb777960af06352",
+    "unfccc_btr1": "ec0995988282f70e4809dd879f3df510e6b619493485b553138d5947bf1a4562"
+  },
+  "years": {
+    "multisystem": [
+      2011,
+      2024
+    ],
+    "crdf_recipient": [
+      2000,
+      2024
+    ],
+    "crs": [
+      2000,
+      2025
+    ],
+    "crdf_provider": [
+      2013,
+      2024
+    ],
+    "core_contributions": [
+      2011,
+      2024
+    ],
+    "agency_shares": [
+      2013,
+      2024
+    ],
+    "agency_spending": [
+      2004,
+      2024
+    ]
+  },
+  "model_versions": {
+    "jev": "jev-1.14.0",
+    "embedding": "intfloat/multilingual-e5-small@614241f622f53c4eeff9890bdc4f31cfecc418b3"
+  },
+  "gates": {},
+  "settings": {
+    "offline": false,
+    "key_repair": true,
+    "recoveries": true,
+    "gap_fill": false,
+    "review": true,
+    "jev_labels": false,
+    "jev_links": true,
+    "embed": false,
+    "jev_flags": true,
+    "skip_eib_routes": [],
+    "jev_flags_first_year": 2015,
+    "years.crdf": "all",
+    "years.crs": null,
+    "years.crs_last_complete": 2024
+  },
+  "precision_gate_waived": false,
+  "precision_waiver": null,
+  "blind_sample": null,
+  "previous_release": null,
+  "previous_pack_sha256": null,
+  "withheld_tables": {
+    "btr": "Left out of the published release, as the package's packs leave it out.",
+    "btr_links": "Left out of the published release, as the package's packs leave it out.",
+    "btr_multilateral": "Left out of the published release, as the package's packs leave it out."
+  }
+}
