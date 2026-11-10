@@ -11,6 +11,11 @@ from dfo_pipelines.defs.oecd.dac1.assets import OECD_DAC1_EXPORT_SPEC
 from dfo_pipelines.defs.oecd.dac2a.assets import OECD_DAC2A_EXPORT_SPEC
 from dfo_pipelines.defs.oecd.dac2b.assets import OECD_DAC2B_EXPORT_SPEC
 from dfo_pipelines.defs.oecd.dac_crs.assets import CRS_EXPORT_SPEC
+from dfo_pipelines.defs.one.climate_finance.assets import (
+    OECD_CRDF_EXPORT_SPEC,
+    ONE_CLIMATE_FINANCE_EXPORT_SPEC,
+    UNFCCC_BTR_EXPORT_SPEC,
+)
 from dfo_pipelines.defs.one.conversion_tables.assets import (
     DAC_EXPORT_SPEC,
     IMF_EXPORT_SPEC,
@@ -30,4 +35,7 @@ EXPORT_SPECS: tuple[ExportSpec, ...] = (
     IMF_EXPORT_SPEC,
     IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
     IDS_EXPORT_SPEC,
+    ONE_CLIMATE_FINANCE_EXPORT_SPEC,
+    OECD_CRDF_EXPORT_SPEC,
+    UNFCCC_BTR_EXPORT_SPEC,
 )

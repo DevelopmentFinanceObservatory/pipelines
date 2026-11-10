@@ -263,6 +263,9 @@ CLIMATE_FINANCE_ASSET_KEYS = {
         "raw_btr_totals",
         "raw_metadata",
     )
+} | {
+    dg.AssetKey(f"{import_name}_dc_export")
+    for import_name in ("one_climate_finance", "oecd_crdf", "unfccc_btr")
 }
 
 WEO_SOURCE_KEY = dg.AssetKey("imf_weo_source")
