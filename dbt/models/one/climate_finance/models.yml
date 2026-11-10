@@ -183,3 +183,216 @@ models:
           USD at the OECD DAC exchange rate
         data_tests:
           - not_null
+
+  - name: int_climate_finance_spending_resolved
+    description: >
+      Climate finance received, and provided through core contributions to
+      multilaterals, with the provider and the recipient replaced by their DCIDs.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.equal_rowcount:
+          name: row_count_matches_stg_climate_finance_spending
+          description: >
+            The provider and recipient joins are left joins so an unmapped DAC
+            code produces a null caught by the not_null tests below, rather than
+            a row that silently disappears. This test catches the row loss those
+            tests would miss if a join were narrowed to an inner join, and the
+            fan-out of a code the ontology maps to more than one entity.
+          arguments:
+            compare_model: ref('stg_climate_finance_spending')
+    columns:
+      - name: family
+        data_type: string
+        description: >
+          received, the finance recipients receive, or provided, the finance each
+          provider gives through its core contributions to multilaterals
+      - name: flow
+        data_type: string
+        description: commitments, or gross disbursements
+      - name: method
+        data_type: string
+        description: The weighting of climate finance, ONE Data's (ONE) or the OECD's full value (OECD)
+      - name: attribution
+        data_type: string
+        description: >
+          How a provider's core contributions to multilaterals are attributed to
+          it: by the multilateral's climate spending share (contributions) or by
+          the OECD's outflow shares (outflows). Received rows carry contributions.
+      - name: year
+        data_type: integer
+        description: Year of the commitment or disbursement
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the provider
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: >
+          DCID of the recipient, DACBilateralUnallocated where the recipient is
+          developing countries, unspecified
+        data_tests:
+          - not_null
+      - name: bi_multi
+        data_type: integer
+        description: >
+          The CRS Bi_Multi code of the flows behind the row. Provided rows carry
+          2, core contributions.
+      - name: value
+        data_type: decimal(38,12)
+        description: Climate finance, current USD
+        data_tests:
+          - not_null
+      - name: adaptation
+        data_type: decimal(38,12)
+        description: The part counted towards adaptation, current USD
+        data_tests:
+          - not_null
+      - name: mitigation
+        data_type: decimal(38,12)
+        description: The part counted towards mitigation, current USD
+        data_tests:
+          - not_null
+      - name: cross_cutting
+        data_type: decimal(38,12)
+        description: The part counted towards both adaptation and mitigation, current USD
+        data_tests:
+          - not_null
+      - name: unsplit
+        data_type: decimal(38,12)
+        description: The attributed part with no split by objective, current USD
+        data_tests:
+          - not_null
+      - name: no_adaptation_marker
+        data_type: decimal(38,12)
+        description: >
+          The part of value with no adaptation marker, held in mitigation, current
+          USD
+        data_tests:
+          - not_null
+
+  - name: int_climate_finance_crdf_commitments_resolved
+    description: >
+      The OECD's climate-related development finance commitments with the
+      provider and the recipient replaced by their DCIDs.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.equal_rowcount:
+          name: row_count_matches_stg_climate_finance_crdf_commitments
+          description: >
+            The provider and recipient joins are left joins so an unmapped DAC
+            code produces a null caught by the not_null tests below, rather than
+            a row that silently disappears. This test catches the row loss those
+            tests would miss if a join were narrowed to an inner join, and the
+            fan-out of a code the ontology maps to more than one entity.
+          arguments:
+            compare_model: ref('stg_climate_finance_crdf_commitments')
+    columns:
+      - name: year
+        data_type: integer
+        description: Year of the commitment
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: DCID of the provider, including the private foundations
+        data_tests:
+          - not_null
+      - name: financing_recipient
+        data_type: string
+        description: >
+          DCID of the recipient, DACBilateralUnallocated where the recipient is
+          developing countries, unspecified
+        data_tests:
+          - not_null
+      - name: bi_multi
+        data_type: integer
+        description: >
+          The CRS Bi_Multi code: 1 bilateral, 4 a multilateral's own outflows, 6
+          private grants
+      - name: climate_usd
+        data_type: decimal(38,12)
+        description: Climate-related commitment, current USD
+        data_tests:
+          - not_null
+      - name: adaptation_usd
+        data_type: decimal(38,12)
+        description: The part relevant to adaptation, including the overlap, current USD
+        data_tests:
+          - not_null
+      - name: mitigation_usd
+        data_type: decimal(38,12)
+        description: The part relevant to mitigation, including the overlap, current USD
+        data_tests:
+          - not_null
+      - name: overlap_usd
+        data_type: decimal(38,12)
+        description: The part relevant to both adaptation and mitigation, current USD
+        data_tests:
+          - not_null
+
+  - name: int_climate_finance_btr_totals_resolved
+    description: >
+      Bilateral climate finance the parties report in their Biennial Transparency
+      Reports at face value, with the reporting party replaced by its DCID.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.equal_rowcount:
+          name: row_count_matches_stg_climate_finance_btr_totals
+          description: >
+            The provider join is a left join so an unmapped DAC code produces a
+            null caught by the not_null test below, rather than a row that
+            silently disappears. This test catches the row loss that test would
+            miss if the join were narrowed to an inner join, and the fan-out of
+            a code the ontology maps to more than one entity.
+          arguments:
+            compare_model: ref('stg_climate_finance_btr_totals')
+    columns:
+      - name: party
+        data_type: string
+        description: ISO 3166 alpha-3 code of the reporting party
+        data_tests:
+          - not_null
+      - name: financing_provider
+        data_type: string
+        description: >
+          DCID of the reporting party. Mexico, Chile and Indonesia are not DAC
+          donors and resolve to their country DCIDs.
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the finance was committed or disbursed
+        data_tests:
+          - not_null
+      - name: status
+        data_type: string
+        description: committed or disbursed
+        data_tests:
+          - not_null
+      - name: funding
+        data_type: string
+        description: The type of funding, oda, oof or other
+        data_tests:
+          - not_null
+      - name: face_usd_at_dac
+        data_type: decimal(38,12)
+        description: >
+          Face value as the party reports it in its own currency, converted to
+          USD at the OECD DAC exchange rate
+        data_tests:
+          - not_null

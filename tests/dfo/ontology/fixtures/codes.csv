@@ -554,6 +554,9 @@ dcid:CurrencyUnit,ZMW,dcid:CurrencyZMW,Zambian Kwacha,iso4217AlphaCode
 dcid:CurrencyUnit,ZWG,dcid:CurrencyZWG,Zimbabwe Gold,iso4217AlphaCode
 dcid:Organization,917,dcid:EuropeanCommission,European Commission,dacCode
 dcid:Organization,918,dcid:EuropeanUnionInstitutions,European Union institutions,dacCode
+dcid:Organization,905,dcid:InternationalDevelopmentAssociation,International Development Association,dacCode
+dcid:Organization,1045,dcid:NorthAmericanDevelopmentBank,North American Development Bank,dacCode
+dcid:Organization,1601,dcid:GatesFoundation,Gates Foundation,dacCode
 dcid:DACGroup,20001,dcid:DACCountriesTotal,DAC countries,dacCode
 dcid:Grouping,20003,dcid:GroupOfSeven,Group of Seven,dacCode
 dcid:DAC1AidTypeEnum,1010,dcid:DAC1AidType1010,official development assistance (DAC 1 aid type),classificationCode
