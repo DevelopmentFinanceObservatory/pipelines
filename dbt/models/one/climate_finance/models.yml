@@ -692,3 +692,464 @@ models:
         description: Climate finance counted towards the objective, current USD, unrounded
         data_tests:
           - not_null
+
+  - name: int_climate_finance_statvars
+    description: >
+      Every StatVar the three climate finance imports publish, one row each,
+      taken from the model that mints the DCID. Each import's StatVar model
+      selects its own rows from here. Materialized because it dedupes
+      variables from observations, and three models and their tests read it.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns: &statvar_columns
+      - name: dcid
+        data_type: string
+        description: DCID of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        data_type: string
+        description: Human-readable name of the StatVar
+        data_tests:
+          - not_null
+          - unique
+      - name: population_type
+        data_type: string
+        description: >
+          DCID of the population measured, FinancialObligation for commitments
+          and FinancialFlow for disbursements
+        data_tests:
+          - not_null
+      - name: measured_property
+        data_type: string
+        description: >
+          DCID of the property measured: amount for finance received and the
+          UNFCCC totals, attributedAmount for finance provided
+        data_tests:
+          - not_null
+      - name: stat_type
+        data_type: string
+        description: Statistical type, measuredValue throughout
+        data_tests:
+          - not_null
+      - name: constraint_properties
+        data_type: string
+        description: Comma-delimited property names that constrain the StatVar
+        data_tests:
+          - not_null
+      - name: netting_basis
+        data_type: string
+        description: DCID of the netting basis, Gross for disbursements, null for commitments
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialFlow'"
+      - name: financial_flow_type
+        data_type: string
+        description: DCID of the flow type, Disbursement for disbursements, null for commitments
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialFlow'"
+      - name: financial_obligation_type
+        data_type: string
+        description: DCID of the obligation type, Commitment for commitments, null for disbursements
+        data_tests:
+          - not_null:
+              config:
+                where: "population_type = 'dcid:FinancialObligation'"
+      - name: climate_policy_objective
+        data_type: string
+        description: >
+          DCID of the climate change policy objective the finance is counted
+          towards: the total, or one of its four disjoint parts
+        data_tests:
+          - not_null
+      - name: measurement_qualifier
+        data_type: string
+        description: DCID qualifying how the value is measured, Nominal throughout
+        data_tests:
+          - not_null
+      - name: observation_properties
+        data_type: string
+        description: >
+          Comma-delimited properties carried on the observation instead of the
+          variable, so one variable covers every provider, and every recipient
+          where the observations name one
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [financingProvider, "financingProvider,financingRecipient"]
+
+  - name: dc_one_climate_finance_statvars
+    description: >
+      The StatVar nodes ONE Data's observations reference, one row per
+      variable.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns: *statvar_columns
+
+  - name: dc_oecd_crdf_statvars
+    description: >
+      The StatVar nodes the OECD's observations reference, one row per
+      variable. They are ONE Data's received commitment StatVars, defined
+      again in this import so its observations depend on no other import.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns: *statvar_columns
+
+  - name: dc_unfccc_btr_statvars
+    description: >
+      The StatVar nodes the UNFCCC observations reference, one row per
+      variable. They cover every recipient.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns: *statvar_columns
+
+  - name: dc_one_climate_finance_observations
+    description: >
+      ONE Data's climate finance, one row per observation, naming the StatVar
+      it measures. Materialized because the export reads it once per year
+      partition.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: one_climate_finance_observation_per_variable_entities_date_and_method
+          description: &unique_observation_description >
+            Data Commons keys an observation on its variable, entities, date
+            and facet, so a duplicate within one measurement method would be
+            rejected on ingest.
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+              - measurement_method
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_one_climate_finance_statvars')
+                field: dcid
+      - &date_column
+        name: date
+        data_type: integer
+        description: Year the finance was committed or disbursed
+        data_tests:
+          - not_null
+      - &financing_provider_column
+        name: financing_provider
+        data_type: string
+        description: DCID of the financing provider
+        data_tests:
+          - not_null
+      - &financing_recipient_column
+        name: financing_recipient
+        data_type: string
+        description: DCID of the financing recipient
+        data_tests:
+          - not_null
+      - &value_column
+        name: value
+        data_type: decimal(18,2)
+        description: Climate finance counted towards the objective, current USD
+        data_tests:
+          - not_null
+      - &unit_column
+        name: unit
+        data_type: string
+        description: DCID of the currency, CurrencyUSD throughout
+        data_tests:
+          - not_null
+      - name: measurement_method
+        data_type: string
+        description: >
+          DCID of the methods that produced the figure: the weighting, the
+          marker assignment and, for finance provided, the attribution rule
+        data_tests:
+          - not_null
+
+  - name: dc_oecd_crdf_observations
+    description: >
+      The OECD's climate-related development finance commitments, one row per
+      observation, naming the StatVar it measures. Materialized because the
+      export reads it once per year partition.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: oecd_crdf_observation_per_variable_entities_date_and_method
+          description: *unique_observation_description
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - financing_recipient
+              - date
+              - measurement_method
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_oecd_crdf_statvars')
+                field: dcid
+      - *date_column
+      - *financing_provider_column
+      - *financing_recipient_column
+      - *value_column
+      - *unit_column
+      - name: measurement_method
+        data_type: string
+        description: >
+          DCID of the methods that produced the figure, full-value marker
+          weighting with joint marker assignment throughout
+        data_tests:
+          - not_null
+
+  - name: dc_unfccc_btr_observations
+    description: >
+      The bilateral climate finance each party reports in its Biennial
+      Transparency Report, one row per observation, naming the StatVar it
+      measures. The totals cover every recipient, so no recipient is named.
+      Materialized because the export reads it once per year partition.
+    config:
+      contract: { enforced: true }
+      materialized: table
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+      - dbt_utils.unique_combination_of_columns:
+          name: unfccc_btr_observation_per_variable_entity_date_and_method
+          description: *unique_observation_description
+          arguments:
+            combination_of_columns:
+              - variable
+              - financing_provider
+              - date
+              - measurement_method
+    columns:
+      - name: variable
+        data_type: string
+        description: DCID of the StatVar measured
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dc_unfccc_btr_statvars')
+                field: dcid
+      - *date_column
+      - *financing_provider_column
+      - *value_column
+      - *unit_column
+      - name: measurement_method
+        data_type: string
+        description: DCID of the method, Estimated throughout, since each party estimates its own figures
+        data_tests:
+          - not_null
+
+  - name: dc_one_climate_finance_provenance
+    description: >
+      Provenance node for ONE Data's climate finance estimates. Observation
+      dates are taken from the observations.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_one_climate_finance_provenance_row
+          description: &one_provenance_row_description >
+            The node describes one import, and the extraction metadata it reads
+            holds one row. A second row here means a join fanned out.
+          arguments:
+            value: 1
+    columns:
+      - &provenance_name_column
+        name: name
+        data_type: string
+        description: Human-readable name of the provenance
+        data_tests:
+          - not_null
+      - name: source
+        data_type: string
+        description: DCID of the ONE Data source node
+        data_tests:
+          - not_null
+      - name: url
+        data_type: string
+        description: URL of the climate-finance package, which documents the data
+        data_tests:
+          - not_null
+      - name: source_data_url
+        data_type: string
+        description: URL of the package's releases, which publish the data
+        data_tests:
+          - not_null
+      - &oecd_license_column
+        name: license
+        data_type: string
+        description: URL of the OECD terms the data is published under
+        data_tests:
+          - not_null
+      - &oecd_license_type_column
+        name: license_type
+        data_type: string
+        description: DCID of the licence type node, OECDTermsAndConditions
+        data_tests:
+          - not_null
+      - &imported_source_release_date_column
+        name: imported_source_release_date
+        data_type: string
+        description: Date the climate-finance release was built, as YYYY-MM-DD
+        data_tests:
+          - not_null
+      - &earliest_observation_date_column
+        name: earliest_observation_date
+        data_type: string
+        description: Earliest year an observation is reported against
+        data_tests:
+          - not_null
+      - &latest_observation_date_column
+        name: latest_observation_date
+        data_type: string
+        description: Latest year an observation is reported against
+        data_tests:
+          - not_null
+      - &provenance_description_column
+        name: description
+        data_type: string
+        description: What the data is and how it is produced
+        data_tests:
+          - not_null
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation the OECD terms require, naming the OECD data the estimates
+          are computed from and saying they are an adaptation of it
+        data_tests:
+          - not_null
+
+  - name: dc_oecd_crdf_provenance
+    description: >
+      Provenance node for the OECD's climate-related development finance
+      commitments. Observation dates are taken from the observations.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_oecd_crdf_provenance_row
+          description: *one_provenance_row_description
+          arguments:
+            value: 1
+    columns:
+      - *provenance_name_column
+      - name: source
+        data_type: string
+        description: DCID of the OECD source node in Data Commons
+        data_tests:
+          - not_null
+      - &provenance_url_column
+        name: url
+        data_type: string
+        description: URL of the publisher's page for the data
+        data_tests:
+          - not_null
+      - &provenance_source_data_url_column
+        name: source_data_url
+        data_type: string
+        description: URL of the publisher's files the data comes from
+        data_tests:
+          - not_null
+      - *oecd_license_column
+      - *oecd_license_type_column
+      - *imported_source_release_date_column
+      - *earliest_observation_date_column
+      - *latest_observation_date_column
+      - *provenance_description_column
+      - name: license_attribution
+        data_type: string
+        description: >
+          Citation the OECD terms require, naming the dataset and saying the
+          data is an adaptation of it
+        data_tests:
+          - not_null
+
+  - name: dc_unfccc_btr_provenance
+    description: >
+      Provenance node for the climate finance totals the parties report in
+      their Biennial Transparency Reports. Observation dates are taken from the
+      observations.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_equal:
+          name: exactly_one_unfccc_btr_provenance_row
+          description: *one_provenance_row_description
+          arguments:
+            value: 1
+    columns:
+      - *provenance_name_column
+      - name: source
+        data_type: string
+        description: DCID of the UNFCCC source node the import defines
+        data_tests:
+          - not_null
+      - *provenance_url_column
+      - *provenance_source_data_url_column
+      - name: license
+        data_type: string
+        description: URL of the UNFCCC terms of use the reports are published under
+        data_tests:
+          - not_null
+      - name: source_release_frequency
+        data_type: string
+        description: >
+          How often parties report, as an ISO 8601 duration (every two years)
+        data_tests:
+          - not_null
+      - *imported_source_release_date_column
+      - *earliest_observation_date_column
+      - *latest_observation_date_column
+      - *provenance_description_column
+      - name: license_attribution
+        data_type: string
+        description: Acknowledgement of the source the UNFCCC terms require
+        data_tests:
+          - not_null
