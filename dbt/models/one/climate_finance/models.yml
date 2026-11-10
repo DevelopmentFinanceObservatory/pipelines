@@ -1014,12 +1014,14 @@ models:
           - not_null
       - name: url
         data_type: string
-        description: URL of the climate-finance package, which documents the data
+        description: URL of ONE Data's methodology page, which documents the data
         data_tests:
           - not_null
       - name: source_data_url
         data_type: string
-        description: URL of the package's releases, which publish the data
+        description: >
+          Comma-delimited URLs of the OECD's CRS and CRDF and the parties'
+          Biennial Transparency Reports, which the data is computed from
         data_tests:
           - not_null
       - &oecd_license_column

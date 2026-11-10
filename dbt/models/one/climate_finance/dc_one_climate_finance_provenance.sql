@@ -1,5 +1,13 @@
--- The package repository documents the data and its GitHub releases publish
--- it. ONE Data cuts releases by hand, on no calendar, so the node carries no
+-- The Climate Finance Files methodology page documents the data. The package
+-- that computes it is private, so the source data URLs point to the three
+-- public inputs: the CRS, the CRDF and the parties' Biennial Transparency
+-- Reports, the last for the climate shares that weight donors' Rio-marked
+-- projects. The page belongs to the 2026 edition and the methodology has no
+-- edition-independent page, so a release that follows a new edition moves
+-- this link. sourceDataUrl holds one string, so the URLs are comma-delimited.
+-- FIXME: Emit the three URLs as separate values once dcp-tools accepts a list:
+-- https://github.com/ONEcampaign/dcp-tools/issues/176
+-- ONE Data cuts releases by hand, on no calendar, so the node carries no
 -- release frequency and no next release date.
 with metadata as (
     select
@@ -23,11 +31,19 @@ select
     metadata.imported_source_release_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    'https://github.com/ONEcampaign/climate-finance-package' as url,
-    'https://github.com/ONEcampaign/climate-finance-package/releases'
-        as source_data_url,
+    'https://docs.one.org/methodologies/deep-dives/climate-finance-files-2026/'
+        as url,
+    array_to_string(
+        [
+            'https://webfs-dcd.oecd.org/files/dotStat/DSD_CRS/CRS.parquet',
+            'https://webfs.oecd.org/climate/RecipientPerspective/',
+            'https://unfccc.int/first-biennial-transparency-reports'
+        ],
+        ','
+    ) as source_data_url,
     'Climate finance commitments and payments estimated by ONE Data with its '
-    || 'climate-finance package, from the OECD''s CRS and CRDF. Each CRS '
+    || 'climate-finance package, from the OECD''s CRS and CRDF and the '
+    || 'parties'' Biennial Transparency Reports to the UNFCCC. Each CRS '
     || 'payment is linked to the commitment it pays and takes that '
     || 'commitment''s climate share. Marker-score weighting uses the '
     || 'coefficients each donor applies when it reports to the UNFCCC, else '
@@ -42,7 +58,8 @@ select
     || 'goal.' as description,
     'ONE Data (' || metadata.release_year || '), ONE Data Climate Finance, '
     || 'computed from OECD, Creditor Reporting System (CRS) and '
-    || 'Climate-related Development Finance (CRDF). This is an adaptation of '
+    || 'Climate-related Development Finance (CRDF), and UNFCCC, Biennial '
+    || 'Transparency Reports. This is an adaptation of '
     || 'an original work by the OECD. The opinions expressed and arguments '
     || 'employed in the adaptation should not be reported as representing the '
     || 'official views of the OECD or of its member countries.'
