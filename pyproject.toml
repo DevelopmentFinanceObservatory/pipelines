@@ -157,4 +157,4 @@ show_missing = true
 precision = 2
 
 [tool.uv.sources]
-dfo-ontology = { git = "https://github.com/DevelopmentFinanceObservatory/ontology", rev = "617bdb685e79022494132ef3614674c232b395fc" }
+dfo-ontology = { git = "https://github.com/DevelopmentFinanceObservatory/ontology", rev = "56a4d77084ab15f0814bdaae1dc39d5d97ee6355" }
