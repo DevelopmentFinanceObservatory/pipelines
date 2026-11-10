@@ -28,6 +28,18 @@ CREATE OR REPLACE TABLE one_imputed_multilateral_sectors.raw_imputed_multilatera
         DATE '2026-08-03' AS crs_release_date,
         DATE '2025-12-18' AS multisystem_release_date;
 
+CREATE SCHEMA IF NOT EXISTS one_climate_finance;
+CREATE OR REPLACE TABLE one_climate_finance.raw_climate_finance_spending AS
+    SELECT * FROM read_parquet('tests/one/climate_finance/fixtures/export/2026a-rc9/spending.parquet');
+CREATE OR REPLACE TABLE one_climate_finance.raw_climate_finance_crdf_commitments AS
+    SELECT * FROM read_parquet('tests/one/climate_finance/fixtures/export/2026a-rc9/crdf_commitments.parquet');
+CREATE OR REPLACE TABLE one_climate_finance.raw_climate_finance_btr_totals AS
+    SELECT * FROM read_parquet('tests/one/climate_finance/fixtures/export/2026a-rc9/btr_totals.parquet');
+CREATE OR REPLACE TABLE one_climate_finance.raw_climate_finance_metadata AS
+    SELECT
+        TIMESTAMPTZ '2026-11-10 15:13:21+00' AS downloaded_at,
+        DATE '2026-11-10' AS source_release_date;
+
 CREATE SCHEMA IF NOT EXISTS imf_weo;
 CREATE OR REPLACE TABLE imf_weo.raw_weo AS
     SELECT * FROM read_parquet('tests/imf/weo/fixtures/data.parquet');

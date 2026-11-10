@@ -1,0 +1,185 @@
+version: 2
+
+models:
+  - name: stg_climate_finance_spending
+    description: >
+      Climate finance received, and climate finance provided through core
+      contributions to multilaterals, by family, flow, method, attribution rule,
+      year, provider, recipient and Bi_Multi code, cast to their target types.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: family
+        data_type: string
+        description: >
+          received, the finance recipients receive, or provided, the finance each
+          provider gives through its core contributions to multilaterals
+      - name: flow
+        data_type: string
+        description: commitments, or gross disbursements
+      - name: method
+        data_type: string
+        description: The weighting of climate finance, ONE Data's (ONE) or the OECD's full value (OECD)
+      - name: attribution
+        data_type: string
+        description: >
+          How a provider's core contributions to multilaterals are attributed to
+          it: by the multilateral's climate spending share (contributions) or by
+          the OECD's outflow shares (outflows). Received rows carry contributions.
+      - name: year
+        data_type: integer
+        description: Year of the commitment or disbursement
+        data_tests:
+          - not_null
+      - name: provider_code
+        data_type: string
+        description: DAC code of the provider
+        data_tests:
+          - not_null
+      - name: recipient_code
+        data_type: string
+        description: >
+          DAC code of the recipient. 9998, "Bilateral, unallocated/unspecified",
+          stands for developing countries, unspecified, and for a core
+          contribution whose multilateral had no outflows to spread it over.
+        data_tests:
+          - not_null
+      - name: bi_multi
+        data_type: integer
+        description: >
+          The CRS Bi_Multi code of the flows behind the row. Provided rows carry
+          2, core contributions.
+      - name: value
+        data_type: decimal(38,12)
+        description: Climate finance, current USD
+        data_tests:
+          - not_null
+      - name: adaptation
+        data_type: decimal(38,12)
+        description: The part counted towards adaptation, current USD
+        data_tests:
+          - not_null
+      - name: mitigation
+        data_type: decimal(38,12)
+        description: The part counted towards mitigation, current USD
+        data_tests:
+          - not_null
+      - name: cross_cutting
+        data_type: decimal(38,12)
+        description: The part counted towards both adaptation and mitigation, current USD
+        data_tests:
+          - not_null
+      - name: unsplit
+        data_type: decimal(38,12)
+        description: The attributed part with no split by objective, current USD
+        data_tests:
+          - not_null
+      - name: no_adaptation_marker
+        data_type: decimal(38,12)
+        description: >
+          The part of value with no adaptation marker, held in mitigation, current
+          USD
+        data_tests:
+          - not_null
+
+  - name: stg_climate_finance_crdf_commitments
+    description: >
+      The OECD's climate-related development finance commitments, every row the
+      package ships, cast to their target types.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: year
+        data_type: integer
+        description: Year of the commitment
+        data_tests:
+          - not_null
+      - name: provider_code
+        data_type: string
+        description: DAC code of the provider
+        data_tests:
+          - not_null
+      - name: recipient_code
+        data_type: string
+        description: >
+          DAC code of the recipient. 9998, "Bilateral, unallocated/unspecified",
+          stands for developing countries, unspecified.
+        data_tests:
+          - not_null
+      - name: bi_multi
+        data_type: integer
+        description: >
+          The CRS Bi_Multi code: 1 bilateral, 4 a multilateral's own outflows, 6
+          private grants
+      - name: climate_usd
+        data_type: decimal(38,12)
+        description: Climate-related commitment, current USD
+        data_tests:
+          - not_null
+      - name: adaptation_usd
+        data_type: decimal(38,12)
+        description: The part relevant to adaptation, including the overlap, current USD
+        data_tests:
+          - not_null
+      - name: mitigation_usd
+        data_type: decimal(38,12)
+        description: The part relevant to mitigation, including the overlap, current USD
+        data_tests:
+          - not_null
+      - name: overlap_usd
+        data_type: decimal(38,12)
+        description: The part relevant to both adaptation and mitigation, current USD
+        data_tests:
+          - not_null
+
+  - name: stg_climate_finance_btr_totals
+    description: >
+      Bilateral climate finance the parties report in their Biennial Transparency
+      Reports at face value, committed and disbursed, cast to their target types.
+    config:
+      contract: { enforced: true }
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+    columns:
+      - name: party
+        data_type: string
+        description: ISO 3166 alpha-3 code of the reporting party
+        data_tests:
+          - not_null
+      - name: provider_code
+        data_type: string
+        description: DAC code of the reporting party
+        data_tests:
+          - not_null
+      - name: year
+        data_type: integer
+        description: Year the finance was committed or disbursed
+        data_tests:
+          - not_null
+      - name: status
+        data_type: string
+        description: committed or disbursed
+        data_tests:
+          - not_null
+      - name: funding
+        data_type: string
+        description: The type of funding, oda, oof or other
+        data_tests:
+          - not_null
+      - name: face_usd_at_dac
+        data_type: decimal(38,12)
+        description: >
+          Face value as the party reports it in its own currency, converted to
+          USD at the OECD DAC exchange rate
+        data_tests:
+          - not_null
