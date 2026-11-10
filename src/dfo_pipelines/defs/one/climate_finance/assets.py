@@ -4,7 +4,17 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.data_commons.export import (
+    DOCS_ROOT,
+    ConversionRecipe,
+    ExportSpec,
+    ObservationInput,
+    export_bundle,
+)
+from dfo_pipelines.defs.automation import (
+    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+    EAGER_WHEN_CHECKS_PASS,
+)
 from dfo_pipelines.defs.resources import (
     ClimateFinanceExportResource,
     UPathFileStoreResource,
@@ -247,4 +257,176 @@ def one_climate_finance_raw_metadata(
             "dagster/table_name": dg.MetadataValue.text(f"{SCHEMA}.{table}"),
             "dagster/row_count": dg.MetadataValue.int(rows),
         },
+    )
+
+
+def _export_spec(
+    *,
+    dataset: str,
+    provenance_dcid: str,
+    maps_recipient: bool,
+    source_model: str | None = None,
+) -> ExportSpec:
+    """The export of one of the three climate finance imports.
+
+    `dataset` names the import and the dbt models it reads, `dc_<dataset>_*`.
+    `maps_recipient` says whether its observations map a `financingRecipient`.
+    `source_model` names the seed of the Source node the import defines, if any.
+    """
+    observation_columns = {
+        "variable": "variable",
+        "date": "date",
+        "value": "value",
+        "unit": "unit",
+        "measurementMethod": "measurement_method",
+        "custom:financingProvider": "financing_provider",
+    }
+    if maps_recipient:
+        observation_columns["custom:financingRecipient"] = "financing_recipient"
+    return ExportSpec(
+        import_name=dataset,
+        provenance_dcid=provenance_dcid,
+        provenance_model=f"{SCHEMA}.dc_{dataset}_provenance",
+        # Every series is in current US dollars at the OECD DAC exchange rates,
+        # which is what the DAC recipe converts, as for the CRS and the imputed
+        # multilateral sectors. The package builds its figures from OECD DAC
+        # data, and converts each party's own-currency BTR amounts at those rates.
+        conversion_recipe=ConversionRecipe.DAC,
+        statvar_model=f"{SCHEMA}.dc_{dataset}_statvars",
+        observation_inputs=(
+            ObservationInput(
+                model=f"{SCHEMA}.dc_{dataset}_observations",
+                property_to_column=observation_columns,
+            ),
+        ),
+        source_model=source_model,
+        statvar_column_to_property={
+            "name": "name",
+            "netting_basis": "nettingBasis",
+            "financial_flow_type": "financialFlowType",
+            "financial_obligation_type": "financialObligationType",
+            "climate_policy_objective": "climatePolicyObjective",
+        },
+        docs_dir=DOCS_ROOT / "one" / "climate_finance" / dataset,
+        constant_observation_properties={"observationPeriod": "P1Y"},
+    )
+
+
+ONE_CLIMATE_FINANCE_EXPORT_SPEC = _export_spec(
+    dataset="one_climate_finance",
+    provenance_dcid="ONEClimateFinance",
+    maps_recipient=True,
+)
+OECD_CRDF_EXPORT_SPEC = _export_spec(
+    dataset="oecd_crdf",
+    provenance_dcid="OECDClimateRelatedDevelopmentFinance",
+    maps_recipient=True,
+)
+# The parties' totals cover every recipient, a scope the StatVar carries, so the
+# observations name no recipient.
+UNFCCC_BTR_EXPORT_SPEC = _export_spec(
+    dataset="unfccc_btr",
+    provenance_dcid="UNFCCCBiennialTransparencyReports",
+    maps_recipient=False,
+    source_model=f"{SCHEMA}.unfccc_source",
+)
+
+
+def _dbt_model_keys(spec: ExportSpec) -> list[dg.AssetKey]:
+    """The three dc models one export reads, and the Source seed it defines"""
+    keys = [
+        dg.AssetKey([SCHEMA, f"dc_{spec.import_name}_{model}"])
+        for model in ("observations", "provenance", "statvars")
+    ]
+    if spec.source_model is not None:
+        keys.append(dg.AssetKey(spec.source_model.split(".")))
+    return keys
+
+
+def _export(
+    spec: ExportSpec,
+    *,
+    context: dg.AssetExecutionContext,
+    duckdb: DuckDBResource,
+    export_file_store: UPathFileStoreResource,
+) -> dg.MaterializeResult:
+    """Write `spec`'s bundle to today's partition and report what it holds. The
+    bundle's directory is the asset's value."""
+    out_dir = export_file_store.build_date_partitioned_path(spec.import_name)
+    with duckdb.get_connection() as connection:
+        export_metadata = export_bundle(
+            spec, connection=connection, out_dir=out_dir, log=context.log
+        )
+    return dg.MaterializeResult(
+        value=str(out_dir),
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
+            "observation_count": dg.MetadataValue.int(
+                export_metadata.observation_count
+            ),
+            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
+            "observation_file_count": dg.MetadataValue.int(
+                export_metadata.observation_file_count
+            ),
+        },
+    )
+
+
+@dg.asset(
+    group_name="one_climate_finance",
+    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+    code_version=ONE_CLIMATE_FINANCE_EXPORT_SPEC.documentation_version,
+    deps=_dbt_model_keys(ONE_CLIMATE_FINANCE_EXPORT_SPEC),
+)
+def one_climate_finance_dc_export(
+    context: dg.AssetExecutionContext,
+    duckdb: DuckDBResource,
+    export_file_store: UPathFileStoreResource,
+) -> dg.MaterializeResult:
+    """Data Commons export for ONE Data Climate Finance"""
+    return _export(
+        ONE_CLIMATE_FINANCE_EXPORT_SPEC,
+        context=context,
+        duckdb=duckdb,
+        export_file_store=export_file_store,
+    )
+
+
+@dg.asset(
+    group_name="one_climate_finance",
+    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+    code_version=OECD_CRDF_EXPORT_SPEC.documentation_version,
+    deps=_dbt_model_keys(OECD_CRDF_EXPORT_SPEC),
+)
+def oecd_crdf_dc_export(
+    context: dg.AssetExecutionContext,
+    duckdb: DuckDBResource,
+    export_file_store: UPathFileStoreResource,
+) -> dg.MaterializeResult:
+    """Data Commons export for the OECD's climate-related development finance"""
+    return _export(
+        OECD_CRDF_EXPORT_SPEC,
+        context=context,
+        duckdb=duckdb,
+        export_file_store=export_file_store,
+    )
+
+
+@dg.asset(
+    group_name="one_climate_finance",
+    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+    code_version=UNFCCC_BTR_EXPORT_SPEC.documentation_version,
+    deps=_dbt_model_keys(UNFCCC_BTR_EXPORT_SPEC),
+)
+def unfccc_btr_dc_export(
+    context: dg.AssetExecutionContext,
+    duckdb: DuckDBResource,
+    export_file_store: UPathFileStoreResource,
+) -> dg.MaterializeResult:
+    """Data Commons export for the UNFCCC Biennial Transparency Reports"""
+    return _export(
+        UNFCCC_BTR_EXPORT_SPEC,
+        context=context,
+        duckdb=duckdb,
+        export_file_store=export_file_store,
     )
