@@ -105,20 +105,33 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
 
+      - name: Run tests
+        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./coverage.xml
+
       # Advisory: the report says whether the StatVar tables the build wrote name
       # classes, properties and values the graph holds. A step that fails or a
-      # check that cannot run leaves the job green.
+      # check that cannot run leaves the job green. Both steps run after a failed
+      # step too, so the comment always describes the latest push.
       - name: Check StatVars against the graph
+        if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 10
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
           GRAPH_CHECK_URL: ${{ vars.GRAPH_CHECK_URL }}
         run: uv run python scripts/graph_check.py "$RUNNER_TEMP/graph-check-report.md"
 
       # The report starts with a hidden marker line, which finds the comment this
-      # step wrote on an earlier push. A pull request from a fork has a read-only
-      # token, so this step can fail there; the job summary still carries the report.
+      # step wrote on an earlier push. When the check step wrote no report, the
+      # comment says so. A pull request from a fork has a read-only token, so this
+      # step can fail there; the job summary still carries the report.
       - name: Comment the graph check on the pull request
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -126,6 +139,11 @@ jobs:
           PULL_REQUEST: ${{ github.event.pull_request.number }}
         run: |
           report="$RUNNER_TEMP/graph-check-report.md"
+          if [ ! -s "$report" ]; then
+            printf '%s\n%s\n' '<!-- dfo-graph-check -->' \
+              'The graph check did not run. The check step wrote no report, and the job log says why.' \
+              > "$report"
+          fi
           marker="$(head -n 1 "$report")"
           comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
             | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id' \
@@ -135,11 +153,3 @@ jobs:
           else
             gh api --method POST "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" -F body=@"$report"
           fi
-
-      - name: Run tests
-        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v6
-        with:
-          files: ./coverage.xml

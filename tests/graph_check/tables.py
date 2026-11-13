@@ -5,7 +5,8 @@ from dfo_pipelines.data_commons.export import ExportSpec, ObservationInput
 # A StatVar table shaped like the CRS and DAC models: the fixed columns, the two
 # list columns, one column per constraint property, a name, and a bookkeeping
 # column the export ignores. The second row leaves its purpose code null and its
-# denominator an empty string.
+# denominator an empty string, and writes its netting basis with a space after the
+# namespace.
 STATVARS_SQL = """
 create or replace table checked.statvars as
 select * from (values
@@ -18,7 +19,7 @@ select * from (values
     (
         'dcid:Variable2', 'Variable Two', 'dcid:FinancialFlow', 'dcid:amount',
         'dcid:measuredValue', 'dcid:Nominal', '',
-        'nettingBasis,crsPurpose', 'dcid:Net', null,
+        'nettingBasis,crsPurpose', 'dcid: Net', null,
         null, false
     )
 ) as statvars (

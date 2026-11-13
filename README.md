@@ -85,7 +85,7 @@ uv run --env-file .env sqlfluff lint dbt/models
 
 ### Graph check comment
 
-Every pull request gets a comment saying whether the StatVar tables its build writes name classes, properties and values the knowledge graph holds. The CI `test` job posts it after `dbt build` and updates the same comment on later pushes. The comment is advisory and never blocks a merge. When it says the check did not run, the report gives the reason. A pull request from a fork cannot post the comment; the job summary carries the report instead.
+Every pull request gets a comment saying whether the StatVar tables its build writes name classes, properties and values the knowledge graph holds. The CI `test` job posts it after its other steps and updates the same comment on every later push. The comment is advisory and never blocks a merge. The check stops after 900 requests or 8 minutes; a check that stops early or does not run says why, and reports what it did check. A pull request from a fork cannot post the comment; the job summary carries the report instead.
 
 The repository variable `GRAPH_CHECK_URL` holds the address of the graph API's check route. When it is unset, the report says the check did not run.
 
@@ -95,7 +95,7 @@ To run the check on a database a build wrote:
 DUCKDB_PATH=/tmp/ci.duckdb GRAPH_CHECK_URL=<check route URL> uv run python scripts/graph_check.py report.md
 ```
 
-The script writes the report to the file it is given, prints the report's first line, and exits 0 whenever it wrote a report.
+The script writes the report to the file it is given and prints the report's first line. It exits 0 when the check produced a report, and 1 after writing a report that says the check could not complete.
 
 ### Pre-commit hooks
 

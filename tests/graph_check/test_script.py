@@ -94,11 +94,34 @@ def test_the_report_is_appended_to_the_step_summary(
     assert graph_check.MARKER not in written
 
 
-def test_a_missing_database_setting_is_a_crash(
-    run, monkeypatch: pytest.MonkeyPatch
+def answer_without_findings(url: str, body: dict[str, Any]) -> httpx.Response:
+    return httpx.Response(
+        200, json={"generation": "g1", "row_count": len(body["rows"]), "findings": None}
+    )
+
+
+def test_an_undocumented_answer_still_writes_a_report_and_exits_zero(run) -> None:
+    status, report = run(answer_without_findings, URL)
+
+    assert status == 0
+    assert report.read_text().splitlines()[1] == (
+        "The graph check did not run: the check route gave an answer the check "
+        "cannot read."
+    )
+
+
+def test_an_unexpected_error_writes_a_report_saying_so_and_exits_one(
+    run, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     run(clean_route, URL)
     monkeypatch.delenv("DUCKDB_PATH")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    report = tmp_path / "crash.md"
 
-    with pytest.raises(KeyError):
-        graph_check.main(["unused.md"])
+    status = graph_check.main([str(report)])
+
+    lines = report.read_text().splitlines()
+    assert status == 1
+    assert lines[0] == graph_check.MARKER
+    assert lines[1] == ("The graph check did not run: the check could not complete.")
+    assert "What stopped it: `KeyError: 'DUCKDB_PATH'`." in lines[3]

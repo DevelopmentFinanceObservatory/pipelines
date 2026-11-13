@@ -5,8 +5,7 @@ variable's population type, measured property, stat type, measurement qualifier
 and denominator. `constraint_properties` and `observation_properties` hold
 comma-separated property names, and each constraint property takes its value from
 the column `ExportSpec.statvar_column_to_property` maps onto it. A table that
-lacks a fixed or list column, as the conversion tables lack the constraint
-columns, declares nothing there.
+lacks a fixed or list column declares nothing there.
 """
 
 import re
@@ -116,7 +115,7 @@ def _node(value: Any) -> str | None:
     """A cell as a bare dcid, or None for an empty cell"""
     if value is None:
         return None
-    text = _NAMESPACE.sub("", str(value).strip())
+    text = _NAMESPACE.sub("", str(value).strip()).strip()
     return text or None
 
 
