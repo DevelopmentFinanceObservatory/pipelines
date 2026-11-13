@@ -62,6 +62,11 @@ jobs:
   test:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
+    # Naming any permission drops the rest. `contents: read` serves checkout and
+    # `pull-requests: write` serves the graph check comment.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
 
@@ -99,6 +104,37 @@ jobs:
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
+
+      # Advisory: the report says whether the StatVar tables the build wrote name
+      # classes, properties and values the graph holds. A step that fails or a
+      # check that cannot run leaves the job green.
+      - name: Check StatVars against the graph
+        continue-on-error: true
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+          GRAPH_CHECK_URL: ${{ vars.GRAPH_CHECK_URL }}
+        run: uv run python scripts/graph_check.py "$RUNNER_TEMP/graph-check-report.md"
+
+      # The report starts with a hidden marker line, which finds the comment this
+      # step wrote on an earlier push. A pull request from a fork has a read-only
+      # token, so this step can fail there; the job summary still carries the report.
+      - name: Comment the graph check on the pull request
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          report="$RUNNER_TEMP/graph-check-report.md"
+          marker="$(head -n 1 "$report")"
+          comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
+            | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id' \
+            | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$REPOSITORY/issues/comments/$comment_id" -F body=@"$report"
+          else
+            gh api --method POST "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" -F body=@"$report"
+          fi
 
       - name: Run tests
         run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
