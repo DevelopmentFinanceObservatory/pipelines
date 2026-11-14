@@ -1,6 +1,7 @@
 """Check the StatVar tables of a build against the graph and report the result."""
 
 import time
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,16 @@ from dfo_pipelines.graph_check.report import (
 from dfo_pipelines.graph_check.rows import CheckRow, statvar_check_rows
 
 
+class RepeatedStatVarModelError(ValueError):
+    """Two export specs name the same StatVar model, whose rows would count twice."""
+
+    def __init__(self, models: Sequence[str]) -> None:
+        super().__init__(
+            f"StatVar models named by more than one spec: {', '.join(models)}"
+        )
+        self.models = tuple(models)
+
+
 def run_graph_check(
     database: DuckDBPyConnection | str | Path,
     *,
@@ -27,12 +38,13 @@ def run_graph_check(
     post: Post = post_json,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    commit: str | None = None,
 ) -> tuple[str, CheckSummary]:
     """Check every spec's StatVar table against the graph.
 
     A finding is a result, not a failure. A check that cannot run, or stops
     before every StatVar is checked, says why in its report and keeps what it
-    found, so this raises only for a fault in the database itself.
+    found, so this raises only for a fault in the specs or the database itself.
 
     Args:
         database: A connection to the build's database, or the path of its file,
@@ -42,12 +54,20 @@ def run_graph_check(
         post: Sends one request to the route.
         sleep: Waits the given seconds between retries.
         clock: Reads the time, for the run's time budget.
+        commit: The commit the build was made from, which the report names.
 
     Returns:
         The Markdown report and its summary.
+
+    Raises:
+        RepeatedStatVarModelError: Two specs name the same StatVar model.
     """
+    models = Counter(spec.statvar_model for spec in specs)
+    if repeated := [model for model, count in models.items() if count > 1]:
+        raise RepeatedStatVarModelError(repeated)
+
     if not url:
-        summary = CheckSummary(not_run="no check URL is configured")
+        summary = CheckSummary(not_run="no check URL is configured", commit=commit)
         return render_report(summary), summary
 
     if isinstance(database, DuckDBPyConnection):
@@ -60,6 +80,7 @@ def run_graph_check(
         summary = CheckSummary(
             not_run="no StatVar table has rows in this build",
             unchecked_tables=tables.unchecked,
+            commit=commit,
         )
         return render_report(summary), summary
 
@@ -70,6 +91,7 @@ def run_graph_check(
                 "has a measured property"
             ),
             unchecked_tables=tables.unchecked,
+            commit=commit,
         )
         return render_report(summary), summary
 
@@ -80,6 +102,7 @@ def run_graph_check(
             not_run=str(stop.reason),
             failure_detail=stop.detail,
             unchecked_tables=tables.unchecked,
+            commit=commit,
         )
         return render_report(summary), summary
 
@@ -113,13 +136,11 @@ def run_graph_check(
         route_refused_count=len(result.failed_rows),
         unsent_count=len(tables.unsent),
         tables_checked=tuple(dict.fromkeys(t for t, _ in tables.statvars.values())),
-        tables_with_findings=len(
-            {finding.table for finding in findings} | {row.table for row in refused}
-        ),
         unchecked_tables=tables.unchecked,
         error_count=sum(finding.severity == "error" for finding in findings),
         warning_count=sum(finding.severity == "warning" for finding in findings),
         generations=tuple(result.generations),
+        commit=commit,
     )
     return render_report(summary, findings=findings, refused=refused), summary
 

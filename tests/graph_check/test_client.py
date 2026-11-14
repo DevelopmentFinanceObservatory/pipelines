@@ -5,16 +5,16 @@ import httpx
 import pytest
 
 from dfo_pipelines.graph_check.client import (
+    DEFAULT_WAIT_SECONDS,
     GATEWAY_RETRIES,
-    MAX_REQUESTS,
+    REQUEST_TIMEOUT_SECONDS,
     CheckResult,
     FailedRow,
     StopReason,
     check_rows,
 )
 from dfo_pipelines.graph_check.rows import CheckRow
-
-URL = "https://graph.test/check"
+from tests.graph_check.tables import URL, answer
 
 type Respond = Callable[[list[CheckRow]], httpx.Response]
 
@@ -33,25 +33,26 @@ def make_row(ref: str) -> CheckRow:
     )
 
 
-def answer(rows: list[CheckRow], generation: str | None = "g1") -> httpx.Response:
+def finding_for(ref: str, **changes: Any) -> dict[str, Any]:
+    """A finding about `ref`, with `changes`; a change to `...` drops the member"""
+    finding = {
+        "ref": ref,
+        "field": "measured_property",
+        "value": "amount",
+        "code": "node_not_held",
+        "severity": "error",
+    }
+    return {key: value for key, value in (finding | changes).items() if value != ...}
+
+
+def answer_each(rows: list[CheckRow]) -> httpx.Response:
     """A 200 with one finding per row, so a test can see which rows were answered"""
-    return httpx.Response(
-        200,
-        json={
-            "generation": generation,
-            "row_count": len(rows),
-            "findings": [
-                {
-                    "ref": row["ref"],
-                    "field": "measured_property",
-                    "value": "amount",
-                    "code": "node_not_held",
-                    "severity": "error",
-                }
-                for row in rows
-            ],
-        },
-    )
+    return answer(rows, findings=[finding_for(row["ref"]) for row in rows])
+
+
+def refused(detail: str = "too many ids") -> httpx.Response:
+    """The route's refusal of the rows it was sent"""
+    return httpx.Response(400, json={"code": "request_invalid", "detail": detail})
 
 
 class FakeRoute:
@@ -63,7 +64,7 @@ class FakeRoute:
     def __init__(
         self,
         *script: httpx.Response | Exception,
-        respond: Respond = answer,
+        respond: Respond = answer_each,
         latency: float = 0.0,
     ) -> None:
         self.script = list(script)
@@ -71,15 +72,17 @@ class FakeRoute:
         self.latency = latency
         self.now = 0.0
         self.requests: list[list[CheckRow]] = []
+        self.timeouts: list[float] = []
         self.sleeps: list[float] = []
 
     def sleep(self, seconds: float) -> None:
         self.sleeps.append(seconds)
         self.now += seconds
 
-    def post(self, url: str, body: dict[str, Any]) -> httpx.Response:
+    def post(self, url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
         assert url == URL
         self.requests.append(body["rows"])
+        self.timeouts.append(timeout)
         self.now += self.latency
         if self.script:
             step = self.script.pop(0)
@@ -114,6 +117,7 @@ def test_rows_go_in_chunks_and_every_answer_is_kept() -> None:
     result = route.check(rows, chunk_size=2)
 
     assert [len(request) for request in route.requests] == [2, 2, 1]
+    assert set(route.timeouts) == {REQUEST_TIMEOUT_SECONDS}
     assert answered_refs(result) == list("abcde")
     assert result.generations == ["g1"]
     assert result.failed_rows == []
@@ -122,10 +126,8 @@ def test_rows_go_in_chunks_and_every_answer_is_kept() -> None:
 def test_a_refused_chunk_halves_until_the_refused_row_stands_alone() -> None:
     def refuse_c(rows: list[CheckRow]) -> httpx.Response:
         if any(row["ref"] == "c" for row in rows):
-            return httpx.Response(
-                400, json={"code": "request_invalid", "detail": "too many ids"}
-            )
-        return answer(rows)
+            return refused()
+        return answer_each(rows)
 
     route = FakeRoute(respond=refuse_c)
 
@@ -133,6 +135,25 @@ def test_a_refused_chunk_halves_until_the_refused_row_stands_alone() -> None:
 
     assert result.failed_rows == [FailedRow(ref="c", detail="too many ids")]
     assert sorted(answered_refs(result)) == ["a", "b", "d", "e"]
+
+
+def test_rows_refused_on_their_own_leave_the_chunk_size_for_the_rows_after() -> None:
+    bad = {f"r{n}" for n in range(37, 5_000, 100)}
+
+    def refuse_bad_rows(rows: list[CheckRow]) -> httpx.Response:
+        if any(row["ref"] in bad for row in rows):
+            return refused("a value the route cannot read")
+        return answer(rows)
+
+    route = FakeRoute(respond=refuse_bad_rows)
+
+    result = route.check([make_row(f"r{n}") for n in range(5_000)])
+
+    # Isolating each refused row from a 500-row chunk takes about 14 requests.
+    assert result.stopped is None
+    assert result.checked_count == 4_950
+    assert {row.ref for row in result.failed_rows} == bad
+    assert len(route.requests) <= 750
 
 
 @pytest.mark.parametrize(
@@ -162,8 +183,10 @@ def test_a_400_that_is_not_the_routes_refusal_of_rows_stops_the_check(
     [
         (httpx.Response(503, headers={"Retry-After": "7"}), [7.0]),
         (httpx.Response(429, json={"error": "rate", "retry": 3, "detail": "x"}), [3.0]),
+        (httpx.Response(503, headers={"Retry-After": "0"}), [1.0]),
+        (httpx.Response(503, headers={"Retry-After": "-1"}), [DEFAULT_WAIT_SECONDS]),
     ],
-    ids=["503 Retry-After", "429 retry"],
+    ids=["503 Retry-After", "429 retry", "no wait", "negative wait"],
 )
 def test_a_busy_answer_is_waited_out(busy: httpx.Response, waited: list[float]) -> None:
     route = FakeRoute(busy)
@@ -200,9 +223,13 @@ def test_a_gateway_failure_is_retried_a_bounded_number_of_times() -> None:
         (httpx.ConnectError("refused"), StopReason.UNREACHABLE),
         (httpx.Response(500), StopReason.FAILED),
         (httpx.Response(403, text="forbidden"), StopReason.REFUSED),
+        (
+            httpx.Response(307, headers={"Location": "https://graph.test/check"}),
+            StopReason.REDIRECTED,
+        ),
         (httpx.Response(200, text="ok"), StopReason.UNEXPECTED_ANSWER),
     ],
-    ids=["network", "500", "403", "undocumented 200"],
+    ids=["network", "500", "403", "redirect", "undocumented 200"],
 )
 def test_other_failures_stop_the_check_with_their_reason(
     failure: httpx.Response | Exception, reason: StopReason
@@ -213,17 +240,6 @@ def test_other_failures_stop_the_check_with_their_reason(
 
     assert stop_reason(result) is reason
     assert result.checked_count == 0
-
-
-def finding_for(ref: str, **changes: Any) -> dict[str, Any]:
-    finding = {
-        "ref": ref,
-        "field": "measured_property",
-        "value": "amount",
-        "code": "node_not_held",
-        "severity": "error",
-    }
-    return {key: value for key, value in (finding | changes).items() if value != ...}
 
 
 @pytest.mark.parametrize(
@@ -270,7 +286,7 @@ def finding_for(ref: str, **changes: Any) -> dict[str, Any]:
 def test_an_answer_not_as_documented_stops_the_check_and_keeps_earlier_answers(
     body: Any,
 ) -> None:
-    route = FakeRoute(answer([make_row("a")]), httpx.Response(200, json=body))
+    route = FakeRoute(answer_each([make_row("a")]), httpx.Response(200, json=body))
 
     result = route.check([make_row("a"), make_row("b")], chunk_size=1)
 
@@ -292,12 +308,8 @@ def capped_route(cap: int) -> Respond:
             if str(row["population_type"]).startswith("Unknown")
         }
         if len(unknown) > cap:
-            return httpx.Response(
-                400, json={"code": "request_invalid", "detail": "too many ids"}
-            )
-        return httpx.Response(
-            200, json={"generation": "g1", "row_count": len(rows), "findings": []}
-        )
+            return refused()
+        return answer(rows)
 
     return respond
 
@@ -351,6 +363,7 @@ def test_a_run_stops_at_its_time_budget_and_keeps_its_answers() -> None:
 
     assert stop_reason(result) is StopReason.TIME_BUDGET
     assert answered_refs(result) == ["a", "b", "c"]
+    assert route.timeouts == [25.0, 15.0, 5.0]
 
 
 def test_a_wait_that_would_pass_the_time_budget_stops_the_run_at_once() -> None:
@@ -360,9 +373,3 @@ def test_a_wait_that_would_pass_the_time_budget_stops_the_run_at_once() -> None:
 
     assert stop_reason(result) is StopReason.TIME_BUDGET
     assert route.sleeps == []
-
-
-def test_the_request_budget_fits_the_proxy_allowance_within_the_time_budget() -> None:
-    from dfo_pipelines.graph_check.client import MAX_RUN_SECONDS
-
-    assert MAX_REQUESTS <= 120 * MAX_RUN_SECONDS / 60

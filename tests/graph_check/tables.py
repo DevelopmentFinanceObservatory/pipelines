@@ -1,6 +1,14 @@
+import re
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+import httpx
 
 from dfo_pipelines.data_commons.export import ExportSpec, ObservationInput
+from dfo_pipelines.graph_check.rows import CheckRow
+
+URL = "https://graph.test/check"
 
 # A StatVar table shaped like the CRS and DAC models: the fixed columns, the two
 # list columns, one column per constraint property, a name, and a bookkeeping
@@ -47,3 +55,34 @@ SPEC = ExportSpec(
     statvar_ignore_columns=("has_provider",),
     docs_dir=Path("unused"),
 )
+
+
+def answer(
+    rows: list[CheckRow],
+    *,
+    findings: Sequence[dict[str, Any]] = (),
+    generation: str | None = "g1",
+) -> httpx.Response:
+    """The route's 200 answer for `rows`"""
+    return httpx.Response(
+        200,
+        json={
+            "generation": generation,
+            "row_count": len(rows),
+            "findings": list(findings),
+        },
+    )
+
+
+def clean_route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
+    """A route that finds nothing wrong"""
+    return answer(body["rows"])
+
+
+def first_line(report: str) -> str:
+    return report.splitlines()[0]
+
+
+def spans(text: str) -> list[str]:
+    """The contents of every code span in `text`, in order"""
+    return re.findall(r"`([^`]*)`", text)

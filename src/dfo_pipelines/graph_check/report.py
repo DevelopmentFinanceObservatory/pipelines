@@ -1,15 +1,16 @@
 """Render a graph check as Markdown for a pull request comment.
 
-The first line is the verdict, followed by a few lines on what the check is and
-what it was checked against. Below them, each table with findings gets a short
-table of finding codes with a count and a few examples, then the StatVars that
-were not checked, then each table that was not checked gets a line, then the
-codes that appear are explained.
+The first line is the verdict, followed by the commit checked, when it is known,
+and a few lines on what the check is and what it was checked against. Below them,
+each table with findings gets a short table of finding codes with a count and a
+few examples, then the StatVars that were not checked, then each table that was
+not checked gets a line, then the codes that appear are explained.
 
 Every value that comes from the check route or from a table is shown as a code
 span that cannot close early, break a table row, mention a user or link.
 """
 
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -46,6 +47,14 @@ MAX_REPORT_CHARACTERS = 40_000
 
 # The longest value shown in a code span.
 MAX_VALUE_CHARACTERS = 80
+
+# The characters of a commit hash shown.
+SHORT_COMMIT_LENGTH = 7
+
+# The note in a report too long to list any finding.
+FINDINGS_LEFT_OUT_NOTE = (
+    "The findings are not listed to keep this comment short. The counts are complete."
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -95,11 +104,11 @@ class CheckSummary:
         route_refused_count: The StatVars the route refused, each sent alone.
         unsent_count: The StatVars not sent, for want of a measured property.
         tables_checked: The tables whose StatVars were read.
-        tables_with_findings: The tables with a finding or a refused StatVar.
         unchecked_tables: Each table that was not checked, with the reason.
         error_count: Findings of severity `error`.
         warning_count: Findings of severity `warning`.
         generations: The graph generations the answers named.
+        commit: The commit the build was made from, or None when it is not known.
     """
 
     not_run: str | None = None
@@ -110,11 +119,11 @@ class CheckSummary:
     route_refused_count: int = 0
     unsent_count: int = 0
     tables_checked: tuple[str, ...] = ()
-    tables_with_findings: int = 0
     unchecked_tables: tuple[tuple[str, str], ...] = ()
     error_count: int = 0
     warning_count: int = 0
     generations: tuple[str | None, ...] = ()
+    commit: str | None = None
 
     @property
     def ran(self) -> bool:
@@ -141,14 +150,16 @@ def render_report(
     """The Markdown report of a graph check, at most `MAX_REPORT_CHARACTERS` long.
 
     When the full report is too long, examples are cut first, then the tables
-    with the fewest findings are left out, and the report says which it did.
+    with the fewest findings are left out, and the report says which it did. A
+    report too long with every table left out keeps its head and says the
+    findings are not listed.
 
     Args:
         summary: The check's counts, or why it did not run.
         findings: Every finding.
         refused: Every StatVar that was not checked, with who refused it.
     """
-    head = [_verdict(summary), "", *_intro(summary)]
+    head = [_verdict(summary), "", *_commit(summary), *_intro(summary)]
     if not summary.ran:
         return "\n".join(head) + "\n"
 
@@ -185,13 +196,17 @@ def render_report(
         report = _join(head, notes, sections[:shown], footer)
         if len(report) <= MAX_REPORT_CHARACTERS:
             return report
-    return "\n".join(head) + "\n"
+    return _join(head, [FINDINGS_LEFT_OUT_NOTE], [], [])
 
 
-def failure_report(detail: str) -> str:
+def failure_report(detail: str, *, commit: str | None = None) -> str:
     """The report of a check that failed before it could report what it found"""
     return render_report(
-        CheckSummary(not_run="the check could not complete", failure_detail=detail)
+        CheckSummary(
+            not_run="the check could not complete",
+            failure_detail=detail,
+            commit=commit,
+        )
     )
 
 
@@ -238,6 +253,16 @@ def _verdict(summary: CheckSummary) -> str:
     return "; ".join([head, *left]) + "."
 
 
+def _commit(summary: CheckSummary) -> list[str]:
+    """The line naming the commit checked, when it is known"""
+    if not summary.commit:
+        return []
+    return [
+        f"Checked at commit {_code_span(summary.commit[:SHORT_COMMIT_LENGTH])}.",
+        "",
+    ]
+
+
 def _intro(summary: CheckSummary) -> list[str]:
     """The lines under the verdict: what failed, what the check is, which graph"""
     lines = []
@@ -278,7 +303,7 @@ def _table_section(
         for (code, severity), count in sorted(
             groups.items(), key=lambda item: (item[0][1] != "error", -item[1], item[0])
         ):
-            row = f"| {_code_span(code)} | {severity} | {count:,} |"
+            row = f"| {_cell(code)} | {severity} | {count:,} |"
             if examples:
                 shown = [
                     _example(finding)
@@ -323,8 +348,8 @@ def _listed(items: list[str], examples: int) -> list[str]:
 def _example(finding: Finding) -> str:
     """One finding as a table cell: StatVar, field and value"""
     return (
-        f"{_code_span(finding.statvar)} {_code_span(finding.field)} = "
-        f"{_code_span(_value_text(finding.value))}"
+        f"{_cell(finding.statvar)} {_cell(finding.field)} = "
+        f"{_cell(_value_text(finding.value))}"
     )
 
 
@@ -340,21 +365,23 @@ def _value_text(value: Any) -> str:
 def _code_span(text: str) -> str:
     """Text as a Markdown code span that is safe to show from any source.
 
-    Whitespace collapses to single spaces, the text is cut to
+    Format characters (Unicode category `Cf`, such as the controls that reverse
+    text) are dropped, whitespace collapses to single spaces, the text is cut to
     `MAX_VALUE_CHARACTERS`, a backtick becomes a quote so the span cannot close
-    early, `|` is escaped so a table row cannot break, and `@` becomes a
-    full-width at sign so no user is mentioned. Inside a code span GitHub renders
-    no link.
+    early, and `@` becomes a full-width at sign so no user is mentioned. Inside a
+    code span GitHub renders no link.
     """
-    text = " ".join(str(text).split())
+    text = "".join(c for c in str(text) if unicodedata.category(c) != "Cf")
+    text = " ".join(text.split())
     if len(text) > MAX_VALUE_CHARACTERS:
         text = text[: MAX_VALUE_CHARACTERS - 1] + "…"
-    text = (
-        text.replace("`", "'")
-        .replace("@", "\N{FULLWIDTH COMMERCIAL AT}")
-        .replace("|", "\\|")
-    )
+    text = text.replace("`", "'").replace("@", "\N{FULLWIDTH COMMERCIAL AT}")
     return f"`{text}`" if text else "` `"
+
+
+def _cell(text: str) -> str:
+    """Text as a code span in a table cell, with `|` escaped so the row holds"""
+    return _code_span(text).replace("|", "\\|")
 
 
 def _unchecked_lines(summary: CheckSummary) -> list[str]:

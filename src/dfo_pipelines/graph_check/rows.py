@@ -3,12 +3,17 @@
 A StatVar table holds one row per StatisticalVariable. Its fixed columns name the
 variable's population type, measured property, stat type, measurement qualifier
 and denominator. `constraint_properties` and `observation_properties` hold
-comma-separated property names, and each constraint property takes its value from
-the column `ExportSpec.statvar_column_to_property` maps onto it. A table that
-lacks a fixed or list column declares nothing there.
+comma-separated property names. Each constraint property takes its value from
+the column the export publishes under the property's name, as dcp-tools
+`schema_tools.csv_metadata_to_nodes` builds it: the export drops the columns
+`ExportSpec.statvar_ignore_columns` lists, renames each column
+`ExportSpec.statvar_column_to_property` maps onto a property, and publishes every
+other column under its own name. A table that lacks a fixed or list column
+declares nothing there.
 """
 
 import re
+from collections.abc import Iterable
 from typing import Any, TypedDict
 
 from dfo_pipelines.data_commons.export import ExportSpec
@@ -51,8 +56,9 @@ def statvar_check_rows(
     """The check rows of one StatVar table.
 
     A value loses its MCF namespace prefix and an empty cell becomes None. A
-    constraint property whose column is empty, ignored or unmapped takes None,
-    which the route reports as a missing value.
+    constraint property reads the column mapped onto it, or else the column of
+    its own name that no mapping renames. One whose column is empty, ignored or
+    absent takes None, which the route reports as a missing value.
 
     Rows that agree in every member but `ref` describe one StatVar twice, so only
     the first is kept. Two rows sharing a dcid with different definitions are both
@@ -67,11 +73,7 @@ def statvar_check_rows(
         One row per distinct definition, each `ref` naming the table and the
         StatVar, in table order.
     """
-    property_to_column = {
-        property_name: column
-        for column, property_name in spec.statvar_column_to_property.items()
-        if column not in spec.statvar_ignore_columns
-    }
+    published = _published_columns(spec, statvars[0].keys() if statvars else ())
     rows: list[CheckRow] = []
     seen_definitions: set[str] = set()
     seen_refs: set[str] = set()
@@ -79,7 +81,7 @@ def statvar_check_rows(
         fixed = {column: _node(statvar.get(column)) for column in FIXED_COLUMNS}
         constraints = {
             property_name: _node(statvar[column])
-            if (column := property_to_column.get(property_name)) in statvar
+            if (column := published.get(property_name)) is not None
             else None
             for property_name in _names(statvar.get("constraint_properties"))
         }
@@ -109,6 +111,24 @@ def statvar_check_rows(
             )
         )
     return rows
+
+
+def _published_columns(spec: ExportSpec, columns: Iterable[str]) -> dict[str, str]:
+    """The column the export publishes under each property name.
+
+    The export drops the ignored columns, renames the mapped ones and keeps every
+    other column under its own name. A mapped column wins over an unmapped column
+    of the name it is renamed to.
+    """
+    published: dict[str, str] = {}
+    for column in columns:
+        if column in spec.statvar_ignore_columns:
+            continue
+        if column in spec.statvar_column_to_property:
+            published[spec.statvar_column_to_property[column]] = column
+        else:
+            published.setdefault(column, column)
+    return published
 
 
 def _node(value: Any) -> str | None:

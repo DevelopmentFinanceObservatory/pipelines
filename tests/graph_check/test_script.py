@@ -9,20 +9,13 @@ import duckdb
 import httpx
 import pytest
 
+from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.graph_check import run_graph_check
 from scripts import graph_check
-from tests.graph_check.tables import SPEC, STATVARS_SQL
-
-URL = "https://graph.test/check"
+from tests.graph_check.tables import SPEC, STATVARS_SQL, URL, clean_route, spans
 
 
-def clean_route(url: str, body: dict[str, Any]) -> httpx.Response:
-    return httpx.Response(
-        200, json={"generation": "g1", "row_count": len(body["rows"]), "findings": []}
-    )
-
-
-def dead_route(url: str, body: dict[str, Any]) -> httpx.Response:
+def dead_route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
     raise httpx.ConnectError("refused")
 
 
@@ -53,10 +46,8 @@ def run(
 
 
 def test_report_starts_with_the_marker_and_the_verdict_is_printed(
-    run, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    run, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
-
     status, report = run(clean_route, URL)
 
     lines = report.read_text().splitlines()
@@ -76,7 +67,7 @@ def test_a_check_that_cannot_run_still_writes_a_report_and_exits_zero(
     status, report = run(post, url)
 
     assert status == 0
-    assert "did not run" in report.read_text()
+    assert report.read_text().splitlines()[1].startswith("The graph check did not run:")
 
 
 def test_the_report_is_appended_to_the_step_summary(
@@ -94,7 +85,9 @@ def test_the_report_is_appended_to_the_step_summary(
     assert graph_check.MARKER not in written
 
 
-def answer_without_findings(url: str, body: dict[str, Any]) -> httpx.Response:
+def answer_without_findings(
+    url: str, body: dict[str, Any], timeout: float
+) -> httpx.Response:
     return httpx.Response(
         200, json={"generation": "g1", "row_count": len(body["rows"]), "findings": None}
     )
@@ -115,7 +108,6 @@ def test_an_unexpected_error_writes_a_report_saying_so_and_exits_one(
 ) -> None:
     run(clean_route, URL)
     monkeypatch.delenv("DUCKDB_PATH")
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     report = tmp_path / "crash.md"
 
     status = graph_check.main([str(report)])
@@ -123,5 +115,30 @@ def test_an_unexpected_error_writes_a_report_saying_so_and_exits_one(
     lines = report.read_text().splitlines()
     assert status == 1
     assert lines[0] == graph_check.MARKER
-    assert lines[1] == ("The graph check did not run: the check could not complete.")
-    assert "What stopped it: `KeyError: 'DUCKDB_PATH'`." in lines[3]
+    assert lines[1] == "The graph check did not run: the check could not complete."
+    assert spans(lines[3]) == ["KeyError: 'DUCKDB_PATH'"]
+
+
+def test_specs_sharing_a_statvar_model_mean_the_check_could_not_complete(
+    run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(graph_check, "EXPORT_SPECS", (SPEC, SPEC))
+
+    status, report = run(clean_route, URL)
+
+    lines = report.read_text().splitlines()
+    assert status == 1
+    assert lines[1] == "The graph check did not run: the check could not complete."
+    assert spans(lines[3])[0].startswith("RepeatedStatVarModelError:")
+
+
+@pytest.mark.parametrize("specs", [(SPEC,), (SPEC, SPEC)], ids=["report", "failure"])
+def test_the_report_names_the_commit_it_checked(
+    run, monkeypatch: pytest.MonkeyPatch, specs: tuple[ExportSpec, ...]
+) -> None:
+    monkeypatch.setattr(graph_check, "EXPORT_SPECS", specs)
+    monkeypatch.setenv("GRAPH_CHECK_COMMIT", "0123456789abcdef")
+
+    _, report = run(clean_route, URL)
+
+    assert spans(report.read_text().split("\n\n")[1]) == ["0123456"]

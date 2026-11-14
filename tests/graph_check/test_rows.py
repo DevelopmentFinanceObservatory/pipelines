@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+import pytest
 from duckdb import DuckDBPyConnection
 
 from dfo_pipelines.data_commons.export import get_model_rows
@@ -41,19 +42,36 @@ def test_rows_carry_bare_dcids_and_mapped_constraint_values(
     ]
 
 
-def test_an_ignored_column_gives_its_property_no_value(
+@pytest.mark.parametrize(
+    ("ignored", "properties", "values"),
+    [
+        ((), "hasProvider", {"hasProvider": None}),
+        ((), "netting_basis", {"netting_basis": None}),
+        ((), "fooBar", {"fooBar": "Baz"}),
+        (("fooBar",), "fooBar", {"fooBar": None}),
+    ],
+    ids=[
+        "mapped column ignored",
+        "column renamed by its mapping",
+        "unmapped column of the property's name",
+        "that column ignored",
+    ],
+)
+def test_a_constraint_reads_the_column_the_export_publishes_under_its_name(
     connection: DuckDBPyConnection,
+    ignored: tuple[str, ...],
+    properties: str,
+    values: dict[str, str | None],
 ) -> None:
-    connection.execute(
-        "update checked.statvars set constraint_properties = 'hasProvider'"
-        " where dcid = 'dcid:Variable1'"
+    (first, _) = get_model_rows(connection, SPEC.statvar_model)
+    statvar = first | {"constraint_properties": properties, "fooBar": "dcid:Baz"}
+    spec = replace(
+        SPEC, statvar_ignore_columns=(*SPEC.statvar_ignore_columns, *ignored)
     )
 
-    (first, _) = statvar_check_rows(
-        SPEC, get_model_rows(connection, SPEC.statvar_model)
-    )
+    (row,) = statvar_check_rows(spec, [statvar])
 
-    assert first["constraint_properties"] == {"hasProvider": None}
+    assert row["constraint_properties"] == values
 
 
 def test_a_table_without_list_columns_declares_no_constraints(
@@ -89,3 +107,13 @@ def test_repeated_definitions_collapse_and_differing_ones_keep_their_rows(
         "checked.statvars:Variable1",
         "checked.statvars:Variable1 (row 3)",
     ]
+
+
+def test_a_ref_past_the_routes_limit_names_the_row_instead(
+    connection: DuckDBPyConnection,
+) -> None:
+    (first, _) = get_model_rows(connection, SPEC.statvar_model)
+
+    (row,) = statvar_check_rows(SPEC, [first | {"dcid": "V" * 600}])
+
+    assert row["ref"] == "checked.statvars:row 1"

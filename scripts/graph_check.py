@@ -5,12 +5,14 @@ Run it after `dbt build`, against the DuckDB file the build wrote:
     DUCKDB_PATH=/tmp/ci.duckdb GRAPH_CHECK_URL=<check route URL> \\
         uv run python scripts/graph_check.py report.md
 
-The report goes to the file named by the argument, is appended to the file named
-by `GITHUB_STEP_SUMMARY` when that is set, and its verdict line is printed. The
-report starts with `MARKER`, a hidden line the pull request workflow uses to find
-its own comment. The exit status is 0 when the check produced a report, including
-one that says the check did not run. Any other error still writes a report, whose
-first line says the check could not complete, and then exits 1.
+When `GRAPH_CHECK_COMMIT` holds the commit the build was made from, the report
+names it under the verdict. The report goes to the file named by the argument, is
+appended to the file named by `GITHUB_STEP_SUMMARY` when that is set, and its
+verdict line is printed. The report starts with `MARKER`, a hidden line the pull
+request workflow uses to find its own comment. The exit status is 0 when the check
+produced a report, including one that says the check did not run. Any other error
+still writes a report, whose first line says the check could not complete, and
+then exits 1.
 """
 
 import argparse
@@ -34,16 +36,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("report", type=Path, help="file to write the report to")
     args = parser.parse_args(argv)
 
+    commit = os.environ.get("GRAPH_CHECK_COMMIT")
     try:
         report, _ = run_graph_check(
             os.environ["DUCKDB_PATH"],
             specs=EXPORT_SPECS,
             url=os.environ.get("GRAPH_CHECK_URL"),
+            commit=commit,
         )
         status = 0
     except Exception as error:  # every failure still replaces the earlier report
         traceback.print_exc()
-        report = failure_report(f"{type(error).__name__}: {error}")
+        report = failure_report(f"{type(error).__name__}: {error}", commit=commit)
         status = 1
     marked = f"{MARKER}\n{report}"
     args.report.write_text(marked)

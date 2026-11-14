@@ -114,9 +114,11 @@ jobs:
           files: ./coverage.xml
 
       # Advisory: the report says whether the StatVar tables the build wrote name
-      # classes, properties and values the graph holds. A step that fails or a
-      # check that cannot run leaves the job green. Both steps run after a failed
-      # step too, so the comment always describes the latest push.
+      # classes, properties and values the graph holds, and which commit it
+      # checked. A step that fails or a check that cannot run leaves the job green.
+      # Both steps run after a failed step too, so the comment describes the
+      # latest push the job ran on. The job skips draft pull requests, so a
+      # draft's comment describes its last push before it became a draft.
       - name: Check StatVars against the graph
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -124,30 +126,42 @@ jobs:
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
           GRAPH_CHECK_URL: ${{ vars.GRAPH_CHECK_URL }}
+          GRAPH_CHECK_COMMIT: ${{ github.event.pull_request.head.sha }}
         run: uv run python scripts/graph_check.py "$RUNNER_TEMP/graph-check-report.md"
 
       # The report starts with a hidden marker line, which finds the comment this
       # step wrote on an earlier push. When the check step wrote no report, the
-      # comment says so. A pull request from a fork has a read-only token, so this
-      # step can fail there; the job summary still carries the report.
+      # comment says so. When the pull request's head has moved past this run's
+      # commit, the run for the head commit writes the comment. A pull request
+      # from a fork has a read-only token, so this step can fail there, and the
+      # job summary carries the report or says why the check did not run.
       - name: Comment the graph check on the pull request
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           report="$RUNNER_TEMP/graph-check-report.md"
           if [ ! -s "$report" ]; then
-            printf '%s\n%s\n' '<!-- dfo-graph-check -->' \
+            printf '%s\n%s\n\n%s\n' '<!-- dfo-graph-check -->' \
               'The graph check did not run. The check step wrote no report, and the job log says why.' \
+              "Checked at commit \`${HEAD_SHA:0:7}\`." \
               > "$report"
           fi
           marker="$(head -n 1 "$report")"
-          comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
-            | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id' \
-            | head -n 1)"
+          comment_ids="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
+            | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id')"
+          comment_id="${comment_ids%%$'\n'*}"
+          current_sha="$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq .head.sha)"
+          if [ "$current_sha" != "$HEAD_SHA" ]; then
+            echo "The pull request's head is now $current_sha, so the run for that commit writes the comment."
+            exit 0
+          fi
           if [ -n "$comment_id" ]; then
             gh api --method PATCH "repos/$REPOSITORY/issues/comments/$comment_id" -F body=@"$report"
           else
