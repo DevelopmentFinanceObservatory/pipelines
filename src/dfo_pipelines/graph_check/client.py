@@ -341,9 +341,13 @@ class _Sender:
         try:
             return self.post(self.url, {"rows": rows}, timeout)
         except httpx.HTTPError as error:
-            raise GraphCheckError(
-                StopReason.UNREACHABLE, type(error).__name__
-            ) from error
+            # A timeout cut short by the time left, or one that ends past the
+            # deadline, is the run reaching its limit and not an outage.
+            out_of_time = isinstance(error, httpx.TimeoutException) and (
+                timeout < REQUEST_TIMEOUT_SECONDS or self.clock() >= self.deadline
+            )
+            reason = StopReason.TIME_BUDGET if out_of_time else StopReason.UNREACHABLE
+            raise GraphCheckError(reason, type(error).__name__) from error
 
     def _sleep(self, seconds: float) -> None:
         """Wait, unless the wait would end past the deadline"""

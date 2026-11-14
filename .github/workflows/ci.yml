@@ -132,9 +132,12 @@ jobs:
       # The report starts with a hidden marker line, which finds the comment this
       # step wrote on an earlier push. When the check step wrote no report, the
       # comment says so. When the pull request's head has moved past this run's
-      # commit, the run for the head commit writes the comment. A pull request
-      # from a fork has a read-only token, so this step can fail there, and the
-      # job summary carries the report or says why the check did not run.
+      # commit, the run for the head commit writes the comment. The step updates
+      # the first comment it finds and deletes every later one that carries the
+      # marker and was written by github-actions[bot], after the head check and
+      # the update. A pull request from a fork has a read-only token, so this step
+      # can fail there, and the job summary carries the report or says why the
+      # check did not run.
       - name: Comment the graph check on the pull request
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         continue-on-error: true
@@ -156,14 +159,26 @@ jobs:
           marker="$(head -n 1 "$report")"
           comment_ids="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
             | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id')"
-          comment_id="${comment_ids%%$'\n'*}"
           current_sha="$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq .head.sha)"
           if [ "$current_sha" != "$HEAD_SHA" ]; then
             echo "The pull request's head is now $current_sha, so the run for that commit writes the comment."
             exit 0
           fi
-          if [ -n "$comment_id" ]; then
-            gh api --method PATCH "repos/$REPOSITORY/issues/comments/$comment_id" -F body=@"$report"
-          else
+          first_id=""
+          later_ids=""
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            if [ -z "$first_id" ]; then
+              first_id="$id"
+            else
+              later_ids="$later_ids $id"
+            fi
+          done <<< "$comment_ids"
+          if [ -z "$first_id" ]; then
             gh api --method POST "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" -F body=@"$report"
+            exit 0
           fi
+          gh api --method PATCH "repos/$REPOSITORY/issues/comments/$first_id" -F body=@"$report"
+          for id in $later_ids; do
+            gh api --method DELETE "repos/$REPOSITORY/issues/comments/$id"
+          done

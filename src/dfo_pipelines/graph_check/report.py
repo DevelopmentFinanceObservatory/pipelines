@@ -108,7 +108,8 @@ class CheckSummary:
         error_count: Findings of severity `error`.
         warning_count: Findings of severity `warning`.
         generations: The graph generations the answers named.
-        commit: The commit the build was made from, or None when it is not known.
+        commit: The pull request head commit the build was made for, or None when
+            it is not known.
     """
 
     not_run: str | None = None
@@ -365,14 +366,14 @@ def _value_text(value: Any) -> str:
 def _code_span(text: str) -> str:
     """Text as a Markdown code span that is safe to show from any source.
 
-    Format characters (Unicode category `Cf`, such as the controls that reverse
-    text) are dropped, whitespace collapses to single spaces, the text is cut to
+    Control and format characters (Unicode categories `Cc` and `Cf`, such as NUL
+    and the characters that reverse text) are dropped, whitespace collapses to single spaces, the text is cut to
     `MAX_VALUE_CHARACTERS`, a backtick becomes a quote so the span cannot close
     early, and `@` becomes a full-width at sign so no user is mentioned. Inside a
     code span GitHub renders no link.
     """
-    text = "".join(c for c in str(text) if unicodedata.category(c) != "Cf")
-    text = " ".join(text.split())
+    text = " ".join(str(text).split())
+    text = "".join(c for c in text if unicodedata.category(c) not in {"Cc", "Cf"})
     if len(text) > MAX_VALUE_CHARACTERS:
         text = text[: MAX_VALUE_CHARACTERS - 1] + "…"
     text = text.replace("`", "'").replace("@", "\N{FULLWIDTH COMMERCIAL AT}")

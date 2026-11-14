@@ -74,6 +74,30 @@ def test_a_constraint_reads_the_column_the_export_publishes_under_its_name(
     assert row["constraint_properties"] == values
 
 
+@pytest.mark.parametrize(
+    ("columns", "expected"),
+    [
+        (["fooBar", "foo_col"], "Mapped"),
+        (["foo_col", "fooBar"], "Unmapped"),
+    ],
+    ids=["mapped column last", "unmapped column last"],
+)
+def test_the_last_of_two_columns_under_one_name_is_the_one_read(
+    columns: list[str], expected: str
+) -> None:
+    cells = {"foo_col": "dcid:Mapped", "fooBar": "dcid:Unmapped"}
+    statvar = {
+        "dcid": "dcid:V",
+        "constraint_properties": "fooBar",
+        **{column: cells[column] for column in columns},
+    }
+    spec = replace(SPEC, statvar_column_to_property={"foo_col": "fooBar"})
+
+    (row,) = statvar_check_rows(spec, [statvar])
+
+    assert row["constraint_properties"] == {"fooBar": expected}
+
+
 def test_a_table_without_list_columns_declares_no_constraints(
     connection: DuckDBPyConnection,
 ) -> None:

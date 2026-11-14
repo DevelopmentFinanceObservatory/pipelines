@@ -58,7 +58,8 @@ def refused(detail: str = "too many ids") -> httpx.Response:
 class FakeRoute:
     """Answers each request with the next step of `script`, then with `respond`.
 
-    Its clock advances `latency` seconds with each request and by every sleep.
+    Its clock advances `latency` seconds with each request and by every sleep. A
+    request given less time than `latency` times out, as it does in httpx.
     """
 
     def __init__(
@@ -84,6 +85,8 @@ class FakeRoute:
         self.requests.append(body["rows"])
         self.timeouts.append(timeout)
         self.now += self.latency
+        if self.latency > timeout:
+            raise httpx.ReadTimeout("timed out")
         if self.script:
             step = self.script.pop(0)
             if isinstance(step, Exception):
@@ -362,8 +365,27 @@ def test_a_run_stops_at_its_time_budget_and_keeps_its_answers() -> None:
     )
 
     assert stop_reason(result) is StopReason.TIME_BUDGET
-    assert answered_refs(result) == ["a", "b", "c"]
+    assert answered_refs(result) == ["a", "b"]
     assert route.timeouts == [25.0, 15.0, 5.0]
+
+
+def test_a_request_cut_short_by_the_time_budget_is_not_an_outage() -> None:
+    route = FakeRoute(latency=7.0)
+
+    result = route.check(
+        [make_row(f"r{n}") for n in range(500)], chunk_size=1, max_seconds=480.0
+    )
+
+    assert stop_reason(result) is StopReason.TIME_BUDGET
+    assert result.checked_count == 68
+
+
+def test_a_timeout_with_time_to_spare_is_an_outage() -> None:
+    route = FakeRoute(httpx.ReadTimeout("timed out"))
+
+    result = route.check([make_row("a")])
+
+    assert stop_reason(result) is StopReason.UNREACHABLE
 
 
 def test_a_wait_that_would_pass_the_time_budget_stops_the_run_at_once() -> None:
@@ -373,3 +395,32 @@ def test_a_wait_that_would_pass_the_time_budget_stops_the_run_at_once() -> None:
 
     assert stop_reason(result) is StopReason.TIME_BUDGET
     assert route.sleeps == []
+
+
+def capped_route_refusing_bad_rows(cap: int) -> Respond:
+    """A `capped_route` that also refuses any chunk holding a `Bad` population type"""
+    capped = capped_route(cap)
+
+    def respond(rows: list[CheckRow]) -> httpx.Response:
+        if any(row["population_type"] == "Bad" for row in rows):
+            return refused()
+        return capped(rows)
+
+    return respond
+
+
+def test_refused_rows_far_apart_each_cost_one_descent() -> None:
+    rows = [
+        make_row(f"r{n}")
+        | {"population_type": "Bad" if n in (100, 1_000, 3_000) else f"Unknown{n}"}
+        for n in range(5_000)
+    ]
+    route = FakeRoute(respond=capped_route_refusing_bad_rows(41))
+
+    result = route.check(rows)
+
+    assert result.checked_count == 4_997
+    assert len(result.failed_rows) == 3
+    # 5,000 unknown ids at 41 a request need 122 requests, and each refused row a
+    # descent of about ten more.
+    assert len(route.requests) <= 185

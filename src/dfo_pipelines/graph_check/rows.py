@@ -117,17 +117,14 @@ def _published_columns(spec: ExportSpec, columns: Iterable[str]) -> dict[str, st
     """The column the export publishes under each property name.
 
     The export drops the ignored columns, renames the mapped ones and keeps every
-    other column under its own name. A mapped column wins over an unmapped column
-    of the name it is renamed to.
+    other column under its own name. When two columns end up under one name, the
+    last in column order is the one published, as in the pandas frame the export
+    builds.
     """
     published: dict[str, str] = {}
     for column in columns:
-        if column in spec.statvar_ignore_columns:
-            continue
-        if column in spec.statvar_column_to_property:
-            published[spec.statvar_column_to_property[column]] = column
-        else:
-            published.setdefault(column, column)
+        if column not in spec.statvar_ignore_columns:
+            published[spec.statvar_column_to_property.get(column, column)] = column
     return published
 
 

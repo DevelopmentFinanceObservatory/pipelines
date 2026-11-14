@@ -5,8 +5,8 @@ Run it after `dbt build`, against the DuckDB file the build wrote:
     DUCKDB_PATH=/tmp/ci.duckdb GRAPH_CHECK_URL=<check route URL> \\
         uv run python scripts/graph_check.py report.md
 
-When `GRAPH_CHECK_COMMIT` holds the commit the build was made from, the report
-names it under the verdict. The report goes to the file named by the argument, is
+When `GRAPH_CHECK_COMMIT` holds the pull request head commit the build was made
+for, the report names it under the verdict. The report goes to the file named by the argument, is
 appended to the file named by `GITHUB_STEP_SUMMARY` when that is set, and its
 verdict line is printed. The report starts with `MARKER`, a hidden line the pull
 request workflow uses to find its own comment. The exit status is 0 when the check

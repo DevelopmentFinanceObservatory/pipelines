@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from dfo_pipelines.graph_check.report import (
@@ -173,7 +175,7 @@ def test_the_commit_checked_is_named_under_the_verdict() -> None:
 
 
 def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
-    hostile = "a`b|c @someone \N{RIGHT-TO-LEFT OVERRIDE}[x](https://e.test)\n"
+    hostile = "a`b|c @someone \N{RIGHT-TO-LEFT OVERRIDE}\x00\x1b[x](https://e.test)\n"
     hostile += "z" * 200
     summary = CheckSummary(
         statvar_count=2,
@@ -193,6 +195,8 @@ def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
 
     assert "@" not in report
     assert "\N{RIGHT-TO-LEFT OVERRIDE}" not in report
+    assert "\x00" not in report
+    assert "\x1b" not in report
     assert "z" * MAX_VALUE_CHARACTERS not in report
     lines = [line for line in report.splitlines() if "a'b" in line]
     cells = [line for line in lines if line.startswith("|")]
@@ -201,6 +205,8 @@ def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
     for line in lines:
         assert line.count("`") % 2 == 0
         assert ("a'b\\|c" in line) == (line in cells)
+    # A row of four cells has five separators, whatever its cells hold.
+    assert len(re.findall(r"(?<!\\)\|", cells[0])) == 5
 
 
 def test_findings_are_tabled_per_table_with_examples_and_explained() -> None:
