@@ -62,6 +62,10 @@ FINDING_CODES = {
         "The id belongs to a data source this graph deployment does not serve, so "
         "the check cannot tell whether the graph holds it."
     ),
+    "range_not_judged": (
+        "The check could not confirm that this value fits the property's range, so "
+        "it did not fully check it. Look at the value by hand."
+    ),
 }
 
 # The explanation of a finding code the report has no text for.

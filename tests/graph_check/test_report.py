@@ -29,6 +29,7 @@ ROUTE_CODES = [
     "property_outside_domain",
     "definition_differs",
     "origin_not_served",
+    "range_not_judged",
 ]
 
 
