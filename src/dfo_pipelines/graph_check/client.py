@@ -1,17 +1,14 @@
 """Send check rows to the Graph API's check route and gather its findings.
 
-The route answers each request with the findings for its rows. It refuses a
-request whose rows name more unknown ids than it reads in one check with a 400
-problem document whose `code` is `request_invalid`. The client then sends fewer
-rows at a time until a refused row stands alone, and records that row as failed.
-The chunk size adapts in both directions: a refusal shrinks it for the chunks that
-follow, and each answered chunk doubles it again, up to the starting size but
-below the smallest size the route refused, until `CEILING_PROBE_AFTER` chunks in a
-row are answered and that size is tried once more. The chunks after a refusal stay
-within the refused rows until those are answered, so a refused row is found by
-halving. A refusal that ends with one row refused on its own was about that row,
-so the size and ceiling go back to what they were before the first refusal of
-that descent.
+The route checks the rows of a request in order and answers for as many as it
+can read and report on in one check, at least one. Its answer counts the rows
+checked and names the row to resume from, and each finding names its row by
+index in the request. The client sends the rows from there in the next request.
+
+The route refuses a request with a 400 problem document. When the document's
+`pointer` names one row (`/rows/37/constraint_properties`), the client records
+that row as refused with the route's reason and sends the rest without it. Any
+other 400 stops the run.
 
 A busy route answers 503, and the website proxy in front of it answers 429 once a
 caller passes its allowance, and both say how long to wait. The proxy answers 502
@@ -22,6 +19,7 @@ unless it is given other budgets. Any failure, a spent budget included, stops th
 run and keeps what it gathered.
 """
 
+import re
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -36,18 +34,13 @@ from dfo_pipelines.graph_check.rows import CheckRow
 # Sends a JSON body to a URL within a timeout in seconds and returns the response.
 type Post = Callable[[str, dict[str, Any], float], httpx.Response]
 
-# Rows sent in the first request. The route takes up to 2,000, but a chunk of rows
-# naming many ids the graph does not hold is refused and sent again in smaller
-# chunks, so a smaller start wastes fewer calls.
-CHUNK_SIZE = 500
+# The most rows the route takes in one request.
+CHUNK_SIZE = 2_000
 
-# Answered chunks in a row after which the smallest refused size is tried again,
-# so a table whose later rows name fewer unknown ids is sent in larger chunks.
-CEILING_PROBE_AFTER = 16
-
-# The most requests one run sends, retries included. The proxy allows 120 calls a
-# minute, so 900 calls take at least 7.5 minutes, close to `MAX_RUN_SECONDS`.
-MAX_REQUESTS = 900
+# The most requests one run sends, retries included. Every answer settles at least
+# one row, so the run always moves on, and the proxy's 120 calls a minute let 960
+# calls through in `MAX_RUN_SECONDS`.
+MAX_REQUESTS = 960
 
 # The longest a run may take before it stops, within the CI step's 10-minute
 # timeout, which also covers starting Python and reading the tables.
@@ -69,10 +62,13 @@ GATEWAY_RETRY_SECONDS = 2.0
 # The longest time one request may take, cut to the time the run has left.
 REQUEST_TIMEOUT_SECONDS = 60.0
 
-# The problem code of the route's refusal of the rows it was sent.
-ROWS_REFUSED_CODE = "request_invalid"
-
 SEVERITIES = ("error", "warning")
+
+# What a finding judges: a constraint or observation property itself, or a value.
+SUBJECTS = ("property", "value")
+
+# A problem pointer into one row of the request, which holds the row's index.
+_ROW_POINTER = re.compile(r"^/rows/(\d+)(?:/|$)")
 
 
 class StopReason(StrEnum):
@@ -109,9 +105,9 @@ class GraphCheckError(Exception):
 
 @dataclass(frozen=True, kw_only=True)
 class FailedRow:
-    """A row the route refused on its own, with the route's reason."""
+    """A row the route refused, by its index in the run's rows, with the reason."""
 
-    ref: str
+    row: int
     detail: str
 
 
@@ -122,24 +118,24 @@ class CheckResult:
     Attributes:
         generations: The graph generations the answers were checked against, in
             the order first seen, or None when the route named none.
-        findings: Every finding, each with `ref`, `field`, `value`, `code` and
-            `severity`.
-        checked_refs: The `ref` of each row the route answered, in order sent.
-        failed_rows: The rows the route refused even when sent alone.
+        findings: Every finding, as the route documents it, with `row` the
+            index in the run's rows.
+        checked_rows: The index of each row the route checked, in order sent.
+        failed_rows: The rows the route refused.
         stopped: Why the run stopped before every row was answered or refused,
             or None when it did not.
     """
 
     generations: list[str | None] = field(default_factory=list)
     findings: list[dict[str, Any]] = field(default_factory=list)
-    checked_refs: list[str] = field(default_factory=list)
+    checked_rows: list[int] = field(default_factory=list)
     failed_rows: list[FailedRow] = field(default_factory=list)
     stopped: GraphCheckError | None = None
 
     @property
     def checked_count(self) -> int:
-        """The rows the route answered"""
-        return len(self.checked_refs)
+        """The rows the route checked"""
+        return len(self.checked_rows)
 
 
 @contextmanager
@@ -181,8 +177,9 @@ def check_rows(
         The findings, the rows the route refused, the graph generations, and why
         the run stopped early if it did. A run stops at the first request that
         fails on the network, waits more than `MAX_WAIT_SECONDS` on 503 and 429
-        answers, meets a 502 or 504 past `GATEWAY_RETRIES`, is redirected, gets
-        an answer it cannot read, or would pass either budget.
+        answers, meets a 502 or 504 past `GATEWAY_RETRIES`, is refused other than
+        for one of its rows, is redirected, gets an answer it cannot read, or
+        would pass either budget.
     """
     if post is None:
         with _httpx_post() as client_post:
@@ -208,115 +205,27 @@ def check_rows(
         requests_left=max_requests,
         deadline=clock() + max_seconds,
     )
-    sizes = _ChunkSizes(chunk_size)
-    start = 0
+    # The index in `rows` of every row not yet answered or refused, in order.
+    pending = list(range(len(rows)))
     try:
-        while start < len(rows):
-            chunk = list(rows[start : start + sizes.size_from(start)])
-            response = sender.send(chunk)
+        while pending:
+            sent = pending[:chunk_size]
+            response = sender.send([rows[index] for index in sent])
             if response.status_code == 400:
-                if len(chunk) > 1:
-                    sizes.refused(start, len(chunk))
-                    continue
+                refused = _refused_row(response, len(sent))
+                if refused is None:
+                    raise GraphCheckError(
+                        StopReason.REFUSED, f"answer 400, {_detail(response)}"
+                    )
                 result.failed_rows.append(
-                    FailedRow(ref=chunk[0]["ref"], detail=_detail(response))
+                    FailedRow(row=sent[refused], detail=_detail(response))
                 )
-                sizes.row_refused()
-            else:
-                _keep_answer(response, chunk, result)
-                sizes.answered(start, len(chunk))
-            start += len(chunk)
+                del pending[refused]
+                continue
+            del pending[: _keep_answer(response, sent, result)]
     except GraphCheckError as error:
         result.stopped = error
     return result
-
-
-@dataclass(frozen=True)
-class _SizeState:
-    """What `_ChunkSizes` knows about the sizes the route takes"""
-
-    size: int
-    ceiling: int | None
-    largest_answered: int
-    answered_in_a_row: int
-
-
-class _ChunkSizes:
-    """The number of rows to send next, adapted to the route's refusals.
-
-    A descent starts at a refusal and lasts until the rows of the refused chunk
-    are all answered, which makes the refusals about the chunk's size, or until
-    one of its rows is refused on its own, which makes them about that row.
-    """
-
-    def __init__(self, start: int) -> None:
-        self.start = start
-        self.size = start
-        self.ceiling: int | None = None
-        self.largest_answered = 0
-        self.answered_in_a_row = 0
-        # The row after the chunk that started the descent, and the state before it.
-        self.descent: tuple[int, _SizeState] | None = None
-        # The row after the last refused chunk, while some of its rows are unanswered.
-        self.refused_end: int | None = None
-
-    def size_from(self, first_row: int) -> int:
-        """The rows to send from `first_row`, within the last refused chunk"""
-        if self.refused_end is None:
-            return self.size
-        return min(self.size, self.refused_end - first_row)
-
-    def refused(self, first_row: int, sent: int) -> None:
-        """Send fewer than `sent` rows: halfway down to the largest size answered"""
-        if self.descent is None:
-            self.descent = (first_row + sent, self._state())
-        self.refused_end = first_row + sent
-        self.ceiling = sent
-        self.answered_in_a_row = 0
-        if self.largest_answered >= sent:
-            self.largest_answered = 0
-        self.size = max(1, (self.largest_answered + sent) // 2)
-
-    def answered(self, first_row: int, sent: int) -> None:
-        """Double the size, below the smallest size refused until it is due a retry"""
-        if self.descent is not None and first_row + sent >= self.descent[0]:
-            self.descent = None
-        if self.refused_end is not None and first_row + sent >= self.refused_end:
-            self.refused_end = None
-        self.largest_answered = max(self.largest_answered, sent)
-        self.answered_in_a_row += 1
-        if self.ceiling is not None and sent >= self.ceiling:
-            self.ceiling = None
-        # A chunk cut short at the end of a refused chunk says nothing of the size.
-        size = min(2 * sent if sent >= self.size else self.size, self.start)
-        if self.ceiling is not None:
-            if self.answered_in_a_row >= CEILING_PROBE_AFTER:
-                self.answered_in_a_row = 0
-                size = min(size, self.ceiling)
-            else:
-                size = min(size, self.ceiling - 1)
-        self.size = size
-
-    def row_refused(self) -> None:
-        """Go back to the state before the descent that isolated the refused row"""
-        self.refused_end = None
-        if self.descent is None:
-            return
-        state = self.descent[1]
-        self.descent = None
-        self.size = state.size
-        self.ceiling = state.ceiling
-        self.largest_answered = state.largest_answered
-        self.answered_in_a_row = state.answered_in_a_row
-
-    def _state(self) -> _SizeState:
-        """The current state, to go back to"""
-        return _SizeState(
-            size=self.size,
-            ceiling=self.ceiling,
-            largest_answered=self.largest_answered,
-            answered_in_a_row=self.answered_in_a_row,
-        )
 
 
 @dataclass(kw_only=True)
@@ -333,20 +242,14 @@ class _Sender:
     deadline: float
 
     def send(self, rows: list[CheckRow]) -> httpx.Response:
-        """Post one chunk until it answers 200 or the route refuses its rows"""
+        """Post one chunk until it answers 200 or 400"""
         waited = 0.0
         gateway_failures = 0
         while True:
             response = self._post_once(rows)
             status = response.status_code
-            if status == 200:
+            if status in (200, 400):
                 return response
-            if status == 400:
-                if _code(response) == ROWS_REFUSED_CODE:
-                    return response
-                raise GraphCheckError(
-                    StopReason.REFUSED, f"answer 400, {_detail(response)}"
-                )
             if status in (429, 503):
                 wait = _wait_seconds(response)
                 if waited + wait > MAX_WAIT_SECONDS:
@@ -409,10 +312,16 @@ class _Sender:
         return GraphCheckError(reason, detail, message=message)
 
 
-def _keep_answer(
-    response: httpx.Response, rows: list[CheckRow], result: CheckResult
-) -> None:
-    """Add a 200 answer to `result` once every part of it is as the route documents"""
+def _keep_answer(response: httpx.Response, sent: list[int], result: CheckResult) -> int:
+    """Add a 200 answer to `result` once every part of it is as the route documents.
+
+    `sent` holds the index in the run's rows of each row the request carried.
+    Each finding's `row` is turned from an index in the request into one in the
+    run's rows.
+
+    Returns:
+        The number of rows the route checked, from the first sent.
+    """
     try:
         answer = response.json()
     except ValueError:
@@ -423,33 +332,60 @@ def _keep_answer(
     if "generation" not in answer or not isinstance(generation, str | None):
         raise _unexpected("no generation")
     row_count = answer.get("row_count")
-    if isinstance(row_count, bool) or not isinstance(row_count, int):
+    if not _is_index(row_count):
         raise _unexpected("no row count")
-    if row_count != len(rows):
-        raise _unexpected(f"a count of {row_count:,} checked for {len(rows):,} sent")
+    if not 1 <= row_count <= len(sent):
+        raise _unexpected(f"a count of {row_count:,} checked for {len(sent):,} sent")
+    next_row = answer.get("next_row")
+    expected_next = None if row_count == len(sent) else row_count
+    if "next_row" not in answer or next_row != expected_next:
+        raise _unexpected(f"a next row that does not follow {row_count:,} checked")
     findings = answer.get("findings")
     if not isinstance(findings, list):
         raise _unexpected("no list of findings")
-    refs = {row["ref"] for row in rows}
-    if not all(_is_finding(finding, refs) for finding in findings):
-        raise _unexpected("a finding that does not match the rows sent")
+    if not all(_is_finding(finding, row_count) for finding in findings):
+        raise _unexpected("a finding that does not match the rows checked")
 
     if generation not in result.generations:
         result.generations.append(generation)
-    result.findings.extend(findings)
-    result.checked_refs.extend(row["ref"] for row in rows)
+    result.findings.extend(
+        finding | {"row": sent[finding["row"]]} for finding in findings
+    )
+    result.checked_rows.extend(sent[:row_count])
+    return row_count
 
 
-def _is_finding(finding: Any, refs: set[str]) -> bool:
-    """Whether `finding` has the members the route documents, about a row sent"""
+def _is_index(value: Any) -> bool:
+    """Whether `value` is a JSON integer of zero or more"""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _is_finding(finding: Any, row_count: int) -> bool:
+    """Whether `finding` has the members the route documents, about a row checked"""
     return (
         isinstance(finding, dict)
-        and finding.get("ref") in refs
+        and _is_index(finding.get("row"))
+        and finding["row"] < row_count
         and isinstance(finding.get("field"), str)
+        and isinstance(finding.get("property"), str | None)
+        and "property" in finding
+        and finding.get("subject") in SUBJECTS
+        and "value" in finding
+        and "served" in finding
         and isinstance(finding.get("code"), str)
         and finding.get("severity") in SEVERITIES
-        and "value" in finding
     )
+
+
+def _refused_row(response: httpx.Response, sent: int) -> int | None:
+    """The index in the request of the row a 400 answer refuses, if it names one"""
+    pointer = _body(response).get("pointer")
+    if not isinstance(pointer, str):
+        return None
+    match = _ROW_POINTER.match(pointer)
+    if match is None or int(match[1]) >= sent:
+        return None
+    return int(match[1])
 
 
 def _unexpected(detail: str) -> GraphCheckError:
@@ -464,12 +400,6 @@ def _body(response: httpx.Response) -> dict[str, Any]:
     except ValueError:
         return {}
     return body if isinstance(body, dict) else {}
-
-
-def _code(response: httpx.Response) -> str | None:
-    """The problem code a refusal names, if any"""
-    code = _body(response).get("code")
-    return code if isinstance(code, str) else None
 
 
 def _detail(response: httpx.Response) -> str:

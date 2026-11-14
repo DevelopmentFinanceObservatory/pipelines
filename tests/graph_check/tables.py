@@ -8,7 +8,7 @@ import httpx
 from dfo_pipelines.data_commons.export import ExportSpec, ObservationInput
 from dfo_pipelines.graph_check.rows import CheckRow
 
-URL = "https://graph.test/check"
+URL = "https://graph.test/api/graph/schema/check"
 
 # A StatVar table shaped like the CRS and DAC models: the fixed columns, the two
 # list columns, one column per constraint property, a name, and a bookkeeping
@@ -62,15 +62,42 @@ def answer(
     *,
     findings: Sequence[dict[str, Any]] = (),
     generation: str | None = "g1",
+    row_count: int | None = None,
 ) -> httpx.Response:
-    """The route's 200 answer for `rows`"""
+    """The route's 200 answer, checking the first `row_count` of `rows` or all"""
+    checked = len(rows) if row_count is None else row_count
     return httpx.Response(
         200,
         json={
             "generation": generation,
-            "row_count": len(rows),
+            "row_count": checked,
+            "next_row": None if checked == len(rows) else checked,
             "findings": list(findings),
         },
+    )
+
+
+def finding(row: Any, /, **changes: Any) -> dict[str, Any]:
+    """A finding about request row `row`, with `changes`; `...` drops a member"""
+    base = {
+        "row": row,
+        "ref": None,
+        "field": "measured_property",
+        "property": None,
+        "subject": "value",
+        "value": "amount",
+        "served": None,
+        "code": "node_not_held",
+        "severity": "error",
+    }
+    return {key: value for key, value in (base | changes).items() if value != ...}
+
+
+def refused(row: int | None, detail: str = "bad") -> httpx.Response:
+    """The route's 400, with a pointer into request row `row` or to `/rows`"""
+    pointer = "/rows" if row is None else f"/rows/{row}/constraint_properties"
+    return httpx.Response(
+        400, json={"code": "request_invalid", "detail": detail, "pointer": pointer}
     )
 
 

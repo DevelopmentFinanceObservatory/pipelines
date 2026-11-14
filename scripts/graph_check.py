@@ -1,6 +1,7 @@
 """Check the StatVar tables of a build against the graph and write the report.
 
-Run it after `dbt build`, against the DuckDB file the build wrote:
+Run it after `dbt build`, against the DuckDB file the build wrote, with
+`GRAPH_CHECK_URL` the full URL of the Graph API's `/api/graph/schema/check` route:
 
     DUCKDB_PATH=/tmp/ci.duckdb GRAPH_CHECK_URL=<check route URL> \\
         uv run python scripts/graph_check.py report.md

@@ -1,7 +1,7 @@
 """Turn the StatVars of a table into the rows the graph check route reads.
 
 The check reads a StatVar table as the export publishes it. `read_statvars`
-writes the table to CSV in the order `export_bundle` writes it and parses it with
+writes the table with the export's own `write_statvars_csv` and parses it with
 the same dcp-tools reader, `schema_tools.csv_metadata_to_nodes`, under the
 export's `statvar_column_to_property`, `statvar_ignore_columns` and
 `statvar_csv_options`. Each StatVar comes back as the properties of its MCF node:
@@ -22,7 +22,7 @@ from typing import Any, TypedDict
 from dcp_tools.custom_data.schema_tools import csv_metadata_to_nodes
 from duckdb import DuckDBPyConnection
 
-from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.data_commons.export import ExportSpec, write_statvars_csv
 
 # The MCF property each fixed check row member reads.
 FIXED_PROPERTIES = {
@@ -33,9 +33,6 @@ FIXED_PROPERTIES = {
     "measurement_qualifier": "measurementQualifier",
     "measurement_denominator": "measurementDenominator",
 }
-
-# The longest `ref` the route accepts.
-MAX_REF_LENGTH = 512
 
 # The MCF namespaces a value may be written in. dcp-tools writes `dcid:MyNode` and
 # `MyNode` as the same node. The route reads bare dcids.
@@ -53,7 +50,6 @@ class StatVarReadError(Exception):
 class CheckRow(TypedDict):
     """One StatVar definition, as the check route reads it."""
 
-    ref: str
     dcid: str | None
     population_type: str | None
     measured_property: str | None
@@ -85,12 +81,7 @@ def read_statvars(
     """
     with tempfile.TemporaryDirectory() as directory:
         statvars_csv = Path(directory) / "statvars.csv"
-        # The statement `export_bundle` writes the StatVars with.
-        connection.execute(
-            f"copy (select * from {spec.statvar_model} order by all) to ?"
-            " (format csv, header)",
-            [str(statvars_csv)],
-        )
+        write_statvars_csv(connection, spec, statvars_csv)
         try:
             nodes = csv_metadata_to_nodes(
                 statvars_csv,
@@ -105,31 +96,25 @@ def read_statvars(
     return [node.model_dump(exclude_none=True) for node in nodes.nodes]
 
 
-def statvar_check_rows(
-    spec: ExportSpec, statvars: list[dict[str, Any]]
-) -> list[CheckRow]:
+def statvar_check_rows(statvars: list[dict[str, Any]]) -> list[CheckRow]:
     """The check rows of one StatVar table.
 
     A value loses its MCF namespace prefix. A constraint property the StatVar
     publishes no value for takes None, which the route reports as a missing
     value.
 
-    Rows that agree in every member but `ref` describe one StatVar twice, so only
-    the first is kept. Two rows sharing a dcid with different definitions are both
-    kept, the second onwards with its row number in its `ref`.
+    Rows that agree in every member describe one StatVar twice, so only the first
+    is kept. Two rows sharing a dcid with different definitions are both kept.
 
     Args:
-        spec: The export the table belongs to.
         statvars: The table's StatVars, as `read_statvars` returns them.
 
     Returns:
-        One row per distinct definition, each `ref` naming the table and the
-        StatVar, in table order.
+        One row per distinct definition, in table order.
     """
     rows: list[CheckRow] = []
     seen_definitions: set[str] = set()
-    seen_refs: set[str] = set()
-    for position, statvar in enumerate(statvars, start=1):
+    for statvar in statvars:
         fixed = {
             member: _node(statvar.get(name))
             for member, name in FIXED_PROPERTIES.items()
@@ -143,16 +128,8 @@ def statvar_check_rows(
         if definition in seen_definitions:
             continue
         seen_definitions.add(definition)
-
-        ref = f"{spec.statvar_model}:{fixed['dcid']}"
-        if ref in seen_refs:
-            ref = f"{ref} (row {position})"
-        if len(ref) > MAX_REF_LENGTH:
-            ref = f"{spec.statvar_model}:row {position}"
-        seen_refs.add(ref)
         rows.append(
             CheckRow(
-                ref=ref,
                 dcid=fixed["dcid"],
                 population_type=fixed["population_type"],
                 measured_property=fixed["measured_property"],

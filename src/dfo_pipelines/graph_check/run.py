@@ -89,21 +89,9 @@ def run_graph_check(
         with duckdb.connect(str(database), read_only=True) as connection:
             tables = _read_tables(connection, specs)
 
-    if not tables.statvars:
-        summary = CheckSummary(
-            not_run="no StatVar table has rows in this build",
-            unchecked_tables=tables.unchecked,
-            commit=commit,
-            base_branch=base_branch,
-        )
-        return render_report(summary), summary
-
     if not tables.rows:
         summary = CheckSummary(
-            not_run=(
-                f"none of the {len(tables.unsent):,} StatVars in this build "
-                "has a measured property"
-            ),
+            not_run="no StatVar table has rows in this build",
             unchecked_tables=tables.unchecked,
             commit=commit,
             base_branch=base_branch,
@@ -124,46 +112,43 @@ def run_graph_check(
 
     findings = []
     for finding in result.findings:
-        table, statvar = tables.statvars[finding["ref"]]
+        table, statvar = tables.placed[finding["row"]]
         findings.append(
             Finding(
                 table=table,
                 statvar=statvar,
                 field=finding["field"],
+                property=finding["property"],
+                subject=finding["subject"],
                 value=finding["value"],
+                served=finding["served"],
                 code=finding["code"],
                 severity=finding["severity"],
             )
         )
-    refused = tables.unsent + [
+    refused = [
         RefusedRow(
-            table=tables.statvars[row.ref][0],
-            statvar=tables.statvars[row.ref][1],
-            by_route=True,
+            table=tables.placed[row.row][0],
+            statvar=tables.placed[row.row][1],
             detail=row.detail,
         )
         for row in result.failed_rows
     ]
-    settled_refs = (
-        set(result.checked_refs)
-        | {row.ref for row in result.failed_rows}
-        | tables.unsent_refs
-    )
+    settled = set(result.checked_rows) | {row.row for row in result.failed_rows}
     tables_checked = tuple(
-        dict.fromkeys(tables.statvars[ref][0] for ref in result.checked_refs)
+        dict.fromkeys(tables.placed[row][0] for row in result.checked_rows)
     )
     not_reached = tuple(
-        (table, _unchecked_reason(table, tables, settled_refs))
+        (table, _unchecked_reason(table, tables, settled))
         for table in tables.read
         if table not in tables_checked
     )
     summary = CheckSummary(
         stopped=None if stop is None else stop.message,
         failure_detail=None if stop is None else stop.detail,
-        statvar_count=len(tables.statvars),
+        statvar_count=len(tables.rows),
         checked_count=result.checked_count,
         route_refused_count=len(result.failed_rows),
-        unsent_count=len(tables.unsent),
         tables_checked=tables_checked,
         unchecked_tables=tables.unchecked + not_reached,
         error_count=sum(finding.severity == "error" for finding in findings),
@@ -177,23 +162,18 @@ def run_graph_check(
 
 @dataclass(kw_only=True)
 class _Tables:
-    """The check rows of every table read, and what could not be sent.
+    """The check rows of every table read.
 
     Attributes:
         rows: The rows to send.
-        statvars: The table and StatVar dcid of every row's `ref`.
+        placed: The table and StatVar dcid of each row, by index in `rows`.
         read: The tables with rows, in spec order.
-        unsent: The StatVars not sent, for want of a measured property, which
-            the route requires of every row.
-        unsent_refs: The `ref` of each StatVar in `unsent`.
         unchecked: Each table with no rows to check, with the reason.
     """
 
     rows: list[CheckRow] = field(default_factory=list)
-    statvars: dict[str, tuple[str, str]] = field(default_factory=dict)
+    placed: list[tuple[str, str]] = field(default_factory=list)
     read: list[str] = field(default_factory=list)
-    unsent: list[RefusedRow] = field(default_factory=list)
-    unsent_refs: set[str] = field(default_factory=set)
     unchecked: tuple[tuple[str, str], ...] = ()
 
 
@@ -213,31 +193,23 @@ def _read_tables(
         except StatVarReadError:
             unchecked.append((table, "has StatVars the export cannot read"))
             continue
-        rows = statvar_check_rows(spec, statvars)
+        rows = statvar_check_rows(statvars)
         if not rows:
             unchecked.append((table, "has no rows in this build"))
             continue
         tables.read.append(table)
-        for row in rows:
-            statvar = row["dcid"] or ""
-            tables.statvars[row["ref"]] = (table, statvar)
-            if row["measured_property"] is None:
-                tables.unsent.append(
-                    RefusedRow(table=table, statvar=statvar, by_route=False)
-                )
-                tables.unsent_refs.add(row["ref"])
-            else:
-                tables.rows.append(row)
+        tables.rows += rows
+        tables.placed += [(table, row["dcid"] or "") for row in rows]
     tables.unchecked = tuple(unchecked)
     return tables
 
 
-def _unchecked_reason(table: str, tables: _Tables, settled_refs: set[str]) -> str:
-    """Why a table with rows has none the route answered.
+def _unchecked_reason(table: str, tables: _Tables, settled: set[int]) -> str:
+    """Why a table with rows has none the route checked.
 
-    `settled_refs` holds every row answered, refused by the route, or not sent.
+    `settled` holds the index of every row checked or refused by the route.
     """
-    refs = (ref for ref, (owner, _) in tables.statvars.items() if owner == table)
-    if any(ref not in settled_refs for ref in refs):
+    rows = (row for row, (owner, _) in enumerate(tables.placed) if owner == table)
+    if any(row not in settled for row in rows):
         return "was not reached before the check stopped"
     return "has no StatVar the check route could check"

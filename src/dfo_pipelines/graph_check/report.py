@@ -31,8 +31,7 @@ FINDING_CODES = {
         "Define the node in the graph."
     ),
     "value_missing": (
-        "The StatVar names this constraint property but gives it no value. "
-        "Fill in the value."
+        "The StatVar gives no value here, where one is required. Fill in the value."
     ),
     "not_a_property": (
         "The StatVar uses this as a property, but the graph does not define it as "
@@ -53,7 +52,11 @@ FINDING_CODES = {
     ),
     "definition_differs": (
         "The graph already holds this StatVar with a different value here. The "
-        "value shown is the graph's."
+        "example shows the value sent, then the graph's."
+    ),
+    "origin_not_served": (
+        "The id belongs to a data source this graph deployment does not serve, so "
+        "the check cannot tell whether the graph holds it."
     ),
 }
 
@@ -93,8 +96,10 @@ FINDINGS_LEFT_OUT_NOTE = (
 class Finding:
     """One finding, placed in the table and StatVar it is about.
 
-    `severity` is `error` or `warning`, as the client checks. Every other member
-    is shown as a code span.
+    `severity` is `error` or `warning`, and `subject` is `property` or `value`,
+    as the client checks. `property` names the constraint or observation property
+    the finding is about, if any, and `served` holds the graph's value on
+    `definition_differs`. Every other member is shown as a code span.
     """
 
     table: str
@@ -103,24 +108,18 @@ class Finding:
     value: Any
     code: str
     severity: str
+    property: str | None = None
+    subject: str = "value"
+    served: Any = None
 
 
 @dataclass(frozen=True, kw_only=True)
 class RefusedRow:
-    """A StatVar that was not checked, with who refused it and why.
-
-    Attributes:
-        table: The StatVar's table.
-        statvar: The StatVar's dcid.
-        by_route: True when the check route refused it. False when it was not
-            sent, for want of a measured property, which the route requires.
-        detail: The route's reason, or None when it was not sent.
-    """
+    """A StatVar the check route refused, with the route's reason."""
 
     table: str
     statvar: str
-    by_route: bool
-    detail: str | None = None
+    detail: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -133,8 +132,7 @@ class CheckSummary:
         failure_detail: The detail of the failure behind `not_run` or `stopped`.
         statvar_count: The StatVars in the tables read.
         checked_count: The StatVars the route answered.
-        route_refused_count: The StatVars the route refused, each sent alone.
-        unsent_count: The StatVars not sent, for want of a measured property.
+        route_refused_count: The StatVars the route refused.
         tables_checked: The tables with at least one StatVar the route answered.
         unchecked_tables: Each table that was not checked, with the reason.
         error_count: Findings of severity `error`.
@@ -152,7 +150,6 @@ class CheckSummary:
     statvar_count: int = 0
     checked_count: int = 0
     route_refused_count: int = 0
-    unsent_count: int = 0
     tables_checked: tuple[str, ...] = ()
     unchecked_tables: tuple[tuple[str, str], ...] = ()
     error_count: int = 0
@@ -169,12 +166,7 @@ class CheckSummary:
     @property
     def unreached_count(self) -> int:
         """The StatVars the check did not reach because it stopped early"""
-        return (
-            self.statvar_count
-            - self.checked_count
-            - self.route_refused_count
-            - self.unsent_count
-        )
+        return self.statvar_count - self.checked_count - self.route_refused_count
 
 
 def render_report(
@@ -268,7 +260,6 @@ def _verdict(summary: CheckSummary) -> str:
         f"{_were(count)} {what}."
         for count, what in (
             (summary.route_refused_count, "refused by the check route"),
-            (summary.unsent_count, "not sent"),
             (summary.unreached_count, f"not reached because {summary.stopped}"),
         )
         if count
@@ -349,26 +340,15 @@ def _table_section(
                 row += f" {'<br>'.join(shown)} |"
             lines.append(row)
         lines.append("")
-    by_route = [row for row in refused if row.by_route]
-    if by_route:
+    if refused:
         lines.append(
-            f"The check route refused {_count(len(by_route), 'StatVar')} even when "
-            "sent alone, so they were not checked:"
+            f"The check route refused {_count(len(refused), 'StatVar')}, so "
+            f"{'it was' if len(refused) == 1 else 'they were'} not checked:"
         )
         lines += _listed(
-            [
-                f"{_code_span(row.statvar)}: {_code_span(row.detail or '')}"
-                for row in by_route
-            ],
+            [f"{_code_span(row.statvar)}: {_code_span(row.detail)}" for row in refused],
             examples,
         )
-    unsent = [row for row in refused if not row.by_route]
-    if unsent:
-        lines.append(
-            f"{_count(len(unsent), 'StatVar')} had no measured property, which the "
-            "check route requires, so they were not sent:"
-        )
-        lines += _listed([_code_span(row.statvar) for row in unsent], examples)
     return lines
 
 
@@ -382,11 +362,19 @@ def _listed(items: list[str], examples: int) -> list[str]:
 
 
 def _example(finding: Finding) -> str:
-    """One finding as a table cell: StatVar, field and value"""
-    return (
-        f"{_cell(finding.statvar)} {_cell(finding.field)} = "
-        f"{_cell(_value_text(finding.value))}"
-    )
+    """One finding as a table cell: StatVar, field, value and the graph's value.
+
+    A finding about a property's value names the property after the field. One
+    about the property itself shows the property as its value.
+    """
+    field = finding.field
+    if finding.property is not None and finding.subject != "property":
+        field = f"{field}.{finding.property}"
+    example = f"{_cell(finding.statvar)} {_cell(field)} = "
+    example += _cell(_value_text(finding.value))
+    if finding.served is not None:
+        example += f" (graph: {_cell(_value_text(finding.served))})"
+    return example
 
 
 def _value_text(value: Any) -> str:

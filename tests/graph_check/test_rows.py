@@ -14,7 +14,7 @@ from tests.graph_check.tables import SPEC
 
 
 def check_rows_of(connection: DuckDBPyConnection, spec: ExportSpec) -> list[CheckRow]:
-    return statvar_check_rows(spec, read_statvars(connection, spec))
+    return statvar_check_rows(read_statvars(connection, spec))
 
 
 def test_rows_carry_bare_dcids_and_mapped_constraint_values(
@@ -24,7 +24,6 @@ def test_rows_carry_bare_dcids_and_mapped_constraint_values(
 
     assert rows == [
         {
-            "ref": "checked.statvars:Variable1",
             "dcid": "Variable1",
             "population_type": "FinancialFlow",
             "measured_property": "amount",
@@ -38,7 +37,6 @@ def test_rows_carry_bare_dcids_and_mapped_constraint_values(
             "observation_properties": ["financingProvider", "financingRecipient"],
         },
         {
-            "ref": "checked.statvars:Variable2",
             "dcid": "Variable2",
             "population_type": "FinancialFlow",
             "measured_property": "amount",
@@ -125,24 +123,9 @@ def test_repeated_definitions_collapse_and_differing_ones_keep_their_rows(
     rows = check_rows_of(connection, SPEC)
 
     # In the export's order the redefined row is second and the renamed third.
-    assert [row["ref"] for row in rows] == [
-        "checked.statvars:Variable1",
-        "checked.statvars:Variable1 (row 2)",
-        "checked.statvars:Variable2",
-    ]
-
-
-def test_a_ref_past_the_routes_limit_names_the_row_instead(
-    connection: DuckDBPyConnection,
-) -> None:
-    connection.execute(
-        "update checked.statvars set dcid = 'dcid:' || repeat('V', 600)"
-        " where dcid = 'dcid:Variable1'"
-    )
-
-    (row, _) = check_rows_of(connection, SPEC)
-
-    assert row["ref"] == "checked.statvars:row 1"
+    assert [
+        (row["dcid"], row["constraint_properties"]["nettingBasis"]) for row in rows
+    ] == [("Variable1", "Gross"), ("Variable1", "Net"), ("Variable2", "Net")]
 
 
 @pytest.mark.parametrize(

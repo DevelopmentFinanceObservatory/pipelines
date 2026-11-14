@@ -15,18 +15,15 @@ from tests.graph_check.tables import (
     URL,
     answer,
     clean_route,
+    finding,
     first_line,
+    refused,
     spans,
 )
 
 
 def refuse_every_call(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
     raise AssertionError("the route was called")
-
-
-def refused() -> httpx.Response:
-    """The route's refusal of the rows it was sent"""
-    return httpx.Response(400, json={"code": "request_invalid", "detail": "bad"})
 
 
 def test_no_url_reports_that_the_check_did_not_run(
@@ -48,13 +45,13 @@ def test_findings_name_their_table_and_statvar(connection: DuckDBPyConnection) -
         return answer(
             body["rows"],
             findings=[
-                {
-                    "ref": "checked.statvars:Variable2",
-                    "field": "constraint_properties.crsPurpose",
-                    "value": None,
-                    "code": "value_missing",
-                    "severity": "error",
-                }
+                finding(
+                    1,
+                    field="constraint_properties",
+                    property="crsPurpose",
+                    value=None,
+                    code="value_missing",
+                )
             ],
         )
 
@@ -122,45 +119,20 @@ def test_an_unreachable_route_means_the_check_did_not_run(
     assert spans(report.split("\n\n")[1]) == ["ConnectError"]
 
 
-def test_a_statvar_without_a_measured_property_is_refused_without_a_call(
+def test_a_statvar_without_a_measured_property_is_sent_for_the_route_to_report(
     connection: DuckDBPyConnection,
 ) -> None:
     connection.execute(
         "update checked.statvars set measured_property = null"
         " where dcid = 'dcid:Variable1'"
     )
-    sent: list[dict[str, Any]] = []
 
-    def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
-        sent.extend(body["rows"])
-        return answer(body["rows"])
+    sent = sent_rows(connection)
 
-    report, summary = run_graph_check(connection, specs=[SPEC], url=URL, post=route)
-
-    assert [row["dcid"] for row in sent] == ["Variable2"]
-    assert (summary.unsent_count, summary.unreached_count) == (1, 0)
-    assert (
-        first_line(report) == "Checked 1 of 2 StatVars across 1 table. 1 was not sent."
-    )
-    assert [spans(line) for line in report.splitlines() if line.startswith("- ")] == [
-        ["Variable1"]
+    assert [(row["dcid"], row["measured_property"]) for row in sent] == [
+        ("Variable1", None),
+        ("Variable2", "amount"),
     ]
-
-
-def test_no_statvar_with_a_measured_property_means_the_check_did_not_run(
-    connection: DuckDBPyConnection,
-) -> None:
-    connection.execute("update checked.statvars set measured_property = null")
-
-    report, summary = run_graph_check(
-        connection, specs=[SPEC], url=URL, post=refuse_every_call
-    )
-
-    assert not summary.ran
-    assert first_line(report) == (
-        "The graph check did not run: none of the 2 StatVars in this build has a "
-        "measured property."
-    )
 
 
 def test_a_database_path_is_opened_and_read(tmp_path: Path) -> None:
@@ -179,20 +151,18 @@ def test_a_check_that_stops_part_way_reports_what_it_found_and_what_it_did_not(
 ) -> None:
     def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
         rows = body["rows"]
-        if len(rows) > 1:
-            return refused()
         if rows[0]["dcid"] == "Variable2":
             return httpx.Response(500)
         return answer(
             rows,
+            row_count=1,
             findings=[
-                {
-                    "ref": rows[0]["ref"],
-                    "field": "population_type",
-                    "value": "FinancialFlow",
-                    "code": "not_a_class",
-                    "severity": "error",
-                }
+                finding(
+                    0,
+                    field="population_type",
+                    value="FinancialFlow",
+                    code="not_a_class",
+                )
             ],
         )
 
@@ -211,14 +181,18 @@ def test_a_check_whose_every_sent_statvar_was_refused_before_it_stopped_ran(
 ) -> None:
     def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
         if body["rows"][0]["dcid"] == "Variable1":
-            return refused()
+            return refused(0, "a string past its bound")
         return httpx.Response(500)
 
-    _, summary = run_graph_check(connection, specs=[SPEC], url=URL, post=route)
+    report, summary = run_graph_check(connection, specs=[SPEC], url=URL, post=route)
 
     assert summary.ran
     assert (summary.checked_count, summary.route_refused_count) == (0, 1)
     assert summary.unreached_count == 1
+    assert [spans(line) for line in report.splitlines() if line.startswith("- ")] == [
+        ["Variable1", "a string past its bound"],
+        ["checked.statvars"],
+    ]
 
 
 def test_specs_sharing_a_statvar_model_are_refused(
@@ -342,11 +316,10 @@ def test_a_table_the_export_cannot_read_is_reported_and_the_rest_are_checked(
     )
 
 
-def second_table(connection: DuckDBPyConnection, *, measured: bool) -> ExportSpec:
-    """A copy of `SPEC`'s table, with or without its measured properties"""
+def second_table(connection: DuckDBPyConnection) -> ExportSpec:
+    """A copy of `SPEC`'s table whose StatVars are named `Second1` and `Second2`"""
     connection.execute(
         "create table checked.second as select * replace ("
-        f"{'measured_property' if measured else 'null'} as measured_property,"
         " replace(dcid, 'Variable', 'Second') as dcid) from checked.statvars"
     )
     return replace(SPEC, statvar_model="checked.second")
@@ -355,14 +328,14 @@ def second_table(connection: DuckDBPyConnection, *, measured: bool) -> ExportSpe
 def test_a_table_the_check_stopped_before_is_not_counted_as_checked(
     connection: DuckDBPyConnection,
 ) -> None:
-    second = second_table(connection, measured=True)
+    second = second_table(connection)
 
     def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
-        # One chunk holds both tables. Refused, it splits into one per table.
+        # The route checks the first table's rows, then fails.
         rows = body["rows"]
-        if not any(row["dcid"].startswith("Second") for row in rows):
-            return answer(rows)
-        return refused() if len(rows) > 2 else httpx.Response(500)
+        if rows[0]["dcid"].startswith("Second"):
+            return httpx.Response(500)
+        return answer(rows, row_count=2)
 
     report, summary = run_graph_check(
         connection, specs=[SPEC, second], url=URL, post=route
@@ -378,16 +351,21 @@ def test_a_table_the_check_stopped_before_is_not_counted_as_checked(
     )
 
 
-def test_a_table_with_no_statvar_sent_is_not_counted_as_checked(
+def test_a_table_whose_every_statvar_was_refused_is_not_counted_as_checked(
     connection: DuckDBPyConnection,
 ) -> None:
-    second = second_table(connection, measured=False)
+    second = second_table(connection)
 
-    _, summary = run_graph_check(
-        connection, specs=[SPEC, second], url=URL, post=clean_route
-    )
+    def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
+        dcids = [row["dcid"] for row in body["rows"]]
+        if seconds := [n for n, dcid in enumerate(dcids) if dcid.startswith("Second")]:
+            return refused(seconds[0])
+        return answer(body["rows"])
+
+    _, summary = run_graph_check(connection, specs=[SPEC, second], url=URL, post=route)
 
     assert summary.tables_checked == ("checked.statvars",)
+    assert summary.route_refused_count == 2
     assert summary.unchecked_tables == (
         ("checked.second", "has no StatVar the check route could check"),
     )

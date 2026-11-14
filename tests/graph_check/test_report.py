@@ -27,6 +27,7 @@ ROUTE_CODES = [
     "value_outside_range",
     "property_outside_domain",
     "definition_differs",
+    "origin_not_served",
 ]
 
 
@@ -36,7 +37,8 @@ def make_finding(
     return Finding(
         table=table,
         statvar="Variable1",
-        field="constraint_properties.crsPurpose",
+        field="constraint_properties",
+        property="crsPurpose",
         value="CRSPurposeCode99999",
         code=code,
         severity=severity,
@@ -80,17 +82,16 @@ def make_finding(
         ),
         (
             CheckSummary(
-                statvar_count=12,
+                statvar_count=11,
                 checked_count=9,
                 route_refused_count=2,
-                unsent_count=1,
                 tables_checked=("a", "b", "c"),
                 error_count=3,
                 warning_count=1,
                 generations=("g1", "g2"),
             ),
-            "Found 3 errors and 1 warning in 9 of 12 StatVars checked across 3 "
-            "tables. 2 were refused by the check route. 1 was not sent.",
+            "Found 3 errors and 1 warning in 9 of 11 StatVars checked across 3 "
+            "tables. 2 were refused by the check route.",
         ),
         (
             CheckSummary(
@@ -209,7 +210,7 @@ def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
         code=hostile,
         severity="error",
     )
-    refused = RefusedRow(table="a", statvar="W", by_route=True, detail=hostile)
+    refused = RefusedRow(table="a", statvar="W", detail=hostile)
 
     report = render_report(summary, findings=[finding], refused=[refused])
 
@@ -231,21 +232,15 @@ def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
 
 def test_findings_are_tabled_per_table_with_examples_and_explained() -> None:
     summary = CheckSummary(
-        statvar_count=3,
+        statvar_count=2,
         checked_count=1,
         route_refused_count=1,
-        unsent_count=1,
         tables_checked=("oecd.statvars",),
         unchecked_tables=(("imf.statvars", "has no rows in this build"),),
         error_count=1,
         generations=("g1",),
     )
-    refused = [
-        RefusedRow(
-            table="oecd.statvars", statvar="Variable2", by_route=True, detail="bad"
-        ),
-        RefusedRow(table="oecd.statvars", statvar="Variable3", by_route=False),
-    ]
+    refused = [RefusedRow(table="oecd.statvars", statvar="Variable2", detail="bad")]
 
     report = render_report(summary, findings=[make_finding()], refused=refused)
 
@@ -256,11 +251,63 @@ def test_findings_are_tabled_per_table_with_examples_and_explained() -> None:
     ) in lines
     assert [spans(line) for line in lines if line.startswith("- ")] == [
         ["Variable2", "bad"],
-        ["Variable3"],
         ["imf.statvars"],
         ["node_not_held"],
     ]
     assert f"- `node_not_held`: {FINDING_CODES['node_not_held']}" in lines
+
+
+@pytest.mark.parametrize(
+    ("finding", "example"),
+    [
+        (
+            Finding(
+                table="a",
+                statvar="V",
+                field="measured_property",
+                value=None,
+                code="value_missing",
+                severity="error",
+            ),
+            "`V` `measured_property` = `null`",
+        ),
+        (
+            Finding(
+                table="a",
+                statvar="V",
+                field="constraint_properties",
+                property="crsPurpose",
+                subject="property",
+                value="crsPurpose",
+                code="not_a_property",
+                severity="error",
+            ),
+            "`V` `constraint_properties` = `crsPurpose`",
+        ),
+        (
+            Finding(
+                table="a",
+                statvar="V",
+                field="stat_type",
+                value="measuredValue",
+                served="sumValue",
+                code="definition_differs",
+                severity="warning",
+            ),
+            "`V` `stat_type` = `measuredValue` (graph: `sumValue`)",
+        ),
+    ],
+    ids=["fixed field", "a property itself", "the graph's value"],
+)
+def test_an_example_names_what_the_finding_judges(
+    finding: Finding, example: str
+) -> None:
+    summary = one_table_summary([finding])
+
+    report = render_report(summary, findings=[finding])
+
+    rows = [line for line in report.splitlines() if line.startswith("| `")]
+    assert rows == [f"| `{finding.code}` | {finding.severity} | 1 | {example} |"]
 
 
 def test_every_route_code_has_an_explanation() -> None:
@@ -345,20 +392,20 @@ def test_a_report_too_long_for_any_table_says_its_findings_are_not_listed() -> N
 @pytest.mark.parametrize(
     ("tables", "note"),
     [
-        (189, "1 more table, with 3 findings, is not listed"),
-        (190, "2 more tables, with 6 findings, are not listed"),
+        (213, "1 more table, with 3 findings, is not listed"),
+        (214, "2 more tables, with 6 findings, are not listed"),
     ],
 )
 def test_the_left_out_tables_note_counts_findings_alone(tables: int, note: str) -> None:
-    # Each table has three findings and one StatVar that was not sent. The sizes
+    # Each table has three findings and one StatVar the route refused. The sizes
     # are those at which the report leaves out its last one and two tables.
     names = [f"source{n:03}.statvars" for n in range(tables)]
     findings = [make_finding(name) for name in names for _ in range(3)]
-    refused = [RefusedRow(table=name, statvar="V", by_route=False) for name in names]
+    refused = [RefusedRow(table=name, statvar="Var", detail="bad") for name in names]
     summary = CheckSummary(
         statvar_count=len(findings) + tables,
         checked_count=len(findings),
-        unsent_count=tables,
+        route_refused_count=tables,
         tables_checked=tuple(names),
         error_count=len(findings),
     )
