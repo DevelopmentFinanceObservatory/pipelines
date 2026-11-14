@@ -62,16 +62,15 @@ def answer(
     *,
     findings: Sequence[dict[str, Any]] = (),
     generation: str | None = "g1",
-    row_count: int | None = None,
+    rows_checked: int | None = None,
 ) -> httpx.Response:
-    """The route's 200 answer, checking the first `row_count` of `rows` or all"""
-    checked = len(rows) if row_count is None else row_count
+    """The route's 200 answer, checking the first `rows_checked` of `rows` or all"""
+    checked = len(rows) if rows_checked is None else rows_checked
     return httpx.Response(
         200,
         json={
             "generation": generation,
-            "row_count": checked,
-            "next_row": None if checked == len(rows) else checked,
+            "rows_checked": checked,
             "findings": list(findings),
         },
     )
@@ -81,7 +80,6 @@ def finding(row: Any, /, **changes: Any) -> dict[str, Any]:
     """A finding about request row `row`, with `changes`; `...` drops a member"""
     base = {
         "row": row,
-        "ref": None,
         "field": "measured_property",
         "property": None,
         "subject": "value",

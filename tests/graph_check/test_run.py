@@ -155,7 +155,7 @@ def test_a_check_that_stops_part_way_reports_what_it_found_and_what_it_did_not(
             return httpx.Response(500)
         return answer(
             rows,
-            row_count=1,
+            rows_checked=1,
             findings=[
                 finding(
                     0,
@@ -335,7 +335,7 @@ def test_a_table_the_check_stopped_before_is_not_counted_as_checked(
         rows = body["rows"]
         if rows[0]["dcid"].startswith("Second"):
             return httpx.Response(500)
-        return answer(rows, row_count=2)
+        return answer(rows, rows_checked=2)
 
     report, summary = run_graph_check(
         connection, specs=[SPEC, second], url=URL, post=route

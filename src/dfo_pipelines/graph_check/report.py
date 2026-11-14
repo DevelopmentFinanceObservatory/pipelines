@@ -23,6 +23,10 @@ FINDING_CODES = {
         "The graph holds no node with this dcid. Check the spelling, or add the "
         "node to the graph."
     ),
+    "not_a_node": (
+        "A node id belongs here, but the cell holds a number, a true or false "
+        "value, or text that is not a dcid. Put a dcid in the cell."
+    ),
     "node_untyped": (
         "The graph holds this node but gives it no type. Give the node a type."
     ),

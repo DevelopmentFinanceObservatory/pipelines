@@ -86,7 +86,8 @@ def answer_without_findings(
     url: str, body: dict[str, Any], timeout: float
 ) -> httpx.Response:
     return httpx.Response(
-        200, json={"generation": "g1", "row_count": len(body["rows"]), "findings": None}
+        200,
+        json={"generation": "g1", "rows_checked": len(body["rows"]), "findings": None},
     )
 
 

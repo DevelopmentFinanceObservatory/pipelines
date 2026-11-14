@@ -19,6 +19,7 @@ from tests.graph_check.tables import first_line, spans
 # The codes the check route documents.
 ROUTE_CODES = [
     "node_not_held",
+    "not_a_node",
     "node_untyped",
     "node_provisional",
     "value_missing",

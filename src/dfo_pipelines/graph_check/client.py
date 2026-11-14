@@ -2,8 +2,9 @@
 
 The route checks the rows of a request in order and answers for as many as it
 can read and report on in one check, at least one. Its answer counts the rows
-checked and names the row to resume from, and each finding names its row by
-index in the request. The client sends the rows from there in the next request.
+checked, `rows_checked`, and each finding names its row by index in the request.
+When fewer rows were checked than sent, the client sends the rest in the next
+request.
 
 The route refuses a request with a 400 problem document. When the document's
 `pointer` names one row (`/rows/37/constraint_properties`), the client records
@@ -11,8 +12,10 @@ that row as refused with the route's reason and sends the rest without it. Any
 other 400 stops the run.
 
 A busy route answers 503, and the website proxy in front of it answers 429 once a
-caller passes its allowance, and both say how long to wait. The proxy answers 502
-or 504 when the route behind it fails, which is worth a few retries.
+caller passes its allowance, and both say how long to wait. A 503 names its cause
+in `cause.code`, which the stop reason repeats when the wait budget runs out. The
+proxy answers 502 or 504 when the route behind it fails, which is worth a few
+retries. A problem that says `retryable: false`, and a 500, stop the run at once.
 
 A whole run is bounded by `MAX_REQUESTS` requests and `MAX_RUN_SECONDS` seconds
 unless it is given other budgets. Any failure, a spent budget included, stops the
@@ -67,6 +70,13 @@ SEVERITIES = ("error", "warning")
 # What a finding judges: a constraint or observation property itself, or a value.
 SUBJECTS = ("property", "value")
 
+# What a 503 answer's `cause.code` says about why the route could not take the
+# check, for the stop reason once the wait budget is spent.
+BUSY_CAUSES = {
+    "schema_building": "the check route was still building the schema",
+    "check_busy": "the check route stayed busy with other checks",
+}
+
 # A problem pointer into one row of the request, which holds the row's index.
 _ROW_POINTER = re.compile(r"^/rows/(\d+)(?:/|$)")
 
@@ -76,6 +86,7 @@ class StopReason(StrEnum):
 
     UNREACHABLE = "the check route could not be reached"
     BUSY = "the check route stayed busy"
+    NOT_RETRYABLE = "the check route reported a failure it does not expect to clear"
     FAILED = "the check route failed"
     REFUSED = "the request was refused"
     REDIRECTED = "the check route answered with a redirect"
@@ -250,12 +261,19 @@ class _Sender:
             status = response.status_code
             if status in (200, 400):
                 return response
+            problem = _body(response)
+            if problem.get("retryable") is False:
+                raise GraphCheckError(
+                    StopReason.NOT_RETRYABLE,
+                    f"answer {status}, {_problem_text(response)}",
+                )
             if status in (429, 503):
                 wait = _wait_seconds(response)
                 if waited + wait > MAX_WAIT_SECONDS:
                     raise GraphCheckError(
                         StopReason.BUSY,
                         f"still answering {status} after {waited:g} seconds",
+                        message=BUSY_CAUSES.get(_cause_code(response)),
                     )
                 self._sleep(wait)
                 waited += wait
@@ -270,7 +288,7 @@ class _Sender:
                 self._sleep(GATEWAY_RETRY_SECONDS)
                 continue
             reason = StopReason.FAILED if status >= 500 else StopReason.REFUSED
-            raise GraphCheckError(reason, f"answer {status}, {_detail(response)}")
+            raise GraphCheckError(reason, f"answer {status}, {_problem_text(response)}")
 
     def _post_once(self, rows: list[CheckRow]) -> httpx.Response:
         """One request, if both budgets allow it, within the time left"""
@@ -331,19 +349,15 @@ def _keep_answer(response: httpx.Response, sent: list[int], result: CheckResult)
     generation = answer.get("generation")
     if "generation" not in answer or not isinstance(generation, str | None):
         raise _unexpected("no generation")
-    row_count = answer.get("row_count")
-    if not _is_index(row_count):
-        raise _unexpected("no row count")
-    if not 1 <= row_count <= len(sent):
-        raise _unexpected(f"a count of {row_count:,} checked for {len(sent):,} sent")
-    next_row = answer.get("next_row")
-    expected_next = None if row_count == len(sent) else row_count
-    if "next_row" not in answer or next_row != expected_next:
-        raise _unexpected(f"a next row that does not follow {row_count:,} checked")
+    rows_checked = answer.get("rows_checked")
+    if not _is_index(rows_checked):
+        raise _unexpected("no count of rows checked")
+    if not 1 <= rows_checked <= len(sent):
+        raise _unexpected(f"a count of {rows_checked:,} checked for {len(sent):,} sent")
     findings = answer.get("findings")
     if not isinstance(findings, list):
         raise _unexpected("no list of findings")
-    if not all(_is_finding(finding, row_count) for finding in findings):
+    if not all(_is_finding(finding, rows_checked) for finding in findings):
         raise _unexpected("a finding that does not match the rows checked")
 
     if generation not in result.generations:
@@ -351,8 +365,8 @@ def _keep_answer(response: httpx.Response, sent: list[int], result: CheckResult)
     result.findings.extend(
         finding | {"row": sent[finding["row"]]} for finding in findings
     )
-    result.checked_rows.extend(sent[:row_count])
-    return row_count
+    result.checked_rows.extend(sent[:rows_checked])
+    return rows_checked
 
 
 def _is_index(value: Any) -> bool:
@@ -360,12 +374,12 @@ def _is_index(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
-def _is_finding(finding: Any, row_count: int) -> bool:
+def _is_finding(finding: Any, rows_checked: int) -> bool:
     """Whether `finding` has the members the route documents, about a row checked"""
     return (
         isinstance(finding, dict)
         and _is_index(finding.get("row"))
-        and finding["row"] < row_count
+        and finding["row"] < rows_checked
         and isinstance(finding.get("field"), str)
         and isinstance(finding.get("property"), str | None)
         and "property" in finding
@@ -400,6 +414,20 @@ def _body(response: httpx.Response) -> dict[str, Any]:
     except ValueError:
         return {}
     return body if isinstance(body, dict) else {}
+
+
+def _cause_code(response: httpx.Response) -> str | None:
+    """The `cause.code` of a problem document, if it has one"""
+    cause = _body(response).get("cause")
+    code = cause.get("code") if isinstance(cause, dict) else None
+    return code if isinstance(code, str) else None
+
+
+def _problem_text(response: httpx.Response) -> str:
+    """The problem's code and detail, or what of them the answer gives"""
+    code = _body(response).get("code")
+    detail = _detail(response)
+    return f"{code}: {detail}" if isinstance(code, str) else detail
 
 
 def _detail(response: httpx.Response) -> str:

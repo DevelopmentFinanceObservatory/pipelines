@@ -119,12 +119,12 @@ def test_rows_go_in_chunks_and_every_answer_is_kept() -> None:
     assert result.failed_rows == []
 
 
-def test_a_partial_answer_resumes_at_its_next_row_and_maps_findings_by_row() -> None:
+def test_a_partial_answer_resumes_at_rows_checked_and_maps_findings_by_row() -> None:
     def check_three(rows: list[CheckRow]) -> httpx.Response:
         checked = min(3, len(rows))
         return answer(
             rows,
-            row_count=checked,
+            rows_checked=checked,
             findings=[finding(n, value=rows[n]["dcid"]) for n in range(checked)],
         )
 
@@ -235,6 +235,63 @@ def test_waiting_on_one_chunk_is_bounded() -> None:
     assert route.sleeps == [25.0, 25.0]
 
 
+def problem(status: int, code: str, **members: Any) -> httpx.Response:
+    headers = members.pop("headers", None)
+    body = {"code": code, "detail": f"{code} detail"} | members
+    return httpx.Response(status, json=body, headers=headers)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        problem(500, "schema_refused", retryable=False),
+        problem(500, "schema_refused"),
+        problem(
+            503, "schema_unavailable", retryable=False, headers={"Retry-After": "2"}
+        ),
+        problem(429, "rate_limited", retryable=False, headers={"Retry-After": "2"}),
+        problem(502, "bad_gateway", retryable=False),
+    ],
+    ids=["500 not retryable", "500", "503 not retryable", "429", "502"],
+)
+def test_a_failure_that_will_not_clear_stops_the_run_at_once(
+    failure: httpx.Response,
+) -> None:
+    route = FakeRoute(failure)
+
+    result = route.check([make_row("a")])
+
+    assert len(route.requests) == 1
+    assert route.sleeps == []
+    assert result.stopped is not None
+    assert failure.json()["code"] in result.stopped.detail
+    assert failure.json()["detail"] in result.stopped.detail
+
+
+@pytest.mark.parametrize(
+    ("cause", "message"),
+    [
+        ({"code": "schema_building"}, "the check route was still building the schema"),
+        ({"code": "check_busy"}, "the check route stayed busy with other checks"),
+        ({"code": "other"}, "the check route stayed busy"),
+        (None, "the check route stayed busy"),
+    ],
+)
+def test_the_stop_after_the_wait_budget_names_the_cause_of_the_503(
+    cause: dict[str, str] | None, message: str
+) -> None:
+    extra = {} if cause is None else {"cause": cause}
+    busy = problem(
+        503, "unavailable", retryable=True, headers={"Retry-After": "25"}, **extra
+    )
+    route = FakeRoute(busy, busy, busy)
+
+    result = route.check([make_row("a")])
+
+    assert stop_reason(result) is StopReason.BUSY
+    assert result.stopped is not None and result.stopped.message == message
+
+
 def test_a_gateway_failure_is_retried_a_bounded_number_of_times() -> None:
     gateway = httpx.Response(502, json={"error": "upstream", "detail": "x"})
     recovered = FakeRoute(gateway, httpx.Response(504))
@@ -274,8 +331,7 @@ def documented(**changes: Any) -> dict[str, Any]:
     """A 200 body checking one of two rows sent, with `changes`; `...` drops one"""
     body = {
         "generation": "g1",
-        "row_count": 1,
-        "next_row": 1,
+        "rows_checked": 1,
         "findings": [finding(0)],
     }
     return {key: value for key, value in (body | changes).items() if value != ...}
@@ -292,14 +348,10 @@ def first_of_two() -> httpx.Response:
         [],
         documented(generation=...),
         documented(generation=3),
-        documented(row_count=...),
-        documented(row_count=True),
-        documented(row_count=0),
-        documented(row_count=3, next_row=None),
-        documented(next_row=...),
-        documented(next_row=None),
-        documented(next_row=2),
-        documented(row_count=2, next_row=2),
+        documented(rows_checked=...),
+        documented(rows_checked=True),
+        documented(rows_checked=0),
+        documented(rows_checked=3),
         documented(findings=None),
         documented(findings="none"),
         documented(findings=["b"]),
@@ -320,14 +372,10 @@ def first_of_two() -> httpx.Response:
         "not an object",
         "no generation",
         "generation not text",
-        "no row count",
-        "row count not a number",
-        "row count zero",
-        "row count past the rows sent",
-        "no next row",
-        "next row null on a partial answer",
-        "next row past the rows checked",
-        "next row on a full answer",
+        "no rows checked",
+        "rows checked not a number",
+        "rows checked zero",
+        "rows checked past the rows sent",
         "findings null",
         "findings text",
         "finding not an object",
