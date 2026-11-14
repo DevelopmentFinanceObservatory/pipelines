@@ -9,15 +9,20 @@ from pathlib import Path
 import duckdb
 from duckdb import DuckDBPyConnection
 
-from dfo_pipelines.data_commons.export import ExportSpec, get_model_rows
-from dfo_pipelines.graph_check.client import Post, check_rows, post_json
+from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.graph_check.client import Post, check_rows
 from dfo_pipelines.graph_check.report import (
     CheckSummary,
     Finding,
     RefusedRow,
     render_report,
 )
-from dfo_pipelines.graph_check.rows import CheckRow, statvar_check_rows
+from dfo_pipelines.graph_check.rows import (
+    CheckRow,
+    StatVarReadError,
+    read_statvars,
+    statvar_check_rows,
+)
 
 
 class RepeatedStatVarModelError(ValueError):
@@ -35,10 +40,11 @@ def run_graph_check(
     *,
     specs: Sequence[ExportSpec],
     url: str | None,
-    post: Post = post_json,
+    post: Post | None = None,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
     commit: str | None = None,
+    base_branch: str | None = None,
 ) -> tuple[str, CheckSummary]:
     """Check every spec's StatVar table against the graph.
 
@@ -51,10 +57,13 @@ def run_graph_check(
             opened read-only.
         specs: The exports whose StatVar tables are checked.
         url: The check route's URL; None or empty when none is configured.
-        post: Sends one request to the route.
+        post: Sends one request to the route. Defaults to one httpx client for
+            the whole run.
         sleep: Waits the given seconds between retries.
         clock: Reads the time, for the run's time budget.
-        commit: The commit the build was made from, which the report names.
+        commit: The pull request head commit, which the report names.
+        base_branch: The branch the head commit was merged into for the build,
+            which the report names beside the commit.
 
     Returns:
         The Markdown report and its summary.
@@ -67,7 +76,11 @@ def run_graph_check(
         raise RepeatedStatVarModelError(repeated)
 
     if not url:
-        summary = CheckSummary(not_run="no check URL is configured", commit=commit)
+        summary = CheckSummary(
+            not_run="no check URL is configured",
+            commit=commit,
+            base_branch=base_branch,
+        )
         return render_report(summary), summary
 
     if isinstance(database, DuckDBPyConnection):
@@ -81,6 +94,7 @@ def run_graph_check(
             not_run="no StatVar table has rows in this build",
             unchecked_tables=tables.unchecked,
             commit=commit,
+            base_branch=base_branch,
         )
         return render_report(summary), summary
 
@@ -92,6 +106,7 @@ def run_graph_check(
             ),
             unchecked_tables=tables.unchecked,
             commit=commit,
+            base_branch=base_branch,
         )
         return render_report(summary), summary
 
@@ -99,10 +114,11 @@ def run_graph_check(
     stop = result.stopped
     if stop is not None and result.checked_count == 0 and not result.failed_rows:
         summary = CheckSummary(
-            not_run=str(stop.reason),
+            not_run=stop.message,
             failure_detail=stop.detail,
             unchecked_tables=tables.unchecked,
             commit=commit,
+            base_branch=base_branch,
         )
         return render_report(summary), summary
 
@@ -128,19 +144,33 @@ def run_graph_check(
         )
         for row in result.failed_rows
     ]
+    settled_refs = (
+        set(result.checked_refs)
+        | {row.ref for row in result.failed_rows}
+        | tables.unsent_refs
+    )
+    tables_checked = tuple(
+        dict.fromkeys(tables.statvars[ref][0] for ref in result.checked_refs)
+    )
+    not_reached = tuple(
+        (table, _unchecked_reason(table, tables, settled_refs))
+        for table in tables.read
+        if table not in tables_checked
+    )
     summary = CheckSummary(
-        stopped=None if stop is None else str(stop.reason),
+        stopped=None if stop is None else stop.message,
         failure_detail=None if stop is None else stop.detail,
         statvar_count=len(tables.statvars),
         checked_count=result.checked_count,
         route_refused_count=len(result.failed_rows),
         unsent_count=len(tables.unsent),
-        tables_checked=tuple(dict.fromkeys(t for t, _ in tables.statvars.values())),
-        unchecked_tables=tables.unchecked,
+        tables_checked=tables_checked,
+        unchecked_tables=tables.unchecked + not_reached,
         error_count=sum(finding.severity == "error" for finding in findings),
         warning_count=sum(finding.severity == "warning" for finding in findings),
         generations=tuple(result.generations),
         commit=commit,
+        base_branch=base_branch,
     )
     return render_report(summary, findings=findings, refused=refused), summary
 
@@ -152,14 +182,18 @@ class _Tables:
     Attributes:
         rows: The rows to send.
         statvars: The table and StatVar dcid of every row's `ref`.
+        read: The tables with rows, in spec order.
         unsent: The StatVars not sent, for want of a measured property, which
             the route requires of every row.
+        unsent_refs: The `ref` of each StatVar in `unsent`.
         unchecked: Each table with no rows to check, with the reason.
     """
 
     rows: list[CheckRow] = field(default_factory=list)
     statvars: dict[str, tuple[str, str]] = field(default_factory=dict)
+    read: list[str] = field(default_factory=list)
     unsent: list[RefusedRow] = field(default_factory=list)
+    unsent_refs: set[str] = field(default_factory=set)
     unchecked: tuple[tuple[str, str], ...] = ()
 
 
@@ -172,14 +206,18 @@ def _read_tables(
     for spec in specs:
         table = spec.statvar_model
         try:
-            statvars = get_model_rows(connection, table)
+            statvars = read_statvars(connection, spec)
         except duckdb.CatalogException:
             unchecked.append((table, "is not in this build"))
+            continue
+        except StatVarReadError:
+            unchecked.append((table, "has StatVars the export cannot read"))
             continue
         rows = statvar_check_rows(spec, statvars)
         if not rows:
             unchecked.append((table, "has no rows in this build"))
             continue
+        tables.read.append(table)
         for row in rows:
             statvar = row["dcid"] or ""
             tables.statvars[row["ref"]] = (table, statvar)
@@ -187,7 +225,19 @@ def _read_tables(
                 tables.unsent.append(
                     RefusedRow(table=table, statvar=statvar, by_route=False)
                 )
+                tables.unsent_refs.add(row["ref"])
             else:
                 tables.rows.append(row)
     tables.unchecked = tuple(unchecked)
     return tables
+
+
+def _unchecked_reason(table: str, tables: _Tables, settled_refs: set[str]) -> str:
+    """Why a table with rows has none the route answered.
+
+    `settled_refs` holds every row answered, refused by the route, or not sent.
+    """
+    refs = (ref for ref, (owner, _) in tables.statvars.items() if owner == table)
+    if any(ref not in settled_refs for ref in refs):
+        return "was not reached before the check stopped"
+    return "has no StatVar the check route could check"

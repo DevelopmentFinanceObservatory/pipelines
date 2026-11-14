@@ -3,15 +3,24 @@ from dataclasses import replace
 import pytest
 from duckdb import DuckDBPyConnection
 
-from dfo_pipelines.data_commons.export import get_model_rows
-from dfo_pipelines.graph_check.rows import statvar_check_rows
+from dfo_pipelines.data_commons.export import ExportSpec
+from dfo_pipelines.graph_check.rows import (
+    CheckRow,
+    StatVarReadError,
+    read_statvars,
+    statvar_check_rows,
+)
 from tests.graph_check.tables import SPEC
+
+
+def check_rows_of(connection: DuckDBPyConnection, spec: ExportSpec) -> list[CheckRow]:
+    return statvar_check_rows(spec, read_statvars(connection, spec))
 
 
 def test_rows_carry_bare_dcids_and_mapped_constraint_values(
     connection: DuckDBPyConnection,
 ) -> None:
-    rows = statvar_check_rows(SPEC, get_model_rows(connection, SPEC.statvar_model))
+    rows = check_rows_of(connection, SPEC)
 
     assert rows == [
         {
@@ -63,39 +72,19 @@ def test_a_constraint_reads_the_column_the_export_publishes_under_its_name(
     properties: str,
     values: dict[str, str | None],
 ) -> None:
-    (first, _) = get_model_rows(connection, SPEC.statvar_model)
-    statvar = first | {"constraint_properties": properties, "fooBar": "dcid:Baz"}
+    connection.execute(
+        "alter table checked.statvars add column fooBar varchar default 'dcid:Baz'"
+    )
+    connection.execute(
+        "update checked.statvars set constraint_properties = ?", [properties]
+    )
     spec = replace(
         SPEC, statvar_ignore_columns=(*SPEC.statvar_ignore_columns, *ignored)
     )
 
-    (row,) = statvar_check_rows(spec, [statvar])
+    (first, _) = check_rows_of(connection, spec)
 
-    assert row["constraint_properties"] == values
-
-
-@pytest.mark.parametrize(
-    ("columns", "expected"),
-    [
-        (["fooBar", "foo_col"], "Mapped"),
-        (["foo_col", "fooBar"], "Unmapped"),
-    ],
-    ids=["mapped column last", "unmapped column last"],
-)
-def test_the_last_of_two_columns_under_one_name_is_the_one_read(
-    columns: list[str], expected: str
-) -> None:
-    cells = {"foo_col": "dcid:Mapped", "fooBar": "dcid:Unmapped"}
-    statvar = {
-        "dcid": "dcid:V",
-        "constraint_properties": "fooBar",
-        **{column: cells[column] for column in columns},
-    }
-    spec = replace(SPEC, statvar_column_to_property={"foo_col": "fooBar"})
-
-    (row,) = statvar_check_rows(spec, [statvar])
-
-    assert row["constraint_properties"] == {"fooBar": expected}
+    assert first["constraint_properties"] == values
 
 
 def test_a_table_without_list_columns_declares_no_constraints(
@@ -108,10 +97,13 @@ def test_a_table_without_list_columns_declares_no_constraints(
         " from checked.statvars where dcid = 'dcid:Variable1'"
     )
     spec = replace(
-        SPEC, statvar_model="checked.bare", statvar_column_to_property={"name": "name"}
+        SPEC,
+        statvar_model="checked.bare",
+        statvar_column_to_property={"name": "name"},
+        statvar_ignore_columns=(),
     )
 
-    (row,) = statvar_check_rows(spec, get_model_rows(connection, spec.statvar_model))
+    (row,) = check_rows_of(connection, spec)
 
     assert row["constraint_properties"] == {}
     assert row["observation_properties"] == []
@@ -121,23 +113,53 @@ def test_a_table_without_list_columns_declares_no_constraints(
 def test_repeated_definitions_collapse_and_differing_ones_keep_their_rows(
     connection: DuckDBPyConnection,
 ) -> None:
-    statvars = get_model_rows(connection, SPEC.statvar_model)
-    renamed = statvars[0] | {"name": "Variable One, renamed"}
-    redefined = statvars[0] | {"netting_basis": "dcid:Net"}
+    connection.execute(
+        "insert into checked.statvars"
+        " select * replace ('Variable One, renamed' as name) from checked.statvars"
+        " where dcid = 'dcid:Variable1'"
+        " union all"
+        " select * replace ('dcid:Net' as netting_basis) from checked.statvars"
+        " where dcid = 'dcid:Variable1'"
+    )
 
-    rows = statvar_check_rows(SPEC, [statvars[0], renamed, redefined])
+    rows = check_rows_of(connection, SPEC)
 
+    # In the export's order the redefined row is second and the renamed third.
     assert [row["ref"] for row in rows] == [
         "checked.statvars:Variable1",
-        "checked.statvars:Variable1 (row 3)",
+        "checked.statvars:Variable1 (row 2)",
+        "checked.statvars:Variable2",
     ]
 
 
 def test_a_ref_past_the_routes_limit_names_the_row_instead(
     connection: DuckDBPyConnection,
 ) -> None:
-    (first, _) = get_model_rows(connection, SPEC.statvar_model)
+    connection.execute(
+        "update checked.statvars set dcid = 'dcid:' || repeat('V', 600)"
+        " where dcid = 'dcid:Variable1'"
+    )
 
-    (row,) = statvar_check_rows(SPEC, [first | {"dcid": "V" * 600}])
+    (row, _) = check_rows_of(connection, SPEC)
 
     assert row["ref"] == "checked.statvars:row 1"
+
+
+@pytest.mark.parametrize(
+    ("statement", "ignored"),
+    [
+        ("update checked.statvars set population_type = 'FinancialFlow'", ()),
+        ("select 1", ("no_such_column",)),
+    ],
+    ids=["a bare dcid where the export needs a prefix", "a missing ignored column"],
+)
+def test_a_table_the_export_cannot_read_is_refused(
+    connection: DuckDBPyConnection, statement: str, ignored: tuple[str, ...]
+) -> None:
+    connection.execute(statement)
+    spec = replace(SPEC, statvar_ignore_columns=ignored)
+
+    with pytest.raises(StatVarReadError) as raised:
+        read_statvars(connection, spec)
+
+    assert raised.value.table == SPEC.statvar_model

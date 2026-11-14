@@ -15,12 +15,18 @@ on:
 env:
   UV_LOCKED: "1"
 
+# A job that names no permissions gets only `contents: read`, which checkout needs.
+permissions:
+  contents: read
+
 jobs:
   lint:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -62,13 +68,10 @@ jobs:
   test:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
-    # Naming any permission drops the rest. `contents: read` serves checkout and
-    # `pull-requests: write` serves the graph check comment.
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -105,6 +108,18 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
 
+      # The graph check job reads this file. It is uploaded after a failed build
+      # too, so the check reports on what the build wrote.
+      - name: Upload the build for the graph check
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-duckdb
+          path: /tmp/ci.duckdb
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 1
+
       - name: Run tests
         run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
 
@@ -113,72 +128,71 @@ jobs:
         with:
           files: ./coverage.xml
 
-      # Advisory: the report says whether the StatVar tables the build wrote name
-      # classes, properties and values the graph holds, and which commit it
-      # checked. A step that fails or a check that cannot run leaves the job green.
-      # Both steps run after a failed step too, so the comment describes the
-      # latest push the job ran on. The job skips draft pull requests, so a
-      # draft's comment describes its last push before it became a draft.
+  # Advisory and not a required check: the report says whether the StatVar
+  # tables the build wrote name classes, properties and values the graph holds.
+  # The job runs after `test`, on the database `test` built, so `test` never waits
+  # for it, and it runs when `test` failed too, so the comment describes the
+  # latest push. Only the comment step receives the token, the one place
+  # `pull-requests: write` is used. A pull request from a fork gets a read-only
+  # token, so the comment step fails there, and the job summary carries the report
+  # or says why the check did not run.
+  graph-check:
+    needs: test
+    if: ${{ !cancelled() && github.event.pull_request.draft != true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    # `test` built the merge of the pull request head into its base branch, and
+    # the report names both.
+    env:
+      GRAPH_CHECK_COMMIT: ${{ github.event.pull_request.head.sha }}
+      GRAPH_CHECK_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Cache uv
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download the build
+        id: build
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-duckdb
+          path: ${{ runner.temp }}/build
+
+      # A step that fails or a check that cannot run leaves the job green.
       - name: Check StatVars against the graph
-        if: ${{ !cancelled() }}
+        if: ${{ steps.build.outcome == 'success' }}
         continue-on-error: true
         timeout-minutes: 10
         env:
-          DUCKDB_PATH: /tmp/ci.duckdb
+          DUCKDB_PATH: ${{ runner.temp }}/build/ci.duckdb
           GRAPH_CHECK_URL: ${{ vars.GRAPH_CHECK_URL }}
-          GRAPH_CHECK_COMMIT: ${{ github.event.pull_request.head.sha }}
         run: uv run python scripts/graph_check.py "$RUNNER_TEMP/graph-check-report.md"
 
-      # The report starts with a hidden marker line, which finds the comment this
-      # step wrote on an earlier push. When the check step wrote no report, the
-      # comment says so. When the pull request's head has moved past this run's
-      # commit, the run for the head commit writes the comment. The step updates
-      # the first comment it finds and deletes every later one that carries the
-      # marker and was written by github-actions[bot], after the head check and
-      # the update. A pull request from a fork has a read-only token, so this step
-      # can fail there, and the job summary carries the report or says why the
-      # check did not run.
       - name: Comment the graph check on the pull request
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         timeout-minutes: 2
-        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          report="$RUNNER_TEMP/graph-check-report.md"
-          if [ ! -s "$report" ]; then
-            printf '%s\n%s\n\n%s\n' '<!-- dfo-graph-check -->' \
-              'The graph check did not run. The check step wrote no report, and the job log says why.' \
-              "Checked at commit \`${HEAD_SHA:0:7}\`." \
-              > "$report"
-          fi
-          marker="$(head -n 1 "$report")"
-          comment_ids="$(gh api --paginate "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" \
-            | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith($marker))) | .id')"
-          current_sha="$(gh api "repos/$REPOSITORY/pulls/$PULL_REQUEST" --jq .head.sha)"
-          if [ "$current_sha" != "$HEAD_SHA" ]; then
-            echo "The pull request's head is now $current_sha, so the run for that commit writes the comment."
-            exit 0
-          fi
-          first_id=""
-          later_ids=""
-          while IFS= read -r id; do
-            [ -n "$id" ] || continue
-            if [ -z "$first_id" ]; then
-              first_id="$id"
-            else
-              later_ids="$later_ids $id"
-            fi
-          done <<< "$comment_ids"
-          if [ -z "$first_id" ]; then
-            gh api --method POST "repos/$REPOSITORY/issues/$PULL_REQUEST/comments" -F body=@"$report"
-            exit 0
-          fi
-          gh api --method PATCH "repos/$REPOSITORY/issues/comments/$first_id" -F body=@"$report"
-          for id in $later_ids; do
-            gh api --method DELETE "repos/$REPOSITORY/issues/comments/$id"
-          done
+        run: uv run python -m dfo_pipelines.graph_check.comment "$RUNNER_TEMP/graph-check-report.md"

@@ -1,32 +1,38 @@
-"""Turn the rows of a StatVar table into the rows the graph check route reads.
+"""Turn the StatVars of a table into the rows the graph check route reads.
 
-A StatVar table holds one row per StatisticalVariable. Its fixed columns name the
-variable's population type, measured property, stat type, measurement qualifier
-and denominator. `constraint_properties` and `observation_properties` hold
-comma-separated property names. Each constraint property takes its value from
-the column the export publishes under the property's name, as dcp-tools
-`schema_tools.csv_metadata_to_nodes` builds it: the export drops the columns
-`ExportSpec.statvar_ignore_columns` lists, renames each column
-`ExportSpec.statvar_column_to_property` maps onto a property, and publishes every
-other column under its own name. A table that lacks a fixed or list column
-declares nothing there.
+The check reads a StatVar table as the export publishes it. `read_statvars`
+writes the table to CSV in the order `export_bundle` writes it and parses it with
+the same dcp-tools reader, `schema_tools.csv_metadata_to_nodes`, under the
+export's `statvar_column_to_property`, `statvar_ignore_columns` and
+`statvar_csv_options`. Each StatVar comes back as the properties of its MCF node:
+ignored columns dropped, mapped columns renamed, every cell pandas reads as
+missing (empty, `NA`, `None`, `null` and the other pandas NA tokens) left out, and
+an absent stat type set to `measuredValue`.
+
+The node's `constraintProperties` and `observationProperties` hold
+comma-separated property names. Each constraint property takes the value the node
+publishes under the property's name.
 """
 
 import re
-from collections.abc import Iterable
+import tempfile
+from pathlib import Path
 from typing import Any, TypedDict
+
+from dcp_tools.custom_data.schema_tools import csv_metadata_to_nodes
+from duckdb import DuckDBPyConnection
 
 from dfo_pipelines.data_commons.export import ExportSpec
 
-# The StatVar table columns that map onto check row members of the same name.
-FIXED_COLUMNS = (
-    "dcid",
-    "population_type",
-    "measured_property",
-    "stat_type",
-    "measurement_qualifier",
-    "measurement_denominator",
-)
+# The MCF property each fixed check row member reads.
+FIXED_PROPERTIES = {
+    "dcid": "dcid",
+    "population_type": "populationType",
+    "measured_property": "measuredProperty",
+    "stat_type": "statType",
+    "measurement_qualifier": "measurementQualifier",
+    "measurement_denominator": "measurementDenominator",
+}
 
 # The longest `ref` the route accepts.
 MAX_REF_LENGTH = 512
@@ -34,6 +40,14 @@ MAX_REF_LENGTH = 512
 # The MCF namespaces a value may be written in. dcp-tools writes `dcid:MyNode` and
 # `MyNode` as the same node. The route reads bare dcids.
 _NAMESPACE = re.compile(r"^(?:dcid|dcs|schema):")
+
+
+class StatVarReadError(Exception):
+    """The export's StatVar reader refused a table, so its export would fail."""
+
+    def __init__(self, table: str) -> None:
+        super().__init__(f"The export cannot read the StatVars of {table}")
+        self.table = table
 
 
 class CheckRow(TypedDict):
@@ -50,15 +64,55 @@ class CheckRow(TypedDict):
     observation_properties: list[str]
 
 
+def read_statvars(
+    connection: DuckDBPyConnection, spec: ExportSpec
+) -> list[dict[str, Any]]:
+    """The StatVars of `spec`'s table as the export publishes them.
+
+    Args:
+        connection: The build's database.
+        spec: The export whose StatVar table is read.
+
+    Returns:
+        Each StatVar's MCF properties, keyed on property name, in the order the
+        export writes them.
+
+    Raises:
+        duckdb.CatalogException: The table is not in the database.
+        StatVarReadError: The export's reader refuses the table, for a value
+            that is not a dcid where one is required or an ignored column the
+            table lacks.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+        statvars_csv = Path(directory) / "statvars.csv"
+        # The statement `export_bundle` writes the StatVars with.
+        connection.execute(
+            f"copy (select * from {spec.statvar_model} order by all) to ?"
+            " (format csv, header)",
+            [str(statvars_csv)],
+        )
+        try:
+            nodes = csv_metadata_to_nodes(
+                statvars_csv,
+                column_to_property_mapping=spec.statvar_column_to_property,
+                csv_options=spec.statvar_csv_options,
+                ignore_columns=list(spec.statvar_ignore_columns),
+            )
+        # A pydantic ValidationError is a ValueError. pandas raises KeyError for
+        # an ignored column the table lacks.
+        except (ValueError, KeyError) as error:
+            raise StatVarReadError(spec.statvar_model) from error
+    return [node.model_dump(exclude_none=True) for node in nodes.nodes]
+
+
 def statvar_check_rows(
     spec: ExportSpec, statvars: list[dict[str, Any]]
 ) -> list[CheckRow]:
     """The check rows of one StatVar table.
 
-    A value loses its MCF namespace prefix and an empty cell becomes None. A
-    constraint property reads the column mapped onto it, or else the column of
-    its own name that no mapping renames. One whose column is empty, ignored or
-    absent takes None, which the route reports as a missing value.
+    A value loses its MCF namespace prefix. A constraint property the StatVar
+    publishes no value for takes None, which the route reports as a missing
+    value.
 
     Rows that agree in every member but `ref` describe one StatVar twice, so only
     the first is kept. Two rows sharing a dcid with different definitions are both
@@ -66,26 +120,25 @@ def statvar_check_rows(
 
     Args:
         spec: The export the table belongs to.
-        statvars: The table's rows, keyed on column name, as `get_model_rows`
-            returns them.
+        statvars: The table's StatVars, as `read_statvars` returns them.
 
     Returns:
         One row per distinct definition, each `ref` naming the table and the
         StatVar, in table order.
     """
-    published = _published_columns(spec, statvars[0].keys() if statvars else ())
     rows: list[CheckRow] = []
     seen_definitions: set[str] = set()
     seen_refs: set[str] = set()
     for position, statvar in enumerate(statvars, start=1):
-        fixed = {column: _node(statvar.get(column)) for column in FIXED_COLUMNS}
-        constraints = {
-            property_name: _node(statvar[column])
-            if (column := published.get(property_name)) is not None
-            else None
-            for property_name in _names(statvar.get("constraint_properties"))
+        fixed = {
+            member: _node(statvar.get(name))
+            for member, name in FIXED_PROPERTIES.items()
         }
-        observation_properties = _names(statvar.get("observation_properties"))
+        constraints = {
+            name: _node(statvar.get(name))
+            for name in _names(statvar.get("constraintProperties"))
+        }
+        observation_properties = _names(statvar.get("observationProperties"))
         definition = repr((fixed, sorted(constraints.items()), observation_properties))
         if definition in seen_definitions:
             continue
@@ -111,21 +164,6 @@ def statvar_check_rows(
             )
         )
     return rows
-
-
-def _published_columns(spec: ExportSpec, columns: Iterable[str]) -> dict[str, str]:
-    """The column the export publishes under each property name.
-
-    The export drops the ignored columns, renames the mapped ones and keeps every
-    other column under its own name. When two columns end up under one name, the
-    last in column order is the one published, as in the pandas frame the export
-    builds.
-    """
-    published: dict[str, str] = {}
-    for column in columns:
-        if column not in spec.statvar_ignore_columns:
-            published[spec.statvar_column_to_property.get(column, column)] = column
-    return published
 
 
 def _node(value: Any) -> str | None:

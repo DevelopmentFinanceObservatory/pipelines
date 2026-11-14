@@ -165,12 +165,27 @@ def test_the_report_says_what_the_check_is_under_the_verdict(
     assert spans(intro) == shown
 
 
-def test_the_commit_checked_is_named_under_the_verdict() -> None:
-    summary = CheckSummary(statvar_count=1, checked_count=1, commit="0123456789abcdef")
+@pytest.mark.parametrize(
+    ("base_branch", "line"),
+    [
+        (None, "Checked at commit `0123456`."),
+        ("dev", "Checked the merge of commit `0123456` into `dev`."),
+    ],
+    ids=["head commit", "merge into the base branch"],
+)
+def test_the_commit_checked_is_named_under_the_verdict(
+    base_branch: str | None, line: str
+) -> None:
+    summary = CheckSummary(
+        statvar_count=1,
+        checked_count=1,
+        commit="0123456789abcdef",
+        base_branch=base_branch,
+    )
 
     paragraphs = render_report(summary).split("\n\n")
 
-    assert spans(paragraphs[1]) == ["0123456"]
+    assert paragraphs[1] == line
     assert ADVISORY_LINE in paragraphs[2]
 
 
@@ -325,3 +340,29 @@ def test_a_report_too_long_for_any_table_says_its_findings_are_not_listed() -> N
     assert len(report) <= MAX_REPORT_CHARACTERS
     assert FINDINGS_LEFT_OUT_NOTE in report
     assert "`code0`" not in report
+
+
+@pytest.mark.parametrize(
+    ("tables", "note"),
+    [
+        (189, "1 more table, with 3 findings, is not listed"),
+        (190, "2 more tables, with 6 findings, are not listed"),
+    ],
+)
+def test_the_left_out_tables_note_counts_findings_alone(tables: int, note: str) -> None:
+    # Each table has three findings and one StatVar that was not sent. The sizes
+    # are those at which the report leaves out its last one and two tables.
+    names = [f"source{n:03}.statvars" for n in range(tables)]
+    findings = [make_finding(name) for name in names for _ in range(3)]
+    refused = [RefusedRow(table=name, statvar="V", by_route=False) for name in names]
+    summary = CheckSummary(
+        statvar_count=len(findings) + tables,
+        checked_count=len(findings),
+        unsent_count=tables,
+        tables_checked=tuple(names),
+        error_count=len(findings),
+    )
+
+    report = render_report(summary, findings=findings, refused=refused)
+
+    assert f"{note} here to keep this comment short." in report.splitlines()

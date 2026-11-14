@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -185,11 +186,10 @@ def test_a_400_that_is_not_the_routes_refusal_of_rows_stops_the_check(
     ("busy", "waited"),
     [
         (httpx.Response(503, headers={"Retry-After": "7"}), [7.0]),
-        (httpx.Response(429, json={"error": "rate", "retry": 3, "detail": "x"}), [3.0]),
         (httpx.Response(503, headers={"Retry-After": "0"}), [1.0]),
         (httpx.Response(503, headers={"Retry-After": "-1"}), [DEFAULT_WAIT_SECONDS]),
     ],
-    ids=["503 Retry-After", "429 retry", "no wait", "negative wait"],
+    ids=["503 Retry-After", "no wait", "negative wait"],
 )
 def test_a_busy_answer_is_waited_out(busy: httpx.Response, waited: list[float]) -> None:
     route = FakeRoute(busy)
@@ -354,19 +354,23 @@ def test_a_run_stops_at_its_request_budget_and_keeps_its_answers() -> None:
 
     assert len(route.requests) == 3
     assert stop_reason(result) is StopReason.REQUEST_BUDGET
+    assert result.stopped is not None
+    assert result.stopped.message == "the check reached its limit of 3 requests"
     assert answered_refs(result) == ["a", "b", "c"]
 
 
 def test_a_run_stops_at_its_time_budget_and_keeps_its_answers() -> None:
-    route = FakeRoute(latency=10.0)
+    route = FakeRoute(latency=50.0)
 
     result = route.check(
-        [make_row(ref) for ref in "abcde"], chunk_size=1, max_seconds=25.0
+        [make_row(ref) for ref in "abcde"], chunk_size=1, max_seconds=120.0
     )
 
     assert stop_reason(result) is StopReason.TIME_BUDGET
+    assert result.stopped is not None
+    assert result.stopped.message == "the check reached its 2-minute limit"
     assert answered_refs(result) == ["a", "b"]
-    assert route.timeouts == [25.0, 15.0, 5.0]
+    assert route.timeouts == [60.0, 60.0, 20.0]
 
 
 def test_a_request_cut_short_by_the_time_budget_is_not_an_outage() -> None:
@@ -433,3 +437,26 @@ def test_refused_rows_far_apart_each_cost_one_descent() -> None:
     # 5,000 unknown ids at 41 a request need 122 requests, and each refused row a
     # descent of about ten more.
     assert len(route.requests) <= 185
+
+
+def test_a_run_sends_every_request_over_one_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clients: list[httpx.Client] = []
+    real_client = httpx.Client
+
+    def client(**kwargs: Any) -> httpx.Client:
+        def respond(request: httpx.Request) -> httpx.Response:
+            return answer_each(json.loads(request.content)["rows"])
+
+        made = real_client(transport=httpx.MockTransport(respond), **kwargs)
+        clients.append(made)
+        return made
+
+    monkeypatch.setattr(httpx, "Client", client)
+
+    result = check_rows([make_row(ref) for ref in "abc"], url=URL, chunk_size=1)
+
+    assert answered_refs(result) == ["a", "b", "c"]
+    assert len(clients) == 1
+    assert clients[0].is_closed

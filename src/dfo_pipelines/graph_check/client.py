@@ -17,12 +17,14 @@ A busy route answers 503, and the website proxy in front of it answers 429 once 
 caller passes its allowance, and both say how long to wait. The proxy answers 502
 or 504 when the route behind it fails, which is worth a few retries.
 
-A whole run is bounded by `MAX_REQUESTS` requests and `MAX_RUN_SECONDS` seconds.
-Any failure, a spent budget included, stops the run and keeps what it gathered.
+A whole run is bounded by `MAX_REQUESTS` requests and `MAX_RUN_SECONDS` seconds
+unless it is given other budgets. Any failure, a spent budget included, stops the
+run and keeps what it gathered.
 """
 
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -82,17 +84,27 @@ class StopReason(StrEnum):
     REFUSED = "the request was refused"
     REDIRECTED = "the check route answered with a redirect"
     UNEXPECTED_ANSWER = "the check route gave an answer the check cannot read"
-    TIME_BUDGET = f"the check reached its {MAX_RUN_SECONDS / 60:g}-minute limit"
-    REQUEST_BUDGET = f"the check reached its limit of {MAX_REQUESTS:,} requests"
+    TIME_BUDGET = "the check reached its time limit"
+    REQUEST_BUDGET = "the check reached its request limit"
 
 
 class GraphCheckError(Exception):
-    """The check route could not be used, with the reason and its detail."""
+    """The check route could not be used, with the reason and its detail.
 
-    def __init__(self, reason: StopReason, detail: str) -> None:
-        super().__init__(f"{reason}: {detail}")
+    Attributes:
+        reason: Why the run stopped.
+        detail: What the route answered, or what failed.
+        message: The reason as the report states it, with the budget a run
+            reached named in it.
+    """
+
+    def __init__(
+        self, reason: StopReason, detail: str, *, message: str | None = None
+    ) -> None:
         self.reason = reason
         self.detail = detail
+        self.message = str(reason) if message is None else message
+        super().__init__(f"{self.message}: {detail}")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -112,7 +124,7 @@ class CheckResult:
             the order first seen, or None when the route named none.
         findings: Every finding, each with `ref`, `field`, `value`, `code` and
             `severity`.
-        checked_count: The rows the route answered.
+        checked_refs: The `ref` of each row the route answered, in order sent.
         failed_rows: The rows the route refused even when sent alone.
         stopped: Why the run stopped before every row was answered or refused,
             or None when it did not.
@@ -120,21 +132,32 @@ class CheckResult:
 
     generations: list[str | None] = field(default_factory=list)
     findings: list[dict[str, Any]] = field(default_factory=list)
-    checked_count: int = 0
+    checked_refs: list[str] = field(default_factory=list)
     failed_rows: list[FailedRow] = field(default_factory=list)
     stopped: GraphCheckError | None = None
 
+    @property
+    def checked_count(self) -> int:
+        """The rows the route answered"""
+        return len(self.checked_refs)
 
-def post_json(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
-    """POST `body` as JSON to `url` with httpx, within `timeout` seconds"""
-    return httpx.post(url, json=body, timeout=timeout)
+
+@contextmanager
+def _httpx_post() -> Iterator[Post]:
+    """A `Post` sending every request of a run over one httpx client"""
+    with httpx.Client() as client:
+
+        def post(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
+            return client.post(url, json=body, timeout=timeout)
+
+        yield post
 
 
 def check_rows(
     rows: Sequence[CheckRow],
     *,
     url: str,
-    post: Post = post_json,
+    post: Post | None = None,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
     chunk_size: int = CHUNK_SIZE,
@@ -146,7 +169,8 @@ def check_rows(
     Args:
         rows: The rows to check.
         url: The check route's URL.
-        post: Sends one request. Defaults to `post_json`.
+        post: Sends one request. Defaults to one httpx client for the run, which
+            keeps its connection to the route open between requests.
         sleep: Waits the given seconds. Defaults to `time.sleep`.
         clock: Reads the time in seconds. Defaults to `time.monotonic`.
         chunk_size: The most rows one request carries.
@@ -160,12 +184,27 @@ def check_rows(
         answers, meets a 502 or 504 past `GATEWAY_RETRIES`, is redirected, gets
         an answer it cannot read, or would pass either budget.
     """
+    if post is None:
+        with _httpx_post() as client_post:
+            return check_rows(
+                rows,
+                url=url,
+                post=client_post,
+                sleep=sleep,
+                clock=clock,
+                chunk_size=chunk_size,
+                max_requests=max_requests,
+                max_seconds=max_seconds,
+            )
+
     result = CheckResult()
     sender = _Sender(
         url=url,
         post=post,
         sleep=sleep,
         clock=clock,
+        max_requests=max_requests,
+        max_seconds=max_seconds,
         requests_left=max_requests,
         deadline=clock() + max_seconds,
     )
@@ -288,6 +327,8 @@ class _Sender:
     post: Post
     sleep: Callable[[float], None]
     clock: Callable[[], float]
+    max_requests: int
+    max_seconds: float
     requests_left: int
     deadline: float
 
@@ -331,10 +372,10 @@ class _Sender:
     def _post_once(self, rows: list[CheckRow]) -> httpx.Response:
         """One request, if both budgets allow it, within the time left"""
         if self.requests_left <= 0:
-            raise GraphCheckError(StopReason.REQUEST_BUDGET, "no requests left")
+            raise self._budget_spent(StopReason.REQUEST_BUDGET, "no requests left")
         time_left = self.deadline - self.clock()
         if time_left <= 0:
-            raise GraphCheckError(StopReason.TIME_BUDGET, "no time left")
+            raise self._budget_spent(StopReason.TIME_BUDGET, "no time left")
         self.requests_left -= 1
         timeout = min(REQUEST_TIMEOUT_SECONDS, time_left)
         try:
@@ -346,16 +387,26 @@ class _Sender:
             out_of_time = isinstance(error, httpx.TimeoutException) and (
                 timeout < REQUEST_TIMEOUT_SECONDS or self.clock() >= self.deadline
             )
-            reason = StopReason.TIME_BUDGET if out_of_time else StopReason.UNREACHABLE
-            raise GraphCheckError(reason, type(error).__name__) from error
+            detail = type(error).__name__
+            if out_of_time:
+                raise self._budget_spent(StopReason.TIME_BUDGET, detail) from error
+            raise GraphCheckError(StopReason.UNREACHABLE, detail) from error
 
     def _sleep(self, seconds: float) -> None:
         """Wait, unless the wait would end past the deadline"""
         if self.clock() + seconds >= self.deadline:
-            raise GraphCheckError(
+            raise self._budget_spent(
                 StopReason.TIME_BUDGET, f"a {seconds:g}-second wait would pass it"
             )
         self.sleep(seconds)
+
+    def _budget_spent(self, reason: StopReason, detail: str) -> GraphCheckError:
+        """The error for a spent budget, naming the budget this run was given"""
+        if reason is StopReason.TIME_BUDGET:
+            message = f"the check reached its {self.max_seconds / 60:g}-minute limit"
+        else:
+            message = f"the check reached its limit of {self.max_requests:,} requests"
+        return GraphCheckError(reason, detail, message=message)
 
 
 def _keep_answer(
@@ -386,7 +437,7 @@ def _keep_answer(
     if generation not in result.generations:
         result.generations.append(generation)
     result.findings.extend(findings)
-    result.checked_count += len(rows)
+    result.checked_refs.extend(row["ref"] for row in rows)
 
 
 def _is_finding(finding: Any, refs: set[str]) -> bool:
@@ -431,14 +482,16 @@ def _detail(response: httpx.Response) -> str:
 
 
 def _wait_seconds(response: httpx.Response) -> float:
-    """The seconds a 503 or 429 answer asks for, and at least `MIN_WAIT_SECONDS`"""
-    for value in (response.headers.get("Retry-After"), _body(response).get("retry")):
-        if isinstance(value, bool) or not isinstance(value, str | int | float):
-            continue
-        try:
-            seconds = float(value)
-        except ValueError:
-            continue
-        if seconds >= 0:
-            return max(seconds, MIN_WAIT_SECONDS)
-    return DEFAULT_WAIT_SECONDS
+    """The seconds a 503 or 429 answer's `Retry-After` asks for.
+
+    The wait is at least `MIN_WAIT_SECONDS`, and `DEFAULT_WAIT_SECONDS` when the
+    answer names no wait in seconds.
+    """
+    try:
+        seconds = float(response.headers.get("Retry-After", ""))
+    except ValueError:
+        return DEFAULT_WAIT_SECONDS
+    # Also false for NaN.
+    if not seconds >= 0:
+        return DEFAULT_WAIT_SECONDS
+    return max(seconds, MIN_WAIT_SECONDS)

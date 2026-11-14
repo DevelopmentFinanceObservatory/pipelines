@@ -135,13 +135,15 @@ class CheckSummary:
         checked_count: The StatVars the route answered.
         route_refused_count: The StatVars the route refused, each sent alone.
         unsent_count: The StatVars not sent, for want of a measured property.
-        tables_checked: The tables whose StatVars were read.
+        tables_checked: The tables with at least one StatVar the route answered.
         unchecked_tables: Each table that was not checked, with the reason.
         error_count: Findings of severity `error`.
         warning_count: Findings of severity `warning`.
         generations: The graph generations the answers named.
-        commit: The pull request head commit the build was made for, or None when
-            it is not known.
+        commit: The pull request head commit, or None when it is not known.
+        base_branch: The branch the head commit was merged into for the build,
+            or None when the build is of the head commit alone or the branch is
+            not known.
     """
 
     not_run: str | None = None
@@ -157,6 +159,7 @@ class CheckSummary:
     warning_count: int = 0
     generations: tuple[str | None, ...] = ()
     commit: str | None = None
+    base_branch: str | None = None
 
     @property
     def ran(self) -> bool:
@@ -194,7 +197,7 @@ def render_report(
     """
     head = [_verdict(summary), "", *_commit(summary), *_intro(summary)]
     if not summary.ran:
-        return "\n".join(head) + "\n"
+        return _join(head, [], [], _unchecked_lines(summary))
 
     by_table: defaultdict[str, list[Finding]] = defaultdict(list)
     for finding in findings:
@@ -219,26 +222,23 @@ def render_report(
             return report
 
     for shown in range(len(sections) - 1, -1, -1):
-        left_out = tables[shown:]
-        count = sum(len(by_table[t]) + len(refused_by_table[t]) for t in left_out)
-        notes = [
-            _examples_cut_note(0),
-            f"{_count(len(left_out), 'more table')} with {_count(count, 'finding')} "
-            "are not listed here to keep this comment short.",
-        ]
+        notes = [_examples_cut_note(0), _tables_left_out_note(tables[shown:], by_table)]
         report = _join(head, notes, sections[:shown], footer)
         if len(report) <= MAX_REPORT_CHARACTERS:
             return report
     return _join(head, [FINDINGS_LEFT_OUT_NOTE], [], [])
 
 
-def failure_report(detail: str, *, commit: str | None = None) -> str:
+def failure_report(
+    detail: str, *, commit: str | None = None, base_branch: str | None = None
+) -> str:
     """The report of a check that failed before it could report what it found"""
     return render_report(
         CheckSummary(
             not_run="the check could not complete",
             failure_detail=detail,
             commit=commit,
+            base_branch=base_branch,
         )
     )
 
@@ -285,13 +285,18 @@ def _verdict(summary: CheckSummary) -> str:
 
 
 def _commit(summary: CheckSummary) -> list[str]:
-    """The line naming the commit checked, when it is known"""
+    """The line naming the commit checked, and the branch it was merged into"""
     if not summary.commit:
         return []
-    return [
-        f"Checked at commit {_code_span(summary.commit[:SHORT_COMMIT_LENGTH])}.",
-        "",
-    ]
+    commit = _code_span(summary.commit[:SHORT_COMMIT_LENGTH])
+    if summary.base_branch:
+        line = (
+            f"Checked the merge of commit {commit} into "
+            f"{_code_span(summary.base_branch)}."
+        )
+    else:
+        line = f"Checked at commit {commit}."
+    return [line, ""]
 
 
 def _intro(summary: CheckSummary) -> list[str]:
@@ -460,6 +465,17 @@ def _join(
         lines += section
     lines += footer
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _tables_left_out_note(
+    left_out: Sequence[str], by_table: dict[str, list[Finding]]
+) -> str:
+    """Says how many tables, and findings in them, the report leaves out"""
+    tables = _count(len(left_out), "more table")
+    count = sum(len(by_table[table]) for table in left_out)
+    findings = f", with {_count(count, 'finding')}," if count else ""
+    verb = "is" if len(left_out) == 1 else "are"
+    return f"{tables}{findings} {verb} not listed here to keep this comment short."
 
 
 def _were(n: int, noun: str | None = None) -> str:

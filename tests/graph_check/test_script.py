@@ -29,6 +29,7 @@ def run(
         connection.execute("create schema checked")
         connection.execute(STATVARS_SQL)
     monkeypatch.setenv("DUCKDB_PATH", str(database))
+    monkeypatch.delenv("GRAPH_CHECK_BASE_BRANCH", raising=False)
     monkeypatch.setattr(graph_check, "EXPORT_SPECS", (SPEC,))
 
     def run_script(post: Callable[..., httpx.Response], url: str | None):
@@ -45,15 +46,12 @@ def run(
     return run_script
 
 
-def test_report_starts_with_the_marker_and_the_verdict_is_printed(
-    run, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_the_verdict_is_printed(run, capsys: pytest.CaptureFixture[str]) -> None:
     status, report = run(clean_route, URL)
 
     lines = report.read_text().splitlines()
     assert status == 0
-    assert lines[0] == graph_check.MARKER
-    assert capsys.readouterr().out.strip() == lines[1]
+    assert capsys.readouterr().out.strip() == lines[0]
 
 
 @pytest.mark.parametrize(
@@ -67,7 +65,7 @@ def test_a_check_that_cannot_run_still_writes_a_report_and_exits_zero(
     status, report = run(post, url)
 
     assert status == 0
-    assert report.read_text().splitlines()[1].startswith("The graph check did not run:")
+    assert report.read_text().splitlines()[0].startswith("The graph check did not run:")
 
 
 def test_the_report_is_appended_to_the_step_summary(
@@ -81,8 +79,7 @@ def test_the_report_is_appended_to_the_step_summary(
 
     written = summary.read_text()
     assert written.startswith("earlier\n")
-    assert report.read_text().removeprefix(graph_check.MARKER + "\n") in written
-    assert graph_check.MARKER not in written
+    assert report.read_text() in written
 
 
 def answer_without_findings(
@@ -97,7 +94,7 @@ def test_an_undocumented_answer_still_writes_a_report_and_exits_zero(run) -> Non
     status, report = run(answer_without_findings, URL)
 
     assert status == 0
-    assert report.read_text().splitlines()[1] == (
+    assert report.read_text().splitlines()[0] == (
         "The graph check did not run: the check route gave an answer the check "
         "cannot read."
     )
@@ -114,9 +111,8 @@ def test_an_unexpected_error_writes_a_report_saying_so_and_exits_one(
 
     lines = report.read_text().splitlines()
     assert status == 1
-    assert lines[0] == graph_check.MARKER
-    assert lines[1] == "The graph check did not run: the check could not complete."
-    assert spans(lines[3]) == ["KeyError: 'DUCKDB_PATH'"]
+    assert lines[0] == "The graph check did not run: the check could not complete."
+    assert spans(lines[2]) == ["KeyError: 'DUCKDB_PATH'"]
 
 
 def test_specs_sharing_a_statvar_model_mean_the_check_could_not_complete(
@@ -128,17 +124,28 @@ def test_specs_sharing_a_statvar_model_mean_the_check_could_not_complete(
 
     lines = report.read_text().splitlines()
     assert status == 1
-    assert lines[1] == "The graph check did not run: the check could not complete."
-    assert spans(lines[3])[0].startswith("RepeatedStatVarModelError:")
+    assert lines[0] == "The graph check did not run: the check could not complete."
+    assert spans(lines[2])[0].startswith("RepeatedStatVarModelError:")
 
 
+@pytest.mark.parametrize(
+    ("base_branch", "named"),
+    [(None, ["0123456"]), ("dev", ["0123456", "dev"])],
+    ids=["head", "merge"],
+)
 @pytest.mark.parametrize("specs", [(SPEC,), (SPEC, SPEC)], ids=["report", "failure"])
-def test_the_report_names_the_commit_it_checked(
-    run, monkeypatch: pytest.MonkeyPatch, specs: tuple[ExportSpec, ...]
+def test_the_report_names_the_commit_and_base_branch_it_checked(
+    run,
+    monkeypatch: pytest.MonkeyPatch,
+    specs: tuple[ExportSpec, ...],
+    base_branch: str | None,
+    named: list[str],
 ) -> None:
     monkeypatch.setattr(graph_check, "EXPORT_SPECS", specs)
     monkeypatch.setenv("GRAPH_CHECK_COMMIT", "0123456789abcdef")
+    if base_branch is not None:
+        monkeypatch.setenv("GRAPH_CHECK_BASE_BRANCH", base_branch)
 
     _, report = run(clean_route, URL)
 
-    assert spans(report.read_text().split("\n\n")[1]) == ["0123456"]
+    assert spans(report.read_text().split("\n\n")[1]) == named

@@ -7,6 +7,7 @@ import httpx
 import pytest
 from duckdb import DuckDBPyConnection
 
+from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.graph_check.run import RepeatedStatVarModelError, run_graph_check
 from tests.graph_check.tables import (
     SPEC,
@@ -99,6 +100,9 @@ def test_no_rows_anywhere_means_the_check_did_not_run(
     assert first_line(report) == (
         "The graph check did not run: no StatVar table has rows in this build."
     )
+    assert [line for line in report.splitlines() if line.startswith("- ")] == [
+        "- `checked.missing` is not in this build, so it was not checked."
+    ]
 
 
 def test_an_unreachable_route_means_the_check_did_not_run(
@@ -224,3 +228,166 @@ def test_specs_sharing_a_statvar_model_are_refused(
         run_graph_check(connection, specs=[SPEC, SPEC], url=URL, post=clean_route)
 
     assert raised.value.models == (SPEC.statvar_model,)
+
+
+def sent_rows(
+    connection: DuckDBPyConnection, specs: list[ExportSpec] | None = None
+) -> list[dict[str, Any]]:
+    """The rows a clean run sends to the route"""
+    sent: list[dict[str, Any]] = []
+
+    def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
+        sent.extend(body["rows"])
+        return answer(body["rows"])
+
+    run_graph_check(connection, specs=specs or [SPEC], url=URL, post=route)
+    return sent
+
+
+def test_rows_go_in_the_order_the_export_writes_them(
+    connection: DuckDBPyConnection,
+) -> None:
+    connection.execute(
+        "insert into checked.statvars select * replace ('dcid:Variable0' as dcid)"
+        " from checked.statvars where dcid = 'dcid:Variable1'"
+    )
+
+    sent = sent_rows(connection)
+
+    assert [row["dcid"] for row in sent] == ["Variable0", "Variable1", "Variable2"]
+
+
+@pytest.mark.parametrize(
+    ("statement", "change", "member", "value"),
+    [
+        (
+            "select 1",
+            {"statvar_ignore_columns": ("measurement_qualifier",)},
+            "measurement_qualifier",
+            None,
+        ),
+        (
+            "alter table checked.statvars add column unit varchar default 'dcid:Real'",
+            {
+                "statvar_column_to_property": SPEC.statvar_column_to_property
+                | {"unit": "measurementQualifier"},
+                "statvar_ignore_columns": ("measurement_qualifier",),
+            },
+            "measurement_qualifier",
+            "Real",
+        ),
+        (
+            "update checked.statvars set stat_type = ''",
+            {},
+            "stat_type",
+            "measuredValue",
+        ),
+        (
+            "update checked.statvars set measurement_qualifier = 'NA'",
+            {},
+            "measurement_qualifier",
+            None,
+        ),
+    ],
+    ids=[
+        "ignored fixed column",
+        "fixed property from a mapped column",
+        "empty stat type",
+        "NA token",
+    ],
+)
+def test_fixed_members_carry_what_the_export_publishes(
+    connection: DuckDBPyConnection,
+    statement: str,
+    change: dict[str, Any],
+    member: str,
+    value: str | None,
+) -> None:
+    connection.execute(statement)
+
+    sent = sent_rows(connection, [replace(SPEC, **change)])
+
+    assert [row[member] for row in sent] == [value, value]
+
+
+def test_a_null_token_in_a_constraint_column_is_a_missing_value(
+    connection: DuckDBPyConnection,
+) -> None:
+    connection.execute("update checked.statvars set netting_basis = 'null'")
+
+    sent = sent_rows(connection)
+
+    assert [row["constraint_properties"]["nettingBasis"] for row in sent] == [
+        None,
+        None,
+    ]
+
+
+def test_a_table_the_export_cannot_read_is_reported_and_the_rest_are_checked(
+    connection: DuckDBPyConnection,
+) -> None:
+    connection.execute(
+        "create table checked.bare_dcids as select * replace"
+        " ('FinancialFlow' as population_type) from checked.statvars"
+    )
+    unreadable = replace(SPEC, statvar_model="checked.bare_dcids")
+
+    _, summary = run_graph_check(
+        connection, specs=[SPEC, unreadable], url=URL, post=clean_route
+    )
+
+    assert summary.tables_checked == ("checked.statvars",)
+    assert summary.unchecked_tables == (
+        ("checked.bare_dcids", "has StatVars the export cannot read"),
+    )
+
+
+def second_table(connection: DuckDBPyConnection, *, measured: bool) -> ExportSpec:
+    """A copy of `SPEC`'s table, with or without its measured properties"""
+    connection.execute(
+        "create table checked.second as select * replace ("
+        f"{'measured_property' if measured else 'null'} as measured_property,"
+        " replace(dcid, 'Variable', 'Second') as dcid) from checked.statvars"
+    )
+    return replace(SPEC, statvar_model="checked.second")
+
+
+def test_a_table_the_check_stopped_before_is_not_counted_as_checked(
+    connection: DuckDBPyConnection,
+) -> None:
+    second = second_table(connection, measured=True)
+
+    def route(url: str, body: dict[str, Any], timeout: float) -> httpx.Response:
+        # One chunk holds both tables. Refused, it splits into one per table.
+        rows = body["rows"]
+        if not any(row["dcid"].startswith("Second") for row in rows):
+            return answer(rows)
+        return refused() if len(rows) > 2 else httpx.Response(500)
+
+    report, summary = run_graph_check(
+        connection, specs=[SPEC, second], url=URL, post=route
+    )
+
+    assert summary.tables_checked == ("checked.statvars",)
+    assert summary.unchecked_tables == (
+        ("checked.second", "was not reached before the check stopped"),
+    )
+    assert first_line(report) == (
+        "Checked 2 of 4 StatVars across 1 table. 2 were not reached because the "
+        "check route failed. 1 table was not checked."
+    )
+
+
+def test_a_table_with_no_statvar_sent_is_not_counted_as_checked(
+    connection: DuckDBPyConnection,
+) -> None:
+    second = second_table(connection, measured=False)
+
+    _, summary = run_graph_check(
+        connection, specs=[SPEC, second], url=URL, post=clean_route
+    )
+
+    assert summary.tables_checked == ("checked.statvars",)
+    assert summary.unchecked_tables == (
+        ("checked.second", "has no StatVar the check route could check"),
+    )
