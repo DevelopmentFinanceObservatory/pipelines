@@ -19,16 +19,48 @@ from typing import Any
 # What each finding code the route returns means, for a reader who has not seen
 # the route.
 FINDING_CODES = {
-    "node_not_held": "The graph holds no node with this dcid, or the value is not a dcid at all.",
-    "node_untyped": "The graph holds this node but gives it no type.",
-    "node_provisional": "The graph holds this node only as a placeholder (`ProvisionalNode`), not as a defined term.",
-    "value_missing": "The StatVar names this constraint property but gives it no value.",
-    "not_a_property": "This is used as a property, but the graph does not define it as one.",
-    "not_a_class": "This is used as a population type, but the graph does not define it as a class.",
-    "value_outside_range": "The value is not one the property allows: it is outside the classes or code lists the property ranges over.",
-    "property_outside_domain": "The property is not declared for this population type or any of its parent classes.",
-    "definition_differs": "The graph already holds this StatVar with a different value here; the value shown is the graph's.",
+    "node_not_held": (
+        "The graph holds no node with this dcid. Check the spelling, or add the "
+        "node to the graph."
+    ),
+    "node_untyped": (
+        "The graph holds this node but gives it no type. Give the node a type."
+    ),
+    "node_provisional": (
+        "The graph holds this node only as a placeholder (`ProvisionalNode`). "
+        "Define the node in the graph."
+    ),
+    "value_missing": (
+        "The StatVar names this constraint property but gives it no value. "
+        "Fill in the value."
+    ),
+    "not_a_property": (
+        "The StatVar uses this as a property, but the graph does not define it as "
+        "one. Define it as a property, or use another one."
+    ),
+    "not_a_class": (
+        "The StatVar uses this as a population type, but the graph does not define "
+        "it as a class. Define it as a class, or use another type."
+    ),
+    "value_outside_range": (
+        "The property does not allow this value. Use a class or code from the ones "
+        "the property ranges over."
+    ),
+    "property_outside_domain": (
+        "The graph does not declare this property for the population type or any "
+        "of its parent classes. Use a property the type allows, or declare this "
+        "one for it."
+    ),
+    "definition_differs": (
+        "The graph already holds this StatVar with a different value here. The "
+        "value shown is the graph's."
+    ),
 }
+
+# The explanation of a finding code the report has no text for.
+UNKNOWN_CODE = (
+    "A finding this report does not describe. See the Graph API documentation."
+)
 
 ADVISORY_LINE = (
     "This check is advisory and does not block the merge. It compares the StatVar "
@@ -36,7 +68,7 @@ ADVISORY_LINE = (
 )
 
 SEVERITY_LINE = (
-    "An error is a definition the graph would not accept; a warning is one to look at."
+    "An error is a definition the graph would not accept. A warning is one to look at."
 )
 
 # The most examples shown for one finding code in one table.
@@ -61,7 +93,7 @@ FINDINGS_LEFT_OUT_NOTE = (
 class Finding:
     """One finding, placed in the table and StatVar it is about.
 
-    `severity` is `error` or `warning`, as the client checks; every other member
+    `severity` is `error` or `warning`, as the client checks. Every other member
     is shown as a code span.
     """
 
@@ -80,7 +112,7 @@ class RefusedRow:
     Attributes:
         table: The StatVar's table.
         statvar: The StatVar's dcid.
-        by_route: True when the check route refused it; False when it was not
+        by_route: True when the check route refused it. False when it was not
             sent, for want of a measured property, which the route requires.
         detail: The route's reason, or None when it was not sent.
     """
@@ -233,25 +265,23 @@ def _verdict(summary: CheckSummary) -> str:
         if count
     )
     left = [
-        f"{summary.route_refused_count:,} refused by the check route"
-        if summary.route_refused_count
-        else "",
-        f"{summary.unsent_count:,} not sent" if summary.unsent_count else "",
-        f"{summary.unreached_count:,} not reached because {summary.stopped}"
-        if summary.unreached_count
-        else "",
-        f"{_count(len(summary.unchecked_tables), 'table')} not checked"
-        if summary.unchecked_tables
-        else "",
+        f"{_were(count)} {what}."
+        for count, what in (
+            (summary.route_refused_count, "refused by the check route"),
+            (summary.unsent_count, "not sent"),
+            (summary.unreached_count, f"not reached because {summary.stopped}"),
+        )
+        if count
     ]
-    left = [part for part in left if part]
+    if summary.unchecked_tables:
+        left.append(f"{_were(len(summary.unchecked_tables), 'table')} not checked.")
     if problems:
         head = f"Found {problems} in {statvars} checked across {tables}"
     elif left:
         head = f"Checked {statvars} across {tables}"
     else:
         head = f"No problems found in {statvars} across {tables}"
-    return "; ".join([head, *left]) + "."
+    return " ".join([f"{head}.", *left])
 
 
 def _commit(summary: CheckSummary) -> list[str]:
@@ -367,10 +397,10 @@ def _code_span(text: str) -> str:
     """Text as a Markdown code span that is safe to show from any source.
 
     Control and format characters (Unicode categories `Cc` and `Cf`, such as NUL
-    and the characters that reverse text) are dropped, whitespace collapses to single spaces, the text is cut to
-    `MAX_VALUE_CHARACTERS`, a backtick becomes a quote so the span cannot close
-    early, and `@` becomes a full-width at sign so no user is mentioned. Inside a
-    code span GitHub renders no link.
+    and the characters that reverse text) are dropped, and whitespace collapses
+    to single spaces. The text is cut to `MAX_VALUE_CHARACTERS`, a backtick
+    becomes a quote so the span cannot close early, and `@` becomes a full-width
+    at sign so no user is mentioned. Inside a code span GitHub renders no link.
     """
     text = " ".join(str(text).split())
     text = "".join(c for c in text if unicodedata.category(c) not in {"Cc", "Cf"})
@@ -401,7 +431,7 @@ def _code_lines(findings: Sequence[Finding]) -> list[str]:
     if not codes:
         return []
     return ["#### What the findings mean", ""] + [
-        f"- {_code_span(code)}: {FINDING_CODES.get(code, 'A finding this report does not describe; see the Graph API documentation.')}"
+        f"- {_code_span(code)}: {FINDING_CODES.get(code, UNKNOWN_CODE)}"
         for code in codes
     ]
 
@@ -410,11 +440,12 @@ def _examples_cut_note(examples: int) -> str:
     """Says the examples were cut and the counts were not"""
     if examples == 0:
         return (
-            "Examples are left out to keep this comment short; the counts are complete."
+            "Examples are left out to keep this comment short. The counts are complete."
         )
+
     return (
-        f"Examples are cut to {examples} per finding to keep this comment short; "
-        "the counts are complete."
+        f"Examples are cut to {examples} per finding to keep this comment short. "
+        "The counts are complete."
     )
 
 
@@ -429,6 +460,12 @@ def _join(
         lines += section
     lines += footer
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _were(n: int, noun: str | None = None) -> str:
+    """`n`, then `noun` if given, then `was` when `n` is one and `were` otherwise"""
+    subject = f"{n:,}" if noun is None else _count(n, noun)
+    return f"{subject} {'was' if n == 1 else 'were'}"
 
 
 def _count(n: int, noun: str) -> str:

@@ -42,7 +42,7 @@ def run_graph_check(
 ) -> tuple[str, CheckSummary]:
     """Check every spec's StatVar table against the graph.
 
-    A finding is a result, not a failure. A check that cannot run, or stops
+    A finding is a result of the check. A check that cannot run, or stops
     before every StatVar is checked, says why in its report and keeps what it
     found, so this raises only for a fault in the specs or the database itself.
 

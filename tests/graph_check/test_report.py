@@ -67,7 +67,7 @@ def make_finding(
                 unchecked_tables=(("b", "has no rows in this build"),),
                 generations=(None,),
             ),
-            "Checked 1 StatVar across 1 table; 1 table not checked.",
+            "Checked 1 StatVar across 1 table. 1 table was not checked.",
         ),
         (
             CheckSummary(
@@ -76,7 +76,7 @@ def make_finding(
                 route_refused_count=2,
                 tables_checked=("a",),
             ),
-            "Checked 0 of 2 StatVars across 1 table; 2 refused by the check route.",
+            "Checked 0 of 2 StatVars across 1 table. 2 were refused by the check route.",
         ),
         (
             CheckSummary(
@@ -90,7 +90,7 @@ def make_finding(
                 generations=("g1", "g2"),
             ),
             "Found 3 errors and 1 warning in 9 of 12 StatVars checked across 3 "
-            "tables; 2 refused by the check route; 1 not sent.",
+            "tables. 2 were refused by the check route. 1 was not sent.",
         ),
         (
             CheckSummary(
@@ -101,8 +101,8 @@ def make_finding(
                 tables_checked=("a",),
                 warning_count=1,
             ),
-            "Found 1 warning in 1,200 of 22,000 StatVars checked across 1 table; "
-            "20,800 not reached because the check route stayed busy.",
+            "Found 1 warning in 1,200 of 22,000 StatVars checked across 1 table. "
+            "20,800 were not reached because the check route stayed busy.",
         ),
         (
             CheckSummary(
@@ -111,7 +111,7 @@ def make_finding(
                 checked_count=4,
                 tables_checked=("a",),
             ),
-            "Checked 4 of 5 StatVars across 1 table; 1 not reached because the "
+            "Checked 4 of 5 StatVars across 1 table. 1 was not reached because the "
             "check route failed.",
         ),
     ],
@@ -187,7 +187,12 @@ def test_text_from_the_route_cannot_mention_link_or_break_the_comment() -> None:
         stopped="the check route failed",
     )
     finding = Finding(
-        table="a", statvar="V", field="f", value=hostile, code=hostile, severity="error"
+        table="a",
+        statvar=hostile,
+        field=hostile,
+        value=hostile,
+        code=hostile,
+        severity="error",
     )
     refused = RefusedRow(table="a", statvar="W", by_route=True, detail=hostile)
 

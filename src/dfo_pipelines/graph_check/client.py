@@ -2,7 +2,7 @@
 
 The route answers each request with the findings for its rows. It refuses a
 request whose rows name more unknown ids than it reads in one check with a 400
-problem document whose `code` is `request_invalid`; the client then sends fewer
+problem document whose `code` is `request_invalid`. The client then sends fewer
 rows at a time until a refused row stands alone, and records that row as failed.
 The chunk size adapts in both directions: a refusal shrinks it for the chunks that
 follow, and each answered chunk doubles it again, up to the starting size but
@@ -14,8 +14,8 @@ so the size and ceiling go back to what they were before the first refusal of
 that descent.
 
 A busy route answers 503, and the website proxy in front of it answers 429 once a
-caller passes its allowance; both say how long to wait. The proxy answers 502 or
-504 when the route behind it fails, which is worth a few retries.
+caller passes its allowance, and both say how long to wait. The proxy answers 502
+or 504 when the route behind it fails, which is worth a few retries.
 
 A whole run is bounded by `MAX_REQUESTS` requests and `MAX_RUN_SECONDS` seconds.
 Any failure, a spent budget included, stops the run and keeps what it gathered.
@@ -109,7 +109,7 @@ class CheckResult:
 
     Attributes:
         generations: The graph generations the answers were checked against, in
-            the order first seen; None when the route named none.
+            the order first seen, or None when the route named none.
         findings: Every finding, each with `ref`, `field`, `value`, `code` and
             `severity`.
         checked_count: The rows the route answered.
@@ -146,10 +146,9 @@ def check_rows(
     Args:
         rows: The rows to check.
         url: The check route's URL.
-        post: Sends one request; `post_json` unless a test passes another.
-        sleep: Waits the given seconds; `time.sleep` unless a test passes another.
-        clock: Reads the time in seconds; `time.monotonic` unless a test passes
-            another.
+        post: Sends one request. Defaults to `post_json`.
+        sleep: Waits the given seconds. Defaults to `time.sleep`.
+        clock: Reads the time in seconds. Defaults to `time.monotonic`.
         chunk_size: The most rows one request carries.
         max_requests: The most requests the run sends.
         max_seconds: The longest the run may take.
@@ -342,7 +341,8 @@ class _Sender:
             return self.post(self.url, {"rows": rows}, timeout)
         except httpx.HTTPError as error:
             # A timeout cut short by the time left, or one that ends past the
-            # deadline, is the run reaching its limit and not an outage.
+            # deadline, means the run reached its limit. Any other error is an
+            # outage.
             out_of_time = isinstance(error, httpx.TimeoutException) and (
                 timeout < REQUEST_TIMEOUT_SECONDS or self.clock() >= self.deadline
             )
@@ -431,7 +431,7 @@ def _detail(response: httpx.Response) -> str:
 
 
 def _wait_seconds(response: httpx.Response) -> float:
-    """The seconds a 503 or 429 answer asks the caller to wait, at least `MIN_WAIT_SECONDS`"""
+    """The seconds a 503 or 429 answer asks for, and at least `MIN_WAIT_SECONDS`"""
     for value in (response.headers.get("Retry-After"), _body(response).get("retry")):
         if isinstance(value, bool) or not isinstance(value, str | int | float):
             continue

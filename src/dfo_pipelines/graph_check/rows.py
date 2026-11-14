@@ -32,7 +32,7 @@ FIXED_COLUMNS = (
 MAX_REF_LENGTH = 512
 
 # The MCF namespaces a value may be written in. dcp-tools writes `dcid:MyNode` and
-# `MyNode` as the same node; the route reads bare dcids.
+# `MyNode` as the same node. The route reads bare dcids.
 _NAMESPACE = re.compile(r"^(?:dcid|dcs|schema):")
 
 

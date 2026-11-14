@@ -77,7 +77,7 @@ def test_an_empty_table_is_reported_and_the_rest_are_checked(
     )
 
     assert first_line(report) == (
-        "Checked 2 StatVars across 1 table; 1 table not checked."
+        "Checked 2 StatVars across 1 table. 1 table was not checked."
     )
     assert summary.unchecked_tables == (("checked.empty", "has no rows in this build"),)
     assert [spans(line) for line in report.splitlines() if line.startswith("- ")] == [
@@ -135,7 +135,9 @@ def test_a_statvar_without_a_measured_property_is_refused_without_a_call(
 
     assert [row["dcid"] for row in sent] == ["Variable2"]
     assert (summary.unsent_count, summary.unreached_count) == (1, 0)
-    assert first_line(report) == "Checked 1 of 2 StatVars across 1 table; 1 not sent."
+    assert (
+        first_line(report) == "Checked 1 of 2 StatVars across 1 table. 1 was not sent."
+    )
     assert [spans(line) for line in report.splitlines() if line.startswith("- ")] == [
         ["Variable1"]
     ]
@@ -193,8 +195,8 @@ def test_a_check_that_stops_part_way_reports_what_it_found_and_what_it_did_not(
     report, _ = run_graph_check(connection, specs=[SPEC], url=URL, post=route)
 
     assert first_line(report) == (
-        "Found 1 error in 1 of 2 StatVars checked across 1 table; "
-        "1 not reached because the check route failed."
+        "Found 1 error in 1 of 2 StatVars checked across 1 table. "
+        "1 was not reached because the check route failed."
     )
     assert spans(report.split("\n\n")[1]) == ["answer 500, no detail given", "g1"]
     assert "`Variable1` `population_type` = `FinancialFlow`" in report

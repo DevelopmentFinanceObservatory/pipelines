@@ -388,6 +388,15 @@ def test_a_timeout_with_time_to_spare_is_an_outage() -> None:
     assert stop_reason(result) is StopReason.UNREACHABLE
 
 
+def test_a_connection_failure_near_the_deadline_is_still_an_outage() -> None:
+    route = FakeRoute(httpx.ConnectError("refused"))
+
+    result = route.check([make_row("a")], max_seconds=30.0)
+
+    assert route.timeouts == [30.0]
+    assert stop_reason(result) is StopReason.UNREACHABLE
+
+
 def test_a_wait_that_would_pass_the_time_budget_stops_the_run_at_once() -> None:
     route = FakeRoute(httpx.Response(503, headers={"Retry-After": "30"}))
 
