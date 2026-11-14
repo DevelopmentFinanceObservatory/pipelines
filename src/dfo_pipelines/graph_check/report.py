@@ -369,7 +369,8 @@ def _example(finding: Finding) -> str:
     """One finding as a table cell: StatVar, field, value and the graph's value.
 
     A finding about a property's value names the property after the field. One
-    about the property itself shows the property as its value.
+    about the property itself shows the property as its value. A
+    `definition_differs` finding whose graph holds no value says "(graph: none)".
     """
     field = finding.field
     if finding.property is not None and finding.subject != "property":
@@ -378,6 +379,8 @@ def _example(finding: Finding) -> str:
     example += _cell(_value_text(finding.value))
     if finding.served is not None:
         example += f" (graph: {_cell(_value_text(finding.served))})"
+    elif finding.code == "definition_differs":
+        example += " (graph: none)"
     return example
 
 

@@ -297,8 +297,19 @@ def test_findings_are_tabled_per_table_with_examples_and_explained() -> None:
             ),
             "`V` `stat_type` = `measuredValue` (graph: `sumValue`)",
         ),
+        (
+            Finding(
+                table="a",
+                statvar="V",
+                field="measurement_qualifier",
+                value="Annual",
+                code="definition_differs",
+                severity="warning",
+            ),
+            "`V` `measurement_qualifier` = `Annual` (graph: none)",
+        ),
     ],
-    ids=["fixed field", "a property itself", "the graph's value"],
+    ids=["fixed field", "a property itself", "the graph's value", "no graph value"],
 )
 def test_an_example_names_what_the_finding_judges(
     finding: Finding, example: str

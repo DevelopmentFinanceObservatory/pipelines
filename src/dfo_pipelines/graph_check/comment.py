@@ -1,6 +1,7 @@
 """Post a graph check report as the pull request's graph check comment.
 
-Run it after `scripts/graph_check.py`, in the pull request workflow:
+Run it on the report `scripts/graph_check.py` wrote, in the pull request
+workflow's `graph-check-comment` job, from a checkout of the base commit:
 
     uv run python -m dfo_pipelines.graph_check.comment report.md
 
