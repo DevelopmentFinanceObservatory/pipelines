@@ -18,7 +18,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     ClimateFinanceExportResource,
     KnowledgeGraphResource,
@@ -32,7 +32,11 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    load_extraction_metadata,
+    write_extraction_metadata,
+)
+from dfo_pipelines.extraction.parquet import load_parquet
 
 SCHEMA = "one_climate_finance"
 # The asset and database table each raw table loads into, by raw file stem.
@@ -213,14 +217,16 @@ def one_climate_finance_raw_tables(
     duckdb: DuckDBResource, one_climate_finance_raw_file: str
 ):
     """Raw climate finance database tables, one per raw file"""
-    for stem, key in RAW_TABLE_KEYS.items():
-        yield load_raw_table(
-            duckdb,
-            path=str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet"),
-            schema=SCHEMA,
-            table=RAW_TABLE_NAMES[stem],
-            asset_key=key,
-        )
+    with duckdb.get_connection() as connection:
+        for stem, key in RAW_TABLE_KEYS.items():
+            table = RAW_TABLE_NAMES[stem]
+            rows = load_parquet(
+                connection,
+                path=str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet"),
+                schema=SCHEMA,
+                table=table,
+            )
+            yield raw_table_result(f"{SCHEMA}.{table}", rows, asset_key=key)
 
 
 @dg.asset(
@@ -232,13 +238,16 @@ def one_climate_finance_raw_metadata(
     duckdb: DuckDBResource, one_climate_finance_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the climate finance raw data"""
-    return load_raw_metadata(
-        duckdb,
-        directory=UPath(one_climate_finance_raw_file),
-        schema=SCHEMA,
-        table="raw_climate_finance_metadata",
-        release_names=("source",),
-    )
+    table = "raw_climate_finance_metadata"
+    with duckdb.get_connection() as connection:
+        rows = load_extraction_metadata(
+            connection,
+            directory=UPath(one_climate_finance_raw_file),
+            schema=SCHEMA,
+            table=table,
+            release_names=("source",),
+        )
+    return metadata_table_result(f"{SCHEMA}.{table}", rows)
 
 
 def _export_spec(

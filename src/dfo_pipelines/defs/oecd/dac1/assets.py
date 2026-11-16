@@ -24,14 +24,18 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    load_extraction_metadata,
+    write_extraction_metadata,
+)
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
+from dfo_pipelines.extraction.parquet import load_parquet
 
 
 def resolve_dac1_bulk_file() -> tuple[str, str]:
@@ -138,18 +142,20 @@ def oecd_dac1_raw_table(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw OECD DAC1 database table"""
-    return load_raw_table(
-        duckdb,
-        path=oecd_dac1_raw_file,
-        schema="oecd_dac1",
-        table="raw_dac1",
-        renames={
-            "DONOR": "donor_code",
-            "Donor": "donor_name",
-            "PART": "part_code",
-            "Part": "part_name",
-        },
-    )
+    with duckdb.get_connection() as connection:
+        rows = load_parquet(
+            connection,
+            path=oecd_dac1_raw_file,
+            schema="oecd_dac1",
+            table="raw_dac1",
+            renames={
+                "DONOR": "donor_code",
+                "Donor": "donor_name",
+                "PART": "part_code",
+                "Part": "part_name",
+            },
+        )
+    return raw_table_result("oecd_dac1.raw_dac1", rows)
 
 
 @dg.asset(
@@ -161,13 +167,15 @@ def oecd_dac1_raw_metadata(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the OECD DAC1 raw data"""
-    return load_raw_metadata(
-        duckdb,
-        directory=UPath(oecd_dac1_raw_file).parent,
-        schema="oecd_dac1",
-        table="raw_dac1_metadata",
-        release_names=("source",),
-    )
+    with duckdb.get_connection() as connection:
+        rows = load_extraction_metadata(
+            connection,
+            directory=UPath(oecd_dac1_raw_file).parent,
+            schema="oecd_dac1",
+            table="raw_dac1_metadata",
+            release_names=("source",),
+        )
+    return metadata_table_result("oecd_dac1.raw_dac1_metadata", rows)
 
 
 OECD_DAC1_EXPORT_SPEC = ExportSpec(
