@@ -18,6 +18,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
 from dfo_pipelines.defs.resources import (
     ClimateFinanceExportResource,
     KnowledgeGraphResource,
@@ -31,10 +32,7 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 SCHEMA = "one_climate_finance"
 # The asset and database table each raw table loads into, by raw file stem.
@@ -215,27 +213,14 @@ def one_climate_finance_raw_tables(
     duckdb: DuckDBResource, one_climate_finance_raw_file: str
 ):
     """Raw climate finance database tables, one per raw file"""
-    with duckdb.get_connection() as connection:
-        connection.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-        for stem, key in RAW_TABLE_KEYS.items():
-            table = f"{SCHEMA}.{RAW_TABLE_NAMES[stem]}"
-            connection.execute(
-                f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet(?)",
-                [str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet")],
-            )
-            rows = connection.sql(f"SELECT COUNT(*) FROM {table}").fetchall()[0][0]
-            yield dg.MaterializeResult(
-                asset_key=key,
-                metadata={
-                    "dagster/table_name": dg.MetadataValue.text(table),
-                    "dagster/row_count": dg.MetadataValue.int(rows),
-                },
-                check_results=[
-                    dg.AssetCheckResult(
-                        asset_key=key, check_name="table_not_empty", passed=rows > 0
-                    )
-                ],
-            )
+    for stem, key in RAW_TABLE_KEYS.items():
+        yield load_raw_table(
+            duckdb,
+            path=str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet"),
+            schema=SCHEMA,
+            table=RAW_TABLE_NAMES[stem],
+            asset_key=key,
+        )
 
 
 @dg.asset(
@@ -247,20 +232,12 @@ def one_climate_finance_raw_metadata(
     duckdb: DuckDBResource, one_climate_finance_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the climate finance raw data"""
-    table = "raw_climate_finance_metadata"
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(one_climate_finance_raw_file),
-            schema=SCHEMA,
-            table=table,
-            release_names=("source",),
-        )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{SCHEMA}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
+    return load_raw_metadata(
+        duckdb,
+        directory=UPath(one_climate_finance_raw_file),
+        schema=SCHEMA,
+        table="raw_climate_finance_metadata",
+        release_names=("source",),
     )
 
 

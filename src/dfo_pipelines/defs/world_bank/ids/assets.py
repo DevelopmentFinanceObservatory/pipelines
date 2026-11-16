@@ -24,14 +24,12 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -220,23 +218,11 @@ def world_bank_ids_raw_table(
     The combined bulk extract parquet, loaded unmodified (years in wide format,
     all values as text) into DuckDB. Fully overwritten on each materialization.
     """
-    schema = "world_bank_ids"
-    table = "raw_ids"
-    with duckdb.get_connection() as conn:
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS SELECT * FROM read_parquet(?)",
-            [world_bank_ids_raw_file],
-        )
-        rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
+    return load_raw_table(
+        duckdb,
+        path=world_bank_ids_raw_file,
+        schema="world_bank_ids",
+        table="raw_ids",
     )
 
 
@@ -249,21 +235,12 @@ def world_bank_ids_raw_metadata(
     duckdb: DuckDBResource, world_bank_ids_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the World Bank IDS raw data"""
-    schema = "world_bank_ids"
-    table = "raw_ids_metadata"
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(world_bank_ids_raw_file).parent,
-            schema=schema,
-            table=table,
-            release_names=("source",),
-        )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
+    return load_raw_metadata(
+        duckdb,
+        directory=UPath(world_bank_ids_raw_file).parent,
+        schema="world_bank_ids",
+        table="raw_ids_metadata",
+        release_names=("source",),
     )
 
 

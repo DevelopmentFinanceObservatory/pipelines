@@ -25,14 +25,12 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 
 def resolve_crs_bulk_file() -> tuple[str, str]:
@@ -162,23 +160,11 @@ def oecd_dac_crs_raw_table(
     duckdb: DuckDBResource, oecd_dac_crs_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw OECD DAC CRS database table"""
-    schema = "oecd_dac_crs"
-    table = "raw_dac_crs"
-    with duckdb.get_connection() as conn:
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS SELECT * FROM read_parquet(?)",
-            [oecd_dac_crs_raw_file],
-        )
-        rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
+    return load_raw_table(
+        duckdb,
+        path=oecd_dac_crs_raw_file,
+        schema="oecd_dac_crs",
+        table="raw_dac_crs",
     )
 
 
@@ -191,21 +177,12 @@ def oecd_dac_crs_raw_metadata(
     duckdb: DuckDBResource, oecd_dac_crs_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the OECD DAC CRS raw data"""
-    schema = "oecd_dac_crs"
-    table = "raw_dac_crs_metadata"
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(oecd_dac_crs_raw_file).parent,
-            schema=schema,
-            table=table,
-            release_names=("source",),
-        )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
+    return load_raw_metadata(
+        duckdb,
+        directory=UPath(oecd_dac_crs_raw_file).parent,
+        schema="oecd_dac_crs",
+        table="raw_dac_crs_metadata",
+        release_names=("source",),
     )
 
 

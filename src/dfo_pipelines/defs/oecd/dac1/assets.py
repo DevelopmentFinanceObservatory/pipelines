@@ -24,15 +24,13 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import load_raw_metadata, load_raw_table
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 
 
@@ -140,33 +138,17 @@ def oecd_dac1_raw_table(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw OECD DAC1 database table"""
-    schema = "oecd_dac1"
-    table = "raw_dac1"
-    published = pq.read_schema(oecd_dac1_raw_file).names
-    renames = {
-        "DONOR": "donor_code",
-        "Donor": "donor_name",
-        "PART": "part_code",
-        "Part": "part_name",
-    }
-    aliases = [renames.get(name, name) for name in published]
-    columns = ", ".join('"' + alias.replace('"', '""') + '"' for alias in aliases)
-    with duckdb.get_connection() as conn:
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS "
-            f"SELECT * FROM read_parquet(?) AS source({columns})",
-            [oecd_dac1_raw_file],
-        )
-        rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
+    return load_raw_table(
+        duckdb,
+        path=oecd_dac1_raw_file,
+        schema="oecd_dac1",
+        table="raw_dac1",
+        renames={
+            "DONOR": "donor_code",
+            "Donor": "donor_name",
+            "PART": "part_code",
+            "Part": "part_name",
         },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
     )
 
 
@@ -179,21 +161,12 @@ def oecd_dac1_raw_metadata(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the OECD DAC1 raw data"""
-    schema = "oecd_dac1"
-    table = "raw_dac1_metadata"
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(oecd_dac1_raw_file).parent,
-            schema=schema,
-            table=table,
-            release_names=("source",),
-        )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
+    return load_raw_metadata(
+        duckdb,
+        directory=UPath(oecd_dac1_raw_file).parent,
+        schema="oecd_dac1",
+        table="raw_dac1_metadata",
+        release_names=("source",),
     )
 
 
