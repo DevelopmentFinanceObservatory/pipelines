@@ -136,7 +136,7 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dg check defs
 
-      # Dagster's dbt build runs only tests attached to its assets, so not these.
+      # Dagster's dbt build skips these, since it runs only tests attached to its assets.
       - name: Run dbt macro tests
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
