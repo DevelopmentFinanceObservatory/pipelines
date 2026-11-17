@@ -7,21 +7,16 @@ and the two tables refresh with different sources.
 """
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-)
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 SCHEMA = "one_conversion_tables"
 DOCS_DIR = DOCS_ROOT / "one" / "conversion_tables"
@@ -71,84 +66,25 @@ RATE_DIAGNOSTICS = {
 }
 
 
-def _dbt_model_keys(*, table: str) -> list[dg.AssetKey]:
-    """The three dc models one table's export reads, and its rate diagnostics."""
+def _diagnostic_keys(*, table: str) -> list[dg.AssetKey]:
     return [
-        dg.AssetKey([SCHEMA, f"dc_conversion_tables_{table}_{model}"])
-        for model in ("observations", "provenance", "statvars")
-    ] + [
         dg.AssetKey([SCHEMA, f"int_conversion_tables_{diagnostic}"])
         for diagnostic in RATE_DIAGNOSTICS[table]
     ]
 
 
-def _export(
-    spec: ExportSpec,
-    *,
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Write `spec`'s bundle to today's partition and report what it holds. The
-    bundle's directory is the asset's value, which its ingestion reads."""
-    out_dir = export_file_store.build_date_partitioned_path(spec.import_name)
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            spec, connection=connection, out_dir=out_dir, log=context.log
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
-
-
-@dg.asset(
-    group_name="one_conversion_tables",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=DAC_EXPORT_SPEC.documentation_version,
-    deps=_dbt_model_keys(table="dac"),
+one_conversion_tables_dac_dc_export = build_dc_export_asset(
+    spec=DAC_EXPORT_SPEC,
+    group="one_conversion_tables",
+    title="the DAC conversion table",
+    deps=_diagnostic_keys(table="dac"),
 )
-def one_conversion_tables_dac_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for the DAC conversion table"""
-    return _export(
-        DAC_EXPORT_SPEC,
-        context=context,
-        duckdb=duckdb,
-        export_file_store=export_file_store,
-    )
-
-
-@dg.asset(
-    group_name="one_conversion_tables",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=IMF_EXPORT_SPEC.documentation_version,
-    deps=_dbt_model_keys(table="imf"),
+one_conversion_tables_imf_dc_export = build_dc_export_asset(
+    spec=IMF_EXPORT_SPEC,
+    group="one_conversion_tables",
+    title="the IMF conversion table",
+    deps=_diagnostic_keys(table="imf"),
 )
-def one_conversion_tables_imf_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for the IMF conversion table"""
-    return _export(
-        IMF_EXPORT_SPEC,
-        context=context,
-        duckdb=duckdb,
-        export_file_store=export_file_store,
-    )
 
 
 one_conversion_tables_dac_dc_ingestion = build_dc_ingestion_asset(

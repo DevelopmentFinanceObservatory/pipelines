@@ -509,8 +509,8 @@ def create_dc_models(duckdb: DuckDBResource) -> None:
         connection.execute(OBSERVATIONS_SQL)
 
 
-def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
-    """Materialize the export asset, returning the result and the bundle directory"""
+def run_export(tmp_path: Path) -> Path:
+    """Materialize the export asset, returning the bundle directory"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     create_dc_models(duckdb)
@@ -518,35 +518,18 @@ def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path("oecd_dac_crs")
-        result = oecd_dac_crs_dc_export(
+        oecd_dac_crs_dc_export(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-
-    return result, Path(str(out_dir))
-
-
-def test_dac_crs_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path,
-) -> None:
-    """Test DAC CRS export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = run_export(tmp_path)
-
-    assert out_dir == tmp_path / "processed" / "oecd_dac_crs" / "2026" / "08" / "03"
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    return Path(str(out_dir))
 
 
 def test_dac_crs_dc_export_writes_the_import_config(tmp_path: Path) -> None:
     """Test the bundle's config registers its files, columns and observation period"""
-    _, out_dir = run_export(tmp_path)
+    out_dir = run_export(tmp_path)
 
     assert json.loads((out_dir / "config.json").read_text()) == {
         "importName": "oecd_dac_crs",
@@ -577,7 +560,7 @@ def test_dac_crs_dc_export_writes_the_conversion_recipe_onto_the_provenance_node
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node carries the spec's conversion recipe as a conversionRecipe arc"""
-    _, out_dir = run_export(tmp_path)
+    out_dir = run_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
@@ -587,7 +570,7 @@ def test_dac_crs_dc_export_writes_the_partial_year_onto_the_provenance_node(
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node carries the partial year as partialObservationDate"""
-    _, out_dir = run_export(tmp_path)
+    out_dir = run_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert 'partialObservationDate: "1974"\n' in provenance
@@ -597,7 +580,7 @@ def test_dac_crs_dc_export_maps_the_crs_dimensions_to_ontology_properties(
     tmp_path: Path,
 ) -> None:
     """Test DAC CRS export asset names each dimension column as its ontology property"""
-    _, out_dir = run_export(tmp_path)
+    out_dir = run_export(tmp_path)
 
     nodes = {
         node.splitlines()[0].removeprefix("Node: "): node.strip()

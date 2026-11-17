@@ -493,7 +493,7 @@ select * from (values
 """
 
 
-def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
+def _run_dc_export(tmp_path: Path) -> Path:
     """Materialize the export over a small fixture bundle"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     with duckdb.get_connection() as connection:
@@ -502,36 +502,20 @@ def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
 
     with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 2)
-        result = oecd_dac1_dc_export(
+        oecd_dac1_dc_export(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-    return result, tmp_path / "processed" / "oecd_dac1" / "2026" / "10" / "02"
-
-
-def test_oecd_dac1_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path,
-) -> None:
-    """Test the export reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_dc_export(tmp_path)
-
-    assert result.value == str(out_dir)
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(4),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    return tmp_path / "processed" / "oecd_dac1" / "2026" / "10" / "02"
 
 
 def test_oecd_dac1_dc_export_writes_the_import_config(tmp_path: Path) -> None:
     """Test the config registers flows by provider and recipient, and GNI and
     population about the provider, each with the period
     """
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     provenance = "dcid:provenance/OECDDAC1"
     columns = {
@@ -572,7 +556,7 @@ def test_oecd_dac1_dc_export_writes_the_conversion_recipe_onto_the_provenance_no
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node names the DAC conversion recipe as its conversionRecipe"""
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
@@ -584,7 +568,7 @@ def test_oecd_dac1_dc_export_writes_each_property_the_statvar_sets(
     """Test a StatVar's constraints, denominator, entities and aid type code become
     its properties
     """
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     nodes = (out_dir / "custom_nodes.mcf").read_text().strip().split("\n\n")
     assert nodes == [

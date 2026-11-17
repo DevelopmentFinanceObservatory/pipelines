@@ -7,7 +7,6 @@ import httpx
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
@@ -15,15 +14,14 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -344,41 +342,11 @@ IDS_EXPORT_SPEC = ExportSpec(
 )
 
 
-@dg.asset(
-    group_name="world_bank_ids",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=IDS_EXPORT_SPEC.documentation_version,
-    deps=[
-        dg.AssetKey(["world_bank_ids", "dc_ids_debt_observations"]),
-        dg.AssetKey(["world_bank_ids", "dc_ids_economy_observations"]),
-        dg.AssetKey(["world_bank_ids", "dc_ids_provenance"]),
-        dg.AssetKey(["world_bank_ids", "dc_ids_statvars"]),
-    ],
+world_bank_ids_dc_export = build_dc_export_asset(
+    spec=IDS_EXPORT_SPEC,
+    group="world_bank_ids",
+    title="World Bank IDS",
 )
-def world_bank_ids_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for World Bank IDS"""
-    out_dir = export_file_store.build_date_partitioned_path(IDS_EXPORT_SPEC.import_name)
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            IDS_EXPORT_SPEC, connection=connection, out_dir=out_dir, log=context.log
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
 
 
 world_bank_ids_dc_ingestion = build_dc_ingestion_asset(

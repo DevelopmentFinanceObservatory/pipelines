@@ -3,7 +3,6 @@ from datetime import UTC, date, datetime
 
 import dagster as dg
 import pyarrow.parquet as pq
-from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import (
     CRS_FLOW_URL,
@@ -15,15 +14,14 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -186,40 +184,11 @@ CRS_EXPORT_SPEC = ExportSpec(
 )
 
 
-@dg.asset(
-    group_name="oecd_dac_crs",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=CRS_EXPORT_SPEC.documentation_version,
-    deps=[
-        dg.AssetKey(["oecd_dac_crs", "dc_dac_crs_observations"]),
-        dg.AssetKey(["oecd_dac_crs", "dc_dac_crs_provenance"]),
-        dg.AssetKey(["oecd_dac_crs", "dc_dac_crs_statvars"]),
-    ],
+oecd_dac_crs_dc_export = build_dc_export_asset(
+    spec=CRS_EXPORT_SPEC,
+    group="oecd_dac_crs",
+    title="OECD DAC CRS",
 )
-def oecd_dac_crs_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for OECD DAC CRS"""
-    out_dir = export_file_store.build_date_partitioned_path(CRS_EXPORT_SPEC.import_name)
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            CRS_EXPORT_SPEC, connection=connection, out_dir=out_dir, log=context.log
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
 
 
 oecd_dac_crs_dc_ingestion = build_dc_ingestion_asset(

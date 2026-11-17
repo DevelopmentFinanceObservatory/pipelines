@@ -470,7 +470,7 @@ select * from (values
 """
 
 
-def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
+def _run_dc_export(tmp_path: Path) -> Path:
     """Materialize the export over a small fixture bundle"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     with duckdb.get_connection() as connection:
@@ -479,34 +479,18 @@ def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
 
     with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 1)
-        result = imf_weo_dc_export(
+        imf_weo_dc_export(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-    return result, tmp_path / "processed" / "imf_weo" / "2026" / "10" / "01"
-
-
-def test_imf_weo_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path,
-) -> None:
-    """Test the export reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_dc_export(tmp_path)
-
-    assert result.value == str(out_dir)
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(2),
-        "statvar_count": dg.IntMetadataValue(1),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    return tmp_path / "processed" / "imf_weo" / "2026" / "10" / "01"
 
 
 def test_imf_weo_dc_export_writes_the_import_config(tmp_path: Path) -> None:
     """Test the config registers the files, the country as the entity, and the period"""
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     assert json.loads((out_dir / "config.json").read_text()) == {
         "importName": "imf_weo",
@@ -537,7 +521,7 @@ def test_imf_weo_dc_export_defines_the_source_its_provenance_names(
     tmp_path: Path,
 ) -> None:
     """Test the bundle carries the IMF Source node the Provenance points at"""
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     provenance_mcf = (out_dir / "provenance.mcf").read_text()
     assert provenance_mcf.split("\n\n")[0] == (
@@ -553,7 +537,7 @@ def test_imf_weo_dc_export_writes_the_conversion_recipe_onto_the_provenance_node
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node names the IMF conversion recipe as its conversionRecipe"""
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeIMF\n" in provenance
@@ -563,7 +547,7 @@ def test_imf_weo_dc_export_writes_each_property_the_statvar_sets(
     tmp_path: Path,
 ) -> None:
     """Test a StatVar's constraints and indicator codes become its properties"""
-    _, out_dir = _run_dc_export(tmp_path)
+    out_dir = _run_dc_export(tmp_path)
 
     [node] = (out_dir / "custom_nodes.mcf").read_text().strip().split("\n\n")
     assert node == (

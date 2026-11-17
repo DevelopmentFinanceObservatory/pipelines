@@ -10,7 +10,6 @@ import pytest
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES, ExportSpec
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.one.climate_finance.assets import (
     OECD_CRDF_EXPORT_SPEC,
     ONE_CLIMATE_FINANCE_EXPORT_SPEC,
@@ -165,8 +164,8 @@ def _create_dc_models(duckdb: DuckDBResource, export: Export) -> None:
             )
 
 
-def _run_export(tmp_path: Path, export: Export) -> tuple[dg.MaterializeResult, Path]:
-    """Materialize the export asset, returning the result and the bundle directory"""
+def _run_export(tmp_path: Path, export: Export) -> Path:
+    """Materialize the export asset, returning the bundle directory"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb, export)
@@ -174,32 +173,13 @@ def _run_export(tmp_path: Path, export: Export) -> tuple[dg.MaterializeResult, P
     with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path(export.spec.import_name)
-        result = export.asset(
+        export.asset(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-    return result, Path(str(out_dir))
-
-
-@pytest.mark.parametrize("export", EXPORTS)
-def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path, export: Export
-) -> None:
-    """Test the export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_export(tmp_path, export)
-
-    assert out_dir == (
-        tmp_path / "processed" / export.spec.import_name / "2026" / "08" / "03"
-    )
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    return Path(str(out_dir))
 
 
 @pytest.mark.parametrize("export", EXPORTS)
@@ -207,7 +187,7 @@ def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
     tmp_path: Path, export: Export
 ) -> None:
     """Test the Provenance node carries this import's transformations and changelog"""
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     for property_name, file_name in DOCUMENTATION_FILES.items():
@@ -220,7 +200,7 @@ def test_dc_export_writes_the_provenance_source_and_the_dollar_conversion_recipe
     tmp_path: Path, export: Export
 ) -> None:
     """Test the Provenance node names its source and declares the DAC recipe"""
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert f"Node: {export.provenance_dcid}\n" in provenance
@@ -234,7 +214,7 @@ def test_dc_export_defines_a_source_node_only_when_the_spec_names_a_source_model
     tmp_path: Path, export: Export
 ) -> None:
     """Test the bundle defines the Source its provenance names, when the import owns it"""
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert (f"Node: {export.source}\n" in provenance) == (
@@ -245,7 +225,7 @@ def test_dc_export_defines_a_source_node_only_when_the_spec_names_a_source_model
 @pytest.mark.parametrize("export", EXPORTS)
 def test_dc_export_writes_the_import_config(tmp_path: Path, export: Export) -> None:
     """Test the bundle's config registers its files, columns and observation period"""
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     column_mappings = {
         "dcid:variableMeasured": "variable",
@@ -277,7 +257,7 @@ def test_dc_export_maps_the_statvar_dimensions_to_ontology_properties(
     tmp_path: Path, export: Export
 ) -> None:
     """Test the export names each StatVar dimension as its ontology property"""
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     nodes = {
         node.splitlines()[0].removeprefix("Node: "): node
@@ -309,7 +289,7 @@ def test_dc_export_writes_the_measurement_method_to_every_observation_file(
     and dcp-tools drops an unmapped column from the bundle without error, so the
     check reads the files the export wrote.
     """
-    _, out_dir = _run_export(tmp_path, export)
+    out_dir = _run_export(tmp_path, export)
 
     mapping = json.loads((out_dir / "config.json").read_text())["inputFiles"][1][
         "columnMappings"
@@ -323,7 +303,7 @@ def test_dc_export_writes_the_measurement_method_to_every_observation_file(
 
 def test_unfccc_btr_export_names_no_recipient(tmp_path: Path) -> None:
     """Test the UNFCCC totals, which cover every recipient, map and carry none"""
-    _, out_dir = _run_export(tmp_path, UNFCCC_BTR)
+    out_dir = _run_export(tmp_path, UNFCCC_BTR)
 
     config = (out_dir / "config.json").read_text()
     assert "financingRecipient" not in config
@@ -332,16 +312,3 @@ def test_unfccc_btr_export_names_no_recipient(tmp_path: Path) -> None:
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert "observationProperties: dcid:financingProvider\n" in nodes
     assert "financingRecipient" not in nodes
-
-
-@pytest.mark.parametrize("export", EXPORTS)
-def test_dc_export_depends_on_the_models_its_spec_reads(export: Export) -> None:
-    """Test the export asset waits on the dbt models its spec names"""
-    spec = export.spec
-    read = {spec.provenance_model, spec.statvar_model, spec.observation_inputs[0].model}
-    if spec.source_model is not None:
-        read.add(spec.source_model)
-
-    node = defs().resolve_asset_graph().get(export.asset.key)
-
-    assert node.parent_keys == {dg.AssetKey(model.split(".")) for model in read}

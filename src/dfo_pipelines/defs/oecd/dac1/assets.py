@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import dagster as dg
 import pyarrow.parquet as pq
-from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_dac1
 from oda_reader.download.download_tools import (
     DAC1_FLOW_URL,
@@ -14,7 +13,6 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
@@ -22,9 +20,9 @@ from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -177,46 +175,11 @@ OECD_DAC1_EXPORT_SPEC = ExportSpec(
 )
 
 
-@dg.asset(
-    group_name="oecd_dac1",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=OECD_DAC1_EXPORT_SPEC.documentation_version,
-    deps=[
-        dg.AssetKey(["oecd_dac1", "dc_dac1_donor_observations"]),
-        dg.AssetKey(["oecd_dac1", "dc_dac1_flow_observations"]),
-        dg.AssetKey(["oecd_dac1", "dc_dac1_provenance"]),
-        dg.AssetKey(["oecd_dac1", "dc_dac1_statvars"]),
-    ],
+oecd_dac1_dc_export = build_dc_export_asset(
+    spec=OECD_DAC1_EXPORT_SPEC,
+    group="oecd_dac1",
+    title="OECD DAC1",
 )
-def oecd_dac1_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for OECD DAC1"""
-    out_dir = export_file_store.build_date_partitioned_path(
-        OECD_DAC1_EXPORT_SPEC.import_name
-    )
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            OECD_DAC1_EXPORT_SPEC,
-            connection=connection,
-            out_dir=out_dir,
-            log=context.log,
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
 
 
 oecd_dac1_dc_ingestion = build_dc_ingestion_asset(

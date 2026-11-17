@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import dagster as dg
 import pyarrow.parquet as pq
-from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_dac2b
 from oda_reader.dac2b import DAC2B_BULK_LABEL
 from oda_reader.download.download_tools import (
@@ -15,16 +14,15 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -169,45 +167,11 @@ OECD_DAC2B_EXPORT_SPEC = ExportSpec(
 )
 
 
-@dg.asset(
-    group_name="oecd_dac2b",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=OECD_DAC2B_EXPORT_SPEC.documentation_version,
-    deps=[
-        dg.AssetKey(["oecd_dac2b", "dc_dac2b_observations"]),
-        dg.AssetKey(["oecd_dac2b", "dc_dac2b_provenance"]),
-        dg.AssetKey(["oecd_dac2b", "dc_dac2b_statvars"]),
-    ],
+oecd_dac2b_dc_export = build_dc_export_asset(
+    spec=OECD_DAC2B_EXPORT_SPEC,
+    group="oecd_dac2b",
+    title="OECD DAC2b",
 )
-def oecd_dac2b_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for OECD DAC2b"""
-    out_dir = export_file_store.build_date_partitioned_path(
-        OECD_DAC2B_EXPORT_SPEC.import_name
-    )
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            OECD_DAC2B_EXPORT_SPEC,
-            connection=connection,
-            out_dir=out_dir,
-            log=context.log,
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
 
 
 oecd_dac2b_dc_ingestion = build_dc_ingestion_asset(

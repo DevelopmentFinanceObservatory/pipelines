@@ -1212,8 +1212,8 @@ def _create_dc_models(duckdb: DuckDBResource) -> None:
         connection.execute(IMPUTED_OBSERVATIONS_SQL)
 
 
-def _run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
-    """Materialize the export asset, returning the result and the bundle directory"""
+def _run_export(tmp_path: Path) -> Path:
+    """Materialize the export asset, returning the bundle directory"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb)
@@ -1223,42 +1223,20 @@ def _run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
         out_dir = file_store.build_date_partitioned_path(
             IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
         )
-        result = one_imputed_multilateral_sectors_dc_export(
+        one_imputed_multilateral_sectors_dc_export(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-    return result, Path(str(out_dir))
-
-
-def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(tmp_path: Path) -> None:
-    """Test the export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_export(tmp_path)
-
-    assert (
-        out_dir
-        == tmp_path
-        / "processed"
-        / "one_imputed_multilateral_sectors"
-        / "2026"
-        / "08"
-        / "03"
-    )
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(2),
-        "statvar_count": dg.IntMetadataValue(1),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    return Path(str(out_dir))
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node carries this pipeline's transformations and changelog"""
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     for property_name, file_name in DOCUMENTATION_FILES.items():
@@ -1270,7 +1248,7 @@ def test_dc_export_writes_the_provenance_source_description_and_refresh_date(
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node names the ONE Data source and carries the description, next refresh date and both source data URLs"""
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "source: dcid:source/ONEData\n" in provenance
@@ -1286,7 +1264,7 @@ def test_dc_export_writes_the_conversion_recipe_onto_the_provenance_node(
     tmp_path: Path,
 ) -> None:
     """Test the Provenance node carries the spec's conversion recipe as a conversionRecipe arc"""
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "conversionRecipe: dcid:ConversionRecipeDAC\n" in provenance
@@ -1294,7 +1272,7 @@ def test_dc_export_writes_the_conversion_recipe_onto_the_provenance_node(
 
 def test_dc_export_writes_the_import_config(tmp_path: Path) -> None:
     """Test the bundle's config registers its files, columns and observation period"""
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     assert json.loads((out_dir / "config.json").read_text()) == {
         "importName": "one_imputed_multilateral_sectors",
@@ -1331,7 +1309,7 @@ def test_dc_export_maps_the_statvar_dimensions_to_ontology_properties(
     specific to this pipeline: which model columns become which properties.
     export_bundle's own plumbing is covered by oecd/dac_crs's export tests.
     """
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     nodes = {
         node.splitlines()[0].removeprefix("Node: "): node.strip()
@@ -1361,7 +1339,7 @@ def test_dc_export_writes_the_source_column_value_under_each_observation_propert
     not fail the export -- reading the CSV itself, rather than the mapping the
     export was configured with, is what would catch it.
     """
-    _, out_dir = _run_export(tmp_path)
+    out_dir = _run_export(tmp_path)
 
     [observations] = IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.observation_inputs
     mapping = observations.property_to_column
