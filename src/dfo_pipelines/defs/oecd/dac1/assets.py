@@ -15,12 +15,12 @@ from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
 from dfo_pipelines.extraction.oecd import (
+    fetch_bulk_file,
     fetch_bulk_file_release_date,
     resolve_bulk_file,
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.oecd_bulk_files import fetch_bulk_file
 from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 

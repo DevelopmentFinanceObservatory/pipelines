@@ -364,7 +364,7 @@ def test_fetch_ids_raw_file_combines_the_downloads_unmodified(tmp_path: Path) ->
 
     download.assert_called_once_with(file_path.parent)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
-    assert metadata == {"files": dg.JsonMetadataValue(BULK_FILE_METADATA)}
+    assert metadata == {"files": BULK_FILE_METADATA}
 
     # files are combined unmodified: 2 rows x 6 files, original columns, year
     # headers carried through as strings

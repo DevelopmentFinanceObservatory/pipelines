@@ -1,5 +1,6 @@
 from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime
+from typing import Any
 
 import dagster as dg
 import pyarrow.parquet as pq
@@ -24,7 +25,7 @@ def build_raw_file_asset(
     group: str,
     dataset: str,
     title: str,
-    fetch: Callable[[UPath], tuple[Mapping[str, date], Mapping[str, dg.MetadataValue]]],
+    fetch: Callable[[UPath], tuple[Mapping[str, date], Mapping[str, Any]]],
     description: str | None = None,
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:

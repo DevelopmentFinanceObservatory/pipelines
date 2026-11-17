@@ -52,7 +52,7 @@ def imf_weo_source() -> dg.ObserveResult:
 
 def fetch_weo_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, dg.MetadataValue]]:
+) -> tuple[dict[str, date], dict[str, str]]:
     """Write the latest WEO release to `file_path`"""
     # 'version' is resolved and passed explicitly because with version=None,
     # imf_reader rolls back up to three releases when the newest one is listed
@@ -64,7 +64,7 @@ def fetch_weo_raw_file(
     dataframe.to_parquet(file_path, compression="gzip")
     return (
         {"source": fetch_weo_publication_date(version)},
-        {"version": dg.MetadataValue.text(f"{version[0]} {version[1]}")},
+        {"version": f"{version[0]} {version[1]}"},
     )
 
 

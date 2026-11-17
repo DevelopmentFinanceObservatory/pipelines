@@ -2,6 +2,7 @@ import re
 from collections.abc import Mapping
 from datetime import date
 from importlib.metadata import version as installed_version
+from typing import Any
 
 import dagster as dg
 import pandas as pd
@@ -294,7 +295,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
 def fetch_imputed_multilateral_sectors_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, dg.MetadataValue]]:
+) -> tuple[dict[str, date], dict[str, Any]]:
     """Compute the imputation between two release observations and write it"""
     (_, crs_before), (_, multi_before) = resolve_bulk_versions()
     observed_before = {"crs": crs_before, "multisystem": multi_before}
@@ -335,8 +336,8 @@ def fetch_imputed_multilateral_sectors_raw_file(
     data.to_parquet(file_path, index=False)
 
     return release_dates, {
-        "crs_version": dg.MetadataValue.text(observed_before["crs"]),
-        "multisystem_version": dg.MetadataValue.text(observed_before["multisystem"]),
+        "crs_version": observed_before["crs"],
+        "multisystem_version": observed_before["multisystem"],
         **build_quality_metadata(data, provenance=provenance),
     }
 

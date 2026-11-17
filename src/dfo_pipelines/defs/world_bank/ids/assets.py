@@ -1,6 +1,7 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
 from datetime import date
+from typing import Any
 
 import dagster as dg
 import httpx
@@ -135,13 +136,13 @@ def world_bank_ids_source() -> dg.ObserveResult:
 
 def fetch_ids_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, dg.MetadataValue]]:
+) -> tuple[dict[str, date], dict[str, Any]]:
     """Write the combined IDS bulk files to `file_path`"""
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
     download_ids_bulk_data_files(file_path.parent)
     combine_ids_bulk_data_files(file_path.parent, file_path)
-    return {"source": source_release_date}, {"files": dg.MetadataValue.json(files)}
+    return {"source": source_release_date}, {"files": files}
 
 
 world_bank_ids_raw_file = build_raw_file_asset(
