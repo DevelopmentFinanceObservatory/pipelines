@@ -203,7 +203,7 @@ def test_build_raw_file_asset_defines_the_asset_downstream_of_its_source() -> No
     assert spec.group_name == "example"
     assert spec.kinds == {"file", "parquet"}
     assert spec.automation_condition == EAGER_WHEN_CHECKS_PASS
-    assert spec.description == "Raw Example bulk download file and metadata"
+    assert spec.description == "Raw Example file and metadata"
     [check_spec] = asset.check_specs
     assert check_spec.name == "file_not_empty"
     assert check_spec.asset_key == key
@@ -211,15 +211,12 @@ def test_build_raw_file_asset_defines_the_asset_downstream_of_its_source() -> No
     assert asset.op.retry_policy is None
 
 
-def test_build_raw_file_asset_takes_a_description_and_retry_policy() -> None:
-    """Test a given description and retry policy reach the asset"""
+def test_build_raw_file_asset_takes_a_retry_policy() -> None:
+    """Test a given retry policy reaches the asset"""
     retry_policy = dg.RetryPolicy(max_retries=1)
 
-    asset = build_example(
-        fetch_rows(1), description="Raw example files", retry_policy=retry_policy
-    )
+    asset = build_example(fetch_rows(1), retry_policy=retry_policy)
 
-    assert asset.descriptions_by_key == {asset.key: "Raw example files"}
     assert asset.op.retry_policy == retry_policy
 
 

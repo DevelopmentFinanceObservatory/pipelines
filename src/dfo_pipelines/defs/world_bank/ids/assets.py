@@ -137,7 +137,11 @@ def world_bank_ids_source() -> dg.ObserveResult:
 def fetch_ids_raw_file(
     file_path: UPath,
 ) -> FetchedRelease:
-    """Write the combined IDS bulk files to `file_path`"""
+    """Write the combined IDS bulk files to `file_path`
+
+    An unmodified concatenation of the World Bank's six IDS bulk XLSX files
+    ("Counterpart-Area: All") into a single wide-format parquet file.
+    """
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
     download_ids_bulk_data_files(file_path.parent)
@@ -152,11 +156,6 @@ world_bank_ids_raw_file = build_raw_file_asset(
     dataset="ids",
     title="World Bank IDS",
     fetch=fetch_ids_raw_file,
-    description=(
-        "Raw World Bank IDS bulk download file and metadata\n\n"
-        "Unmodified concatenation of the World Bank's six IDS bulk XLSX files\n"
-        '("Counterpart-Area: All") into a single wide-format parquet file.'
-    ),
 )
 
 

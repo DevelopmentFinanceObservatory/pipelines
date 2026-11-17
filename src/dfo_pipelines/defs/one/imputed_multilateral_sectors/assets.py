@@ -296,7 +296,23 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 def fetch_imputed_multilateral_sectors_raw_file(
     file_path: UPath,
 ) -> FetchedRelease:
-    """Compute the imputation between two release observations and write it"""
+    """Compute the imputation between two release observations and write it
+
+    Computes `imputed_multilateral_by_purpose` for every provider and year
+    `oda-data` has, gross disbursements at current USD prices, sector shares
+    based on ODA and OOF CRS flows. This dataset aggregates over
+    `channel_code`, without `financingChannel`. Every core dollar is
+    allocated: `allocation_status` records whether a row's purpose shares
+    came from the channel's own current-window CRS spending (`imputed`), a
+    stale window (`stale_share`), a reviewed proxy channel (`proxy`), or
+    could not be allocated at all (`unallocated`, with `recipient_code` and
+    `purpose_code` null).
+
+    The CRS and Members' Total Use releases the compute reads are verified
+    against the releases observed immediately before and after it; a
+    disagreement, or a republish mid-compute, refuses the run rather than
+    writing a result that may not match what was observed.
+    """
     (_, crs_before), (_, multi_before) = resolve_bulk_versions()
     observed_before = {"crs": crs_before, "multisystem": multi_before}
 
@@ -350,22 +366,6 @@ one_imputed_multilateral_sectors_raw_file = build_raw_file_asset(
     dataset="imputed_multilateral_sectors",
     title="imputed multilateral spending by purpose",
     fetch=fetch_imputed_multilateral_sectors_raw_file,
-    description="""Raw imputed multilateral spending by purpose.
-
-Computes `imputed_multilateral_by_purpose` for every provider and year
-`oda-data` has, gross disbursements at current USD prices, sector shares
-based on ODA and OOF CRS flows. This dataset aggregates over
-`channel_code`, without `financingChannel`. Every core dollar is
-allocated: `allocation_status` records whether a row's purpose shares
-came from the channel's own current-window CRS spending (`imputed`), a
-stale window (`stale_share`), a reviewed proxy channel (`proxy`), or
-could not be allocated at all (`unallocated`, with `recipient_code` and
-`purpose_code` null).
-
-The CRS and Members' Total Use releases the compute reads are verified
-against the releases observed immediately before and after it; a
-disagreement, or a republish mid-compute, refuses the run rather than
-writing a result that may not match what was observed.""",
 )
 
 

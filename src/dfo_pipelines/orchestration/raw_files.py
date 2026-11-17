@@ -25,7 +25,6 @@ def build_raw_file_asset(
     dataset: str,
     title: str,
     fetch: Callable[[UPath], FetchedRelease],
-    description: str | None = None,
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
     """The `<group>_raw_file` asset writing a source's download as `data.parquet`
@@ -37,14 +36,13 @@ def build_raw_file_asset(
         fetch: Writes the download to the path it is given, putting any working
             files in that path's directory and nowhere else. Each of its release
             dates is recorded as `<name>_release_date`.
-        description: The asset's description, if not the standard one.
         retry_policy: Retry policy of the asset.
     """
     name = f"{group}_raw_file"
 
     @dg.asset(
         name=name,
-        description=description or f"Raw {title} bulk download file and metadata",
+        description=f"Raw {title} file and metadata",
         deps=[dg.AssetKey(f"{group}_source")],
         group_name=group,
         kinds={"file", "parquet"},
