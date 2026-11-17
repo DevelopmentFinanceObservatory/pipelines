@@ -6,11 +6,11 @@ import dagster as dg
 import pytest
 from pydantic import ValidationError
 
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
+from tests.helpers import project_definitions
 
 # KGSettings fields the resource leaves to dcp-tools' defaults
 DEFAULTED_SETTINGS = {
@@ -79,7 +79,7 @@ def test_project_resources_reject_undeclared_keyword_arguments() -> None:
     """Test every resource class the project defines raises on an undeclared keyword"""
     project_resource_types = {
         key: type(resource)
-        for key, resource in (defs().resources or {}).items()
+        for key, resource in (project_definitions().resources or {}).items()
         if type(resource).__module__.startswith("dfo_pipelines")
     }
 

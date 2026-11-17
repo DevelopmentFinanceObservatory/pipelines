@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 import dagster as dg
 
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
+from tests.helpers import project_definitions
 
 ONTOLOGY_INGESTION = dg.AssetKey("dfo_ontology_dc_ingestion")
 SHARED_INGESTION = dg.AssetKey("dfo_shared_dc_ingestion")
@@ -59,7 +59,7 @@ def test_every_export_has_an_ingestion_run_by_hand_after_the_shared_nodes() -> N
     """Test each export has an ingestion, which runs by hand, since it rewrites the
     shared graph, reads its own pipeline's export, and waits on the ontology's and
     the shared nodes' ingestions"""
-    graph = defs().resolve_asset_graph()
+    graph = project_definitions().resolve_asset_graph()
     names = {key.path[-1] for key in graph.get_all_asset_keys()}
     imports = {
         name.removesuffix("_dc_export") for name in names if name.endswith("_dc_export")

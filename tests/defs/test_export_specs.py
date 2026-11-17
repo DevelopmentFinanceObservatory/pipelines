@@ -6,11 +6,11 @@ import dagster as dg
 import dfo_pipelines.defs
 import dfo_pipelines.defs.export_specs
 from dfo_pipelines.data_commons.export import ExportSpec
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
+from tests.helpers import project_definitions
 
 
 def defs_module_names() -> list[str]:
@@ -66,7 +66,7 @@ def test_export_specs_mint_unique_provenance_dcids() -> None:
 
 def test_export_specs_version_their_exports_by_documentation() -> None:
     """Test each spec's export asset takes its documentation version and automates on it"""
-    graph = defs().resolve_asset_graph()
+    graph = project_definitions().resolve_asset_graph()
     nodes = {
         spec.import_name: graph.get(dg.AssetKey(f"{spec.import_name}_dc_export"))
         for spec in EXPORT_SPECS

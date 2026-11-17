@@ -3,7 +3,6 @@ import socket
 import subprocess
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
-from functools import cache
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -13,7 +12,6 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import ExportSpec
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.dfo.ontology.assets import ONTOLOGY_MCF
 from dfo_pipelines.defs.dfo.skills.assets import (
     MAX_FILE_BYTES,
@@ -28,7 +26,7 @@ from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from tests.helpers import AutomationHarness, meta
+from tests.helpers import AutomationHarness, meta, project_definitions
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -668,13 +666,9 @@ def test_assets_refuse_a_url_that_is_not_a_github_repository_page(
     assert not (tmp_path / "processed").exists()
 
 
-@cache
 def _project_skills_repository() -> object:
-    """The skills repository resource as the project's definitions wire it
-
-    Cached because loading the project's definitions takes several seconds.
-    """
-    project_resources = defs().resources
+    """The skills repository resource as the project's definitions wire it"""
+    project_resources = project_definitions().resources
     assert project_resources is not None
     return project_resources["skills_repository"]
 
