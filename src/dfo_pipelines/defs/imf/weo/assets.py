@@ -23,16 +23,12 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
+from dfo_pipelines.defs.raw_tables import build_raw_table_assets
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
-from dfo_pipelines.extraction.parquet import load_parquet
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 # One observation of one series, with the dataflow's attributes, which include
 # the date the IMF published the release.
@@ -116,48 +112,11 @@ def imf_weo_raw_file(
     )
 
 
-@dg.asset(
-    group_name="imf_weo",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="table_not_empty", asset="imf_weo_raw_table", blocking=True
-        )
-    ],
+imf_weo_raw_table, imf_weo_raw_metadata = build_raw_table_assets(
+    group="imf_weo",
+    table="raw_weo",
+    title="IMF WEO",
 )
-def imf_weo_raw_table(
-    duckdb: DuckDBResource, imf_weo_raw_file: str
-) -> dg.MaterializeResult:
-    """Raw IMF WEO database table"""
-    with duckdb.get_connection() as connection:
-        rows = load_parquet(
-            connection,
-            path=imf_weo_raw_file,
-            schema="imf_weo",
-            table="raw_weo",
-        )
-    return raw_table_result("imf_weo.raw_weo", rows)
-
-
-@dg.asset(
-    group_name="imf_weo",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-)
-def imf_weo_raw_metadata(
-    duckdb: DuckDBResource, imf_weo_raw_file: str
-) -> dg.MaterializeResult:
-    """Extraction metadata for the IMF WEO raw data"""
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(imf_weo_raw_file).parent,
-            schema="imf_weo",
-            table="raw_weo_metadata",
-            release_names=("source",),
-        )
-    return metadata_table_result("imf_weo.raw_weo_metadata", rows)
 
 
 # TODO: Use imf-reader's own lookup once it has a public one; this reads its

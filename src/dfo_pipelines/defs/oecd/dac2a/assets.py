@@ -24,18 +24,14 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
+from dfo_pipelines.defs.raw_tables import build_raw_table_assets
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
-from dfo_pipelines.extraction.parquet import load_parquet
 
 
 def resolve_dac2a_bulk_file() -> tuple[str, str]:
@@ -128,56 +124,19 @@ def oecd_dac2a_raw_file(
     )
 
 
-@dg.asset(
-    group_name="oecd_dac2a",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="table_not_empty", asset="oecd_dac2a_raw_table", blocking=True
-        )
-    ],
+oecd_dac2a_raw_table, oecd_dac2a_raw_metadata = build_raw_table_assets(
+    group="oecd_dac2a",
+    table="raw_dac2a",
+    title="OECD DAC2a",
+    renames={
+        "RECIPIENT": "recipient_code",
+        "Recipient": "recipient_name",
+        "DONOR": "donor_code",
+        "Donor": "donor_name",
+        "PART": "part_code",
+        "Part": "part_name",
+    },
 )
-def oecd_dac2a_raw_table(
-    duckdb: DuckDBResource, oecd_dac2a_raw_file: str
-) -> dg.MaterializeResult:
-    """Raw OECD DAC2a database table"""
-    with duckdb.get_connection() as connection:
-        rows = load_parquet(
-            connection,
-            path=oecd_dac2a_raw_file,
-            schema="oecd_dac2a",
-            table="raw_dac2a",
-            renames={
-                "RECIPIENT": "recipient_code",
-                "Recipient": "recipient_name",
-                "DONOR": "donor_code",
-                "Donor": "donor_name",
-                "PART": "part_code",
-                "Part": "part_name",
-            },
-        )
-    return raw_table_result("oecd_dac2a.raw_dac2a", rows)
-
-
-@dg.asset(
-    group_name="oecd_dac2a",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-)
-def oecd_dac2a_raw_metadata(
-    duckdb: DuckDBResource, oecd_dac2a_raw_file: str
-) -> dg.MaterializeResult:
-    """Extraction metadata for the OECD DAC2a raw data"""
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(oecd_dac2a_raw_file).parent,
-            schema="oecd_dac2a",
-            table="raw_dac2a_metadata",
-            release_names=("source",),
-        )
-    return metadata_table_result("oecd_dac2a.raw_dac2a_metadata", rows)
 
 
 OECD_DAC2A_EXPORT_SPEC = ExportSpec(

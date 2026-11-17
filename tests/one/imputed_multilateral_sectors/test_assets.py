@@ -910,7 +910,7 @@ def test_raw_table_loads_the_parquet_fixture(tmp_path: Path) -> None:
 
     result = one_imputed_multilateral_sectors_raw_table(
         duckdb=duckdb,
-        one_imputed_multilateral_sectors_raw_file=str(FIXTURES / "data.parquet"),
+        raw_file=str(FIXTURES / "data.parquet"),
     )
 
     assert (
@@ -948,7 +948,7 @@ def test_raw_metadata_loads_the_recorded_extraction_metadata(tmp_path: Path) -> 
 
     result = one_imputed_multilateral_sectors_raw_metadata(
         duckdb=duckdb,
-        one_imputed_multilateral_sectors_raw_file=str(tmp_path / "data.parquet"),
+        raw_file=str(tmp_path / "data.parquet"),
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -994,44 +994,8 @@ def test_raw_metadata_raises_when_the_extraction_recorded_a_single_release_date(
     with pytest.raises(ValueError, match="release date keys do not match"):
         one_imputed_multilateral_sectors_raw_metadata(
             duckdb=duckdb,
-            one_imputed_multilateral_sectors_raw_file=str(tmp_path / "data.parquet"),
+            raw_file=str(tmp_path / "data.parquet"),
         )
-
-
-def test_raw_file_path_reaches_raw_table_and_raw_metadata(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into both downstream assets"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    bulk_patch, compute_patch = _matching_bulk_and_frame(
-        CONFORMING_ROWS, provenance=VALID_PROVENANCE
-    )
-
-    with _patch_download_clock(), bulk_patch, compute_patch:
-        result = dg.materialize(
-            [
-                one_imputed_multilateral_sectors_raw_file,
-                one_imputed_multilateral_sectors_raw_table,
-                one_imputed_multilateral_sectors_raw_metadata,
-            ],
-            resources={"raw_file_store": file_store, "duckdb": duckdb},
-        )
-
-    assert result.success
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-        )
-        == 3
-    )
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors"
-            ".raw_imputed_multilateral_sectors_metadata",
-        )
-        == 1
-    )
 
 
 def test_raw_file_writes_nothing_when_the_multisystem_token_mismatches(

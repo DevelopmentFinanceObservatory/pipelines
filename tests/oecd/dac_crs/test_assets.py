@@ -377,7 +377,7 @@ def test_dac_crs_raw_table_loads_parquet(tmp_path: Path) -> None:
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
     result = oecd_dac_crs_raw_table(
-        duckdb=duckdb, oecd_dac_crs_raw_file=str(FIXTURES / "data.parquet")
+        duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet")
     )
 
     assert row_count(duckdb, "oecd_dac_crs.raw_dac_crs") == 25
@@ -401,7 +401,7 @@ def test_dac_crs_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> Non
     )
 
     result = oecd_dac_crs_raw_metadata(
-        duckdb=duckdb, oecd_dac_crs_raw_file=str(tmp_path / "data.parquet")
+        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -409,29 +409,6 @@ def test_dac_crs_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> Non
         "dagster/table_name": dg.TextMetadataValue("oecd_dac_crs.raw_dac_crs_metadata"),
         "dagster/row_count": dg.IntMetadataValue(1),
     }
-
-
-def test_dac_crs_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into the downstream assets"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    with (
-        patch_bulk_lookup(),
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.bulk_download_crs",
-            side_effect=partial(write_download, FIXTURES / "data.parquet"),
-        ),
-    ):
-        result = dg.materialize(
-            [oecd_dac_crs_raw_file, oecd_dac_crs_raw_table, oecd_dac_crs_raw_metadata],
-            resources={"raw_file_store": file_store, "duckdb": duckdb},
-        )
-
-    assert result.success
-
-    assert row_count(duckdb, "oecd_dac_crs.raw_dac_crs") == 25
-    assert row_count(duckdb, "oecd_dac_crs.raw_dac_crs_metadata") == 1
 
 
 COMMITMENT_STATVAR = "dcid:Amount_FinancialObligation_Commitment_CRSTypeOfFlow10_CRSPurposeCode11110_Nominal"

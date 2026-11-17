@@ -30,16 +30,12 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
+from dfo_pipelines.defs.raw_tables import build_raw_table_assets
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
-from dfo_pipelines.extraction.parquet import load_parquet
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 CRS_BULK_LABEL = "CRS-Parquet"
 MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
@@ -425,55 +421,15 @@ def one_imputed_multilateral_sectors_raw_file(
     )
 
 
-@dg.asset(
-    group_name="one_imputed_multilateral_sectors",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="table_not_empty",
-            asset="one_imputed_multilateral_sectors_raw_table",
-            blocking=True,
-        )
-    ],
+(
+    one_imputed_multilateral_sectors_raw_table,
+    one_imputed_multilateral_sectors_raw_metadata,
+) = build_raw_table_assets(
+    group="one_imputed_multilateral_sectors",
+    table="raw_imputed_multilateral_sectors",
+    title="imputed multilateral spending by purpose",
+    release_names=("crs", "multisystem"),
 )
-def one_imputed_multilateral_sectors_raw_table(
-    duckdb: DuckDBResource, one_imputed_multilateral_sectors_raw_file: str
-) -> dg.MaterializeResult:
-    """Raw imputed multilateral spending by purpose database table"""
-    with duckdb.get_connection() as connection:
-        rows = load_parquet(
-            connection,
-            path=one_imputed_multilateral_sectors_raw_file,
-            schema="one_imputed_multilateral_sectors",
-            table="raw_imputed_multilateral_sectors",
-        )
-    return raw_table_result(
-        "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors", rows
-    )
-
-
-@dg.asset(
-    group_name="one_imputed_multilateral_sectors",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-)
-def one_imputed_multilateral_sectors_raw_metadata(
-    duckdb: DuckDBResource, one_imputed_multilateral_sectors_raw_file: str
-) -> dg.MaterializeResult:
-    """Extraction metadata for the imputed multilateral spending raw data"""
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(one_imputed_multilateral_sectors_raw_file).parent,
-            schema="one_imputed_multilateral_sectors",
-            table="raw_imputed_multilateral_sectors_metadata",
-            release_names=("crs", "multisystem"),
-        )
-    return metadata_table_result(
-        "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata",
-        rows,
-    )
 
 
 IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(

@@ -1,4 +1,12 @@
+from collections.abc import Collection, Mapping
+
 import dagster as dg
+from dagster_duckdb import DuckDBResource
+from upath import UPath
+
+from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.extraction.metadata import load_extraction_metadata
+from dfo_pipelines.extraction.parquet import load_parquet
 
 
 def raw_table_result(
@@ -26,3 +34,56 @@ def _table_metadata(table_name: str, rows: int) -> dict[str, dg.MetadataValue]:
         "dagster/table_name": dg.MetadataValue.text(table_name),
         "dagster/row_count": dg.MetadataValue.int(rows),
     }
+
+
+def build_raw_table_assets(
+    *,
+    group: str,
+    table: str,
+    title: str,
+    renames: Mapping[str, str] | None = None,
+    release_names: Collection[str] = ("source",),
+) -> tuple[dg.AssetsDefinition, dg.AssetsDefinition]:
+    """The `<group>_raw_table` and `<group>_raw_metadata` assets loading `<group>_raw_file`"""
+    raw_file_input = dg.AssetIn(f"{group}_raw_file")
+
+    @dg.asset(
+        name=f"{group}_raw_table",
+        description=f"Raw {title} database table",
+        ins={"raw_file": raw_file_input},
+        group_name=group,
+        kinds={"duckdb"},
+        automation_condition=EAGER_WHEN_CHECKS_PASS,
+        check_specs=[
+            dg.AssetCheckSpec(
+                name="table_not_empty", asset=f"{group}_raw_table", blocking=True
+            )
+        ],
+    )
+    def raw_table(duckdb: DuckDBResource, raw_file: str) -> dg.MaterializeResult:
+        with duckdb.get_connection() as connection:
+            rows = load_parquet(
+                connection, path=raw_file, schema=group, table=table, renames=renames
+            )
+        return raw_table_result(f"{group}.{table}", rows)
+
+    @dg.asset(
+        name=f"{group}_raw_metadata",
+        description=f"Extraction metadata for the {title} raw data",
+        ins={"raw_file": raw_file_input},
+        group_name=group,
+        kinds={"duckdb"},
+        automation_condition=EAGER_WHEN_CHECKS_PASS,
+    )
+    def raw_metadata(duckdb: DuckDBResource, raw_file: str) -> dg.MaterializeResult:
+        with duckdb.get_connection() as connection:
+            rows = load_extraction_metadata(
+                connection,
+                directory=UPath(raw_file).parent,
+                schema=group,
+                table=f"{table}_metadata",
+                release_names=release_names,
+            )
+        return metadata_table_result(f"{group}.{table}_metadata", rows)
+
+    return raw_table, raw_metadata

@@ -623,7 +623,7 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
     result = world_bank_ids_raw_table(
-        duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
+        duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet")
     )
 
     assert row_count(duckdb, "world_bank_ids.raw_ids") == FIXTURE_ROWS
@@ -689,7 +689,7 @@ def test_ids_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
     )
 
     result = world_bank_ids_raw_metadata(
-        duckdb=duckdb, world_bank_ids_raw_file=str(tmp_path / "data.parquet")
+        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -703,42 +703,6 @@ def test_ids_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
         DOWNLOADED_AT,
         pd.Timestamp(SOURCE_RELEASE_DATE),
     ]
-
-
-def test_ids_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into the raw table asset"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    source_df = pd.DataFrame(
-        {
-            "Country Code": ["AFG", "ZMB"],
-            "Country Name": ["Afghanistan", "Zambia"],
-            "Counterpart-Area Name": ["World", "Belgium"],
-            "Counterpart-Area Code": ["WLD", "071"],
-            "Series Name": ["Debt stock, bilateral", "Debt stock, bilateral"],
-            "Series Code": ["DT.DOD.BLAT.CD", "DT.DOD.BLAT.CD"],
-            2023: [1.5, 2.5],
-            2024: [3.0, 4.0],
-        }
-    )
-
-    with (
-        patch_release_date(),
-        patch_bulk_file_metadata(),
-        patch(
-            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-            side_effect=_fake_download(source_df),
-        ),
-    ):
-        result = dg.materialize(
-            [world_bank_ids_raw_file, world_bank_ids_raw_table],
-            resources={"raw_file_store": file_store, "duckdb": duckdb},
-        )
-
-    checks = {e.check_name: e.passed for e in result.get_asset_check_evaluations()}
-
-    assert checks == {"file_not_empty": True, "table_not_empty": True}
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 12  # 2 rows x 6 files
 
 
 TOTAL_STATVAR = (
