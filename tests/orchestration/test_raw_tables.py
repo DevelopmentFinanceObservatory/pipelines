@@ -8,12 +8,12 @@ import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.defs.raw_tables import (
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.orchestration.raw_tables import (
     build_raw_table_assets,
     metadata_table_result,
     raw_table_result,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 
 def test_raw_table_result_reports_the_table_and_its_row_count() -> None:
