@@ -6,12 +6,14 @@ from unittest.mock import patch
 import dagster as dg
 import pytest
 from dagster_duckdb import DuckDBResource
+from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import CRS_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
+    CRS_BULK_LABEL,
+    fetch_dac_crs_raw_file,
     oecd_dac_crs_dc_export,
-    oecd_dac_crs_raw_file,
     oecd_dac_crs_raw_metadata,
     oecd_dac_crs_raw_table,
     oecd_dac_crs_source,
@@ -23,6 +25,8 @@ from tests.helpers import row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+MODULE = "dfo_pipelines.defs.oecd.dac_crs.assets"
+
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
 
@@ -30,10 +34,6 @@ DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_VERSION = "v20260801"
 SOURCE_RELEASE_DATE = date(2026, 8, 1)
-
-
-class ReleaseDateLookupError(Exception):
-    """Raised by the mocked release date lookup to stop before the download"""
 
 
 def test_parse_crs_release_date_reads_the_date_from_the_version_token() -> None:
@@ -81,29 +81,22 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
     }
 
 
-def test_dac_crs_raw_file_dates_the_release_from_the_version(
-    tmp_path: Path,
-) -> None:
-    """Test the raw file asks for the release date from the version token"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+def test_dac_crs_raw_file_dates_the_release_from_the_version() -> None:
+    """Test the raw file fetches the CRS bulk file and dates the release from its
+    version token"""
+    with patch(f"{MODULE}.fetch_bulk_file", autospec=True) as fetch:
+        fetch_dac_crs_raw_file(UPath("data.parquet"))
 
-    with (
-        patch(
-            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
-            autospec=True,
-            return_value=(CRS_TEST_URL, SOURCE_VERSION),
-        ),
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.parse_crs_release_date",
-            side_effect=ReleaseDateLookupError,
-        ) as release_date,
-        pytest.raises(ReleaseDateLookupError),
-    ):
-        oecd_dac_crs_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    release_date.assert_called_once_with(SOURCE_VERSION)
+    arguments = dict(fetch.call_args.kwargs)
+    assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (
+        SOURCE_RELEASE_DATE
+    )
+    assert arguments == {
+        "flow_url": CRS_FLOW_URL,
+        "label": CRS_BULK_LABEL,
+        "download": bulk_download_crs,
+        "downloaded_name": "CRS.parquet",
+    }
 
 
 def test_dac_crs_raw_table_loads_parquet(tmp_path: Path) -> None:

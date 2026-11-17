@@ -4,14 +4,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
-import pytest
 from dagster_duckdb import DuckDBResource
+from oda_reader import bulk_download_dac1
+from oda_reader.dac1 import DAC1_BULK_LABEL
 from oda_reader.download.download_tools import DAC1_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac1.assets import (
+    fetch_dac1_raw_file,
     oecd_dac1_dc_export,
-    oecd_dac1_raw_file,
     oecd_dac1_raw_metadata,
     oecd_dac1_raw_table,
     oecd_dac1_source,
@@ -22,16 +23,14 @@ from tests.helpers import column_list, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+MODULE = "dfo_pipelines.defs.oecd.dac1.assets"
+
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC1_TEST_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
 
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_RELEASE_DATE = date(2026, 7, 7)
-
-
-class ReleaseDateLookupError(Exception):
-    """Raised by the mocked release date lookup to stop before the download"""
 
 
 def test_dac1_source_observes_the_dac1_bulk_file() -> None:
@@ -59,27 +58,28 @@ def test_dac1_source_observes_the_dac1_bulk_file() -> None:
     }
 
 
-def test_dac1_raw_file_dates_the_release_from_the_url(
-    tmp_path: Path,
-) -> None:
-    """Test the raw file asks for the release date from the bulk file's URL"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
+def test_dac1_raw_file_dates_the_release_from_the_url() -> None:
+    """Test the raw file fetches the DAC1 bulk file and dates the release from its URL"""
     with (
+        patch(f"{MODULE}.fetch_bulk_file", autospec=True) as fetch,
         patch(
-            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
-            autospec=True,
-            return_value=(DAC1_TEST_URL, "v20260801"),
-        ),
-        patch(
-            "dfo_pipelines.defs.oecd.dac1.assets.fetch_bulk_file_release_date",
-            side_effect=ReleaseDateLookupError,
-        ) as release_date,
-        pytest.raises(ReleaseDateLookupError),
+            f"{MODULE}.fetch_bulk_file_release_date",
+            return_value=SOURCE_RELEASE_DATE,
+        ) as dating,
     ):
-        oecd_dac1_raw_file(context=dg.build_asset_context(), raw_file_store=file_store)
+        fetch_dac1_raw_file(UPath("data.parquet"))
+        arguments = dict(fetch.call_args.kwargs)
+        assert arguments.pop("release_date")(DAC1_TEST_URL, "v20260801") == (
+            SOURCE_RELEASE_DATE
+        )
 
-    release_date.assert_called_once_with(DAC1_TEST_URL)
+    dating.assert_called_once_with(DAC1_TEST_URL)
+    assert arguments == {
+        "flow_url": DAC1_FLOW_URL,
+        "label": DAC1_BULK_LABEL,
+        "download": bulk_download_dac1,
+        "downloaded_name": "table1_data.parquet",
+    }
 
 
 def test_dac1_raw_table_loads_parquet(tmp_path: Path) -> None:

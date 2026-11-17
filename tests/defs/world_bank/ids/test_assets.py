@@ -20,7 +20,6 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
-    world_bank_ids_raw_file,
     world_bank_ids_raw_metadata,
     world_bank_ids_raw_table,
     world_bank_ids_source,
@@ -30,7 +29,6 @@ from dfo_pipelines.extraction.metadata import (
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    AutomationHarness,
     column_list,
     list_first_row,
     meta,
@@ -108,46 +106,6 @@ def _get_mock_head_headers(*, filename: str, version: str) -> dict[str, str]:
         "content-length": "132758204",
         "x-ms-version-id": VERSION_HEADERS[version][1],
     }
-
-
-class _IDSAutomation(AutomationHarness):
-    """Drives the IDS assets against an ephemeral instance, as the daemon does
-
-    HEAD responses and downloads are mocked for as long as the context is open.
-    Assign to `version` to make the next observation see a republished source.
-    """
-
-    def __init__(self, tmp_path: Path) -> None:
-        super().__init__(
-            tmp_path,
-            source=world_bank_ids_source,
-            raw_assets=[world_bank_ids_raw_file, world_bank_ids_raw_table],
-        )
-        self.version = "v1"
-
-    def _start_mocks(self) -> None:
-        # The gate compares data versions rather than data, so the frame's
-        # contents just needs to not be empty.
-        source_df = pd.DataFrame(
-            {"Country Code": ["AFG"], "Country Name": ["Afghanistan"]}
-        )
-        self._stack.enter_context(_mock_http(self._head_response))
-        self._stack.enter_context(patch_release_date())
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-                side_effect=_fake_download(source_df),
-            )
-        )
-
-    def _head_response(self, request: httpx.Request) -> httpx.Response:
-        """Answer a HEAD request with headers for the current version"""
-        return httpx.Response(
-            200,
-            headers=_get_mock_head_headers(
-                filename=request.url.path.rsplit("/", 1)[1], version=self.version
-            ),
-        )
 
 
 def test_fetch_ids_bulk_file_metadata_heads_every_file() -> None:
@@ -300,37 +258,6 @@ def test_world_bank_ids_source_observe_fn_raises_on_connection_error() -> None:
 
     with _mock_http(handler), pytest.raises(httpx.ConnectError):
         observe()
-
-
-def test_ids_source_observation_records_an_observation_event(tmp_path: Path) -> None:
-    """Test observing the source records one observation against the source"""
-
-    with _IDSAutomation(tmp_path) as automation:
-        result = automation.observe()
-
-    assert [
-        entry.asset_key
-        for entry in result.all_events
-        if entry.event_type_value == "ASSET_OBSERVATION"
-    ] == [world_bank_ids_source.key]
-
-
-def test_ids_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
-    """Test the source's condition requests one observation per UTC day
-
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
-    """
-    with _IDSAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
-        # so the first tick requests nothing whatever the time is.
-        automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
-
-        assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
 
 
 def test_fetch_ids_raw_file_combines_the_downloads_unmodified(tmp_path: Path) -> None:

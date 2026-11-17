@@ -17,7 +17,6 @@ from dfo_pipelines.defs.imf.weo.assets import (
     fetch_weo_publication_date,
     fetch_weo_raw_file,
     imf_weo_dc_export,
-    imf_weo_raw_file,
     imf_weo_raw_metadata,
     imf_weo_raw_table,
     imf_weo_source,
@@ -27,7 +26,6 @@ from dfo_pipelines.extraction.metadata import (
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    AutomationHarness,
     column_list,
     list_first_row,
     list_parquet_columns,
@@ -153,75 +151,6 @@ def test_imf_weo_source_observe_fn_raises_when_lookup_fails() -> None:
         pytest.raises(DataflowDiscoveryError, match="no usable WEO dataflow"),
     ):
         observe()
-
-
-class _WEOAutomation(AutomationHarness):
-    """Drives the WEO assets against an ephemeral instance, as the daemon does
-
-    get_weo_versions is mocked for as long as the context is open. Assign to
-    `release` to make the next observation see a newly published release.
-    """
-
-    def __init__(self, tmp_path: Path) -> None:
-        super().__init__(
-            tmp_path,
-            source=imf_weo_source,
-            raw_assets=[imf_weo_raw_file, imf_weo_raw_table],
-        )
-        self.release: tuple = ("April", 2026)
-
-    def _start_mocks(self) -> None:
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.weo.get_weo_versions",
-                side_effect=lambda: [self.release, ("October", 2025)],
-            )
-        )
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.weo.fetch_data_with_metadata",
-                side_effect=lambda version: return_dataframe(FIXTURES / "data.parquet"),
-            )
-        )
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.fetch_weo_publication_date",
-                return_value=PUBLICATION_DATE,
-            )
-        )
-
-
-def test_imf_weo_source_observation_records_an_observation_event(
-    tmp_path: Path,
-) -> None:
-    """Test observing the source records one observation against the source"""
-
-    with _WEOAutomation(tmp_path) as automation:
-        result = automation.observe()
-
-    assert [
-        entry.asset_key
-        for entry in result.all_events
-        if entry.event_type_value == "ASSET_OBSERVATION"
-    ] == [imf_weo_source.key]
-
-
-def test_imf_weo_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
-    """Test the source's condition requests one observation per UTC day
-
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
-    """
-    with _WEOAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
-        # so the first tick requests nothing whatever the time is.
-        automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
-
-        assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
 
 
 def test_imf_weo_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:

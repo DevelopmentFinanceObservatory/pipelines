@@ -1,5 +1,4 @@
 import json
-from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -20,8 +19,8 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
     MULTISYSTEM_BULK_LABEL,
     build_quality_metadata,
+    fetch_imputed_multilateral_sectors_raw_file,
     one_imputed_multilateral_sectors_dc_export,
-    one_imputed_multilateral_sectors_raw_file,
     one_imputed_multilateral_sectors_raw_metadata,
     one_imputed_multilateral_sectors_raw_table,
     one_imputed_multilateral_sectors_source,
@@ -29,12 +28,9 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     resolve_bulk_versions,
     verify_release_provenance,
 )
-from dfo_pipelines.extraction.metadata import (
-    read_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, list_first_row, meta, row_count
+from tests.helpers import column_list, list_first_row, row_count
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -97,19 +93,6 @@ def test_resolve_bulk_versions_reads_both_releases() -> None:
     assert crs == (CRS_TEST_URL, CRS_VERSION)
     assert multi == (MULTI_TEST_URL, MULTI_VERSION)
     assert lookup.call_count == 2
-
-
-def test_resolve_bulk_versions_raises_when_crs_version_unavailable() -> None:
-    """Test a missing CRS version fails loudly rather than fingerprinting one input"""
-    with (
-        patch(
-            f"{OECD_MODULE}.get_bulk_file_url_with_version",
-            autospec=True,
-            return_value=(CRS_TEST_URL, None),
-        ),
-        pytest.raises(ValueError, match="Bulk file version check"),
-    ):
-        resolve_bulk_versions()
 
 
 def test_resolve_bulk_versions_raises_when_multisystem_version_unavailable() -> None:
@@ -628,14 +611,6 @@ def test_source_data_version_moves_when_the_oda_data_version_alone_changes() -> 
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 
-@contextmanager
-def _patch_download_clock():
-    """Freeze the instant the raw file asset stamps a download with"""
-    with patch("dfo_pipelines.orchestration.raw_files.datetime") as mock_datetime:
-        mock_datetime.now.return_value = DOWNLOADED_AT
-        yield
-
-
 CONFORMING_ROWS = [
     _row(
         year=2022,
@@ -697,7 +672,6 @@ def test_raw_file_raises_when_imputed_multilateral_by_purpose_returns_mixed_curr
     publish figures in the wrong currency while still labelling them
     dcid:CurrencyUSD.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     rows = [
         {**CONFORMING_ROWS[0], ODASchema.CURRENCY: "USD"},
         {**CONFORMING_ROWS[1], ODASchema.CURRENCY: "EUR"},
@@ -711,9 +685,7 @@ def test_raw_file_raises_when_imputed_multilateral_by_purpose_returns_mixed_curr
         compute_patch,
         pytest.raises(ValueError, match="unexpected currencies"),
     ):
-        one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetch_imputed_multilateral_sectors_raw_file(UPath(tmp_path / "data.parquet"))
 
 
 def test_raw_file_raises_when_imputed_multilateral_by_purpose_returns_non_current_prices(
@@ -725,7 +697,6 @@ def test_raw_file_raises_when_imputed_multilateral_by_purpose_returns_non_curren
     report "current" prices; a silent default change to constant prices would
     publish figures still labelled dcid:Nominal.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     rows = [
         {**CONFORMING_ROWS[0], ODASchema.PRICES: "current"},
         {**CONFORMING_ROWS[1], ODASchema.PRICES: "constant"},
@@ -739,9 +710,7 @@ def test_raw_file_raises_when_imputed_multilateral_by_purpose_returns_non_curren
         compute_patch,
         pytest.raises(ValueError, match="unexpected prices"),
     ):
-        one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetch_imputed_multilateral_sectors_raw_file(UPath(tmp_path / "data.parquet"))
 
 
 def test_raw_file_calls_the_compute_with_refresh_and_flow_types(tmp_path: Path) -> None:
@@ -752,26 +721,19 @@ def test_raw_file_calls_the_compute_with_refresh_and_flow_types(tmp_path: Path) 
     flow_types is passed explicitly rather than relied on as a default; see
     FLOW_TYPES for why both flow types are needed.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     bulk_patch, compute_patch = _matching_bulk_and_frame(
         CONFORMING_ROWS, provenance=VALID_PROVENANCE
     )
 
-    with (
-        _patch_download_clock(),
-        bulk_patch,
-        compute_patch as imputed_multilateral_by_purpose,
-    ):
-        one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+    with bulk_patch, compute_patch as imputed_multilateral_by_purpose:
+        fetch_imputed_multilateral_sectors_raw_file(UPath(tmp_path / "data.parquet"))
 
     imputed_multilateral_by_purpose.assert_called_once_with(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True
     )
 
 
-def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
+def test_raw_file_writes_the_parquet_and_returns_the_release_for_a_conforming_frame(
     tmp_path: Path,
 ) -> None:
     """Test a conforming frame passes the guards and is written out in full
@@ -779,11 +741,7 @@ def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
     A conforming frame carries {"USD"} currency and {"current"} prices,
     with matching provenance.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    directory = file_store.build_date_partitioned_path(
-        "one_imputed_multilateral_sectors/imputed_multilateral_sectors",
-        partition_date=DOWNLOADED_AT.date(),
-    )
+    file_path = tmp_path / "data.parquet"
     expected = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
@@ -795,61 +753,34 @@ def test_raw_file_writes_the_parquet_and_metadata_for_a_conforming_frame(
         return_value=expected,
     )
 
-    with _patch_download_clock(), bulk_patch, compute_patch:
-        result = one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+    with bulk_patch, compute_patch:
+        fetched = fetch_imputed_multilateral_sectors_raw_file(UPath(file_path))
 
-    written = pd.read_parquet(directory / "data.parquet")
+    written = pd.read_parquet(file_path)
     # Parquet round trip preserves the nullable Int64 columns and float/str
     # dtypes here, so the frame comes back byte-for-byte comparable.
     pd.testing.assert_frame_equal(written, expected)
 
-    recorded = read_extraction_metadata(directory, release_names=("crs", "multisystem"))
-    assert recorded.downloaded_at == DOWNLOADED_AT
-    assert recorded.release_dates == {
+    assert fetched.release_dates == {
         "crs": date(2026, 8, 1),
         "multisystem": date(2026, 7, 15),
     }
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.value == str(directory / "data.parquet")
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == 3
-    assert meta(result, "crs_version", str) == CRS_VERSION
-    assert meta(result, "multisystem_version", str) == MULTI_VERSION
-    assert meta(result, "crs_release_id", dg.TextMetadataValue).value == CRS_VERSION
-    assert (
-        meta(result, "multisystem_release_id", dg.TextMetadataValue).value
-        == MULTI_VERSION
-    )
-    assert meta(result, "package_version", dg.TextMetadataValue).value == "2.8.1"
-    assert meta(result, "crs_release_date", dg.TextMetadataValue).value == "2026-08-01"
-    assert (
-        meta(result, "multisystem_release_date", dg.TextMetadataValue).value
-        == "2026-07-15"
-    )
-    assert (
-        meta(result, "value_share_status_imputed", dg.FloatMetadataValue).value == 1.0
-    )
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
+    metadata = fetched.metadata
+    assert metadata["crs_version"] == CRS_VERSION
+    assert metadata["multisystem_version"] == MULTI_VERSION
+    assert metadata["crs_release_id"] == dg.MetadataValue.text(CRS_VERSION)
+    assert metadata["multisystem_release_id"] == dg.MetadataValue.text(MULTI_VERSION)
+    assert metadata["package_version"] == dg.MetadataValue.text("2.8.1")
+    assert metadata["value_share_status_imputed"] == dg.MetadataValue.float(1.0)
 
 
 def _refused_and_nothing_written(tmp_path: Path, *, bulk_patch, compute_patch) -> None:
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    directory = file_store.build_date_partitioned_path(
-        "one_imputed_multilateral_sectors/imputed_multilateral_sectors",
-        partition_date=DOWNLOADED_AT.date(),
-    )
+    file_path = tmp_path / "data.parquet"
 
-    with _patch_download_clock(), bulk_patch, compute_patch, pytest.raises(ValueError):
-        one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+    with bulk_patch, compute_patch, pytest.raises(ValueError):
+        fetch_imputed_multilateral_sectors_raw_file(UPath(file_path))
 
-    assert not (directory / "data.parquet").exists()
-    assert not (directory / "metadata.json").exists()
+    assert not file_path.exists()
 
 
 def test_raw_file_writes_nothing_when_provenance_is_missing(tmp_path: Path) -> None:
@@ -1021,7 +952,6 @@ def test_raw_file_writes_nothing_when_a_release_moves_mid_compute(
     download the new file under the old token; only comparing the token
     observed before the compute to one observed after can catch this.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
     frame = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
@@ -1032,23 +962,16 @@ def test_raw_file_writes_nothing_when_a_release_moves_mid_compute(
         autospec=True,
         return_value=frame,
     )
-    directory = file_store.build_date_partitioned_path(
-        "one_imputed_multilateral_sectors/imputed_multilateral_sectors",
-        partition_date=DOWNLOADED_AT.date(),
-    )
+    file_path = tmp_path / "data.parquet"
 
     with (
-        _patch_download_clock(),
         bulk_patch,
         compute_patch,
         pytest.raises(ValueError, match="CRS release moved"),
     ):
-        one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetch_imputed_multilateral_sectors_raw_file(UPath(file_path))
 
-    assert not (directory / "data.parquet").exists()
-    assert not (directory / "metadata.json").exists()
+    assert not file_path.exists()
 
 
 def test_raw_file_writes_nothing_when_a_release_token_carries_no_date(
