@@ -1,13 +1,24 @@
 from datetime import date
-from unittest.mock import patch
+from functools import partial
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import httpx
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
+from upath import UPath
 
-from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
+from dfo_pipelines.extraction.oecd import (
+    fetch_bulk_file,
+    fetch_bulk_file_release_date,
+    resolve_bulk_file,
+)
 
 # Stand-in for a resolved bulk-download URL: never fetched, the GET is mocked.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
+
+FLOW_URL = "https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_DAC1@DF_DAC1"
 
 
 def _release_date_response(headers: dict[str, str], status_code: int = 206):
@@ -50,3 +61,114 @@ def test_fetch_bulk_file_release_date_raises_on_http_error() -> None:
         pytest.raises(httpx.HTTPStatusError),
     ):
         fetch_bulk_file_release_date(BULK_FILE_URL)
+
+
+def _version_lookup(version: str | None):
+    """Patch the bulk file lookup oda_reader makes"""
+    return patch(
+        "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+        autospec=True,
+        return_value=(BULK_FILE_URL, version),
+    )
+
+
+def test_resolve_bulk_file_returns_the_url_and_version_bypassing_the_cache() -> None:
+    """Test the bulk file is looked up by flow and label, bypassing oda_reader's
+    annotation cache so a daily observation sees a republish"""
+    with _version_lookup("0x8DEDC2882EAC20B") as lookup:
+        assert resolve_bulk_file(flow_url=FLOW_URL, label="DAC1 full dataset") == (
+            BULK_FILE_URL,
+            "0x8DEDC2882EAC20B",
+        )
+
+    lookup.assert_called_once_with(
+        flow_url=FLOW_URL, label="DAC1 full dataset", bypass_annotation_cache=True
+    )
+
+
+def test_resolve_bulk_file_raises_without_a_version() -> None:
+    """Test a lookup with no version token raises, since nothing could gate a rerun"""
+    with (
+        _version_lookup(None),
+        pytest.raises(ValueError, match="Bulk file version check"),
+    ):
+        resolve_bulk_file(flow_url=FLOW_URL, label="DAC1 full dataset")
+
+
+LABEL = "Example full dataset"
+DOWNLOADED_NAME = "example_data.parquet"
+
+VERSION = "v20260801"
+
+RELEASE_DATE = date(2026, 7, 7)
+
+
+def write_download(save_to_path: str, use_raw_cache: bool) -> None:
+    """Write a small table where oda_reader's bulk download writes its file"""
+    pq.write_table(pa.table({"DONOR": [1, 2, 3]}), Path(save_to_path) / DOWNLOADED_NAME)
+
+
+def build_fetch(*, download: Mock, release_date: Mock):
+    return partial(
+        fetch_bulk_file,
+        flow_url=FLOW_URL,
+        label=LABEL,
+        download=download,
+        downloaded_name=DOWNLOADED_NAME,
+        release_date=release_date,
+    )
+
+
+def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> None:
+    """Test the downloaded file becomes the raw file unchanged, dated by the
+    release-date lookup, with the version the download was resolved at"""
+    download = Mock(side_effect=write_download)
+    release_date = Mock(return_value=RELEASE_DATE)
+    fetch = build_fetch(download=download, release_date=release_date)
+
+    with _version_lookup(VERSION) as lookup:
+        release_dates, metadata = fetch(UPath(tmp_path / "data.parquet"))
+
+    lookup.assert_called_once_with(
+        flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True
+    )
+    release_date.assert_called_once_with(BULK_FILE_URL, VERSION)
+    download.assert_called_once_with(save_to_path=str(tmp_path), use_raw_cache=False)
+    assert [path.name for path in tmp_path.iterdir()] == ["data.parquet"]
+    assert pq.read_table(tmp_path / "data.parquet").to_pydict() == {"DONOR": [1, 2, 3]}
+    assert release_dates == {"source": RELEASE_DATE}
+    assert metadata == {"version": VERSION}
+
+
+def test_fetch_bulk_file_resolves_the_bulk_file_before_downloading(
+    tmp_path: Path,
+) -> None:
+    """Test the cache-bypassing lookup runs before the download, which re-resolves
+    the URL through the cache that lookup refreshes"""
+    with _version_lookup(VERSION) as lookup:
+
+        def download(save_to_path: str, use_raw_cache: bool) -> None:
+            lookup.assert_called_once()
+            write_download(save_to_path, use_raw_cache)
+
+        fetch = build_fetch(
+            download=Mock(side_effect=download),
+            release_date=Mock(return_value=RELEASE_DATE),
+        )
+        fetch(UPath(tmp_path / "data.parquet"))
+
+
+def test_fetch_bulk_file_does_not_download_when_the_release_cannot_be_dated(
+    tmp_path: Path,
+) -> None:
+    """Test a release-date lookup that fails stops the fetch before the download"""
+    download = Mock(side_effect=write_download)
+    fetch = build_fetch(
+        download=download,
+        release_date=Mock(side_effect=ValueError("no release date")),
+    )
+
+    with _version_lookup(VERSION), pytest.raises(ValueError, match="no release date"):
+        fetch(UPath(tmp_path / "data.parquet"))
+
+    download.assert_not_called()

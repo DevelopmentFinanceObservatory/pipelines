@@ -1,6 +1,6 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 import dagster as dg
 import httpx
@@ -17,14 +17,11 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
-from dfo_pipelines.orchestration.automation import (
-    EAGER_WHEN_CHECKS_PASS,
-)
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -137,62 +134,29 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-@dg.asset(
-    deps=[world_bank_ids_source],
-    group_name="world_bank_ids",
-    kinds={"file", "parquet"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="file_not_empty", asset="world_bank_ids_raw_file", blocking=True
-        )
-    ],
-)
-def world_bank_ids_raw_file(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
-):
-    """Raw World Bank IDS bulk download file and metadata
+def fetch_ids_raw_file(
+    file_path: UPath,
+) -> FetchedRelease:
+    """Write the combined IDS bulk files to `file_path`
 
-    Unmodified concatenation of the World Bank's six IDS bulk XLSX files
+    An unmodified concatenation of the World Bank's six IDS bulk XLSX files
     ("Counterpart-Area: All") into a single wide-format parquet file.
     """
-    downloaded_at = datetime.now(UTC)
-    directory = raw_file_store.build_date_partitioned_path("world_bank_ids/ids")
-    directory.mkdir(parents=True, exist_ok=True)
-
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
-    download_ids_bulk_data_files(directory)
-
-    output_file = directory / "data.parquet"
-    rows = combine_ids_bulk_data_files(directory, output_file)
-    write_extraction_metadata(
-        directory,
-        downloaded_at=downloaded_at,
-        release_dates={"source": source_release_date},
+    download_ids_bulk_data_files(file_path.parent)
+    combine_ids_bulk_data_files(file_path.parent, file_path)
+    return FetchedRelease(
+        release_dates={"source": source_release_date}, metadata={"files": files}
     )
 
-    file_size = output_file.stat().st_size
 
-    context.log.info(
-        f"Wrote World Bank IDS data to {output_file} ({file_size} bytes, {rows} rows)"
-    )
-
-    return dg.MaterializeResult(
-        value=str(output_file),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(output_file)),
-            "file_size": dg.MetadataValue.int(file_size),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-            "files": dg.MetadataValue.json(files),
-            "source_release_date": dg.MetadataValue.text(
-                source_release_date.isoformat()
-            ),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
-        ],
-    )
+world_bank_ids_raw_file = build_raw_file_asset(
+    group="world_bank_ids",
+    dataset="ids",
+    title="World Bank IDS",
+    fetch=fetch_ids_raw_file,
+)
 
 
 world_bank_ids_raw_table, world_bank_ids_raw_metadata = build_raw_table_assets(
@@ -227,7 +191,7 @@ def download_ids_bulk_data_files(output_folder: UPath) -> None:
         raise
 
 
-def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
+def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> None:
     """Concatenate the downloaded XLSX files into a single parquet file.
 
     The files are combined unmodified (wide format as published, original
@@ -236,12 +200,10 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
 
     Each file is appended as its own row group rather than being concatenated
     in memory first, so peak memory is bounded by the largest single file
-    rather than by the whole dataset. Returns the row count.
+    rather than by the whole dataset.
     """
     tmp_path = output_file.with_suffix(".tmp")
     writer: pq.ParquetWriter | None = None
-    rows = 0
-
     try:
         try:
             for filename in BULK_XLSX_URLS:
@@ -265,7 +227,6 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
                 # This raises if a file's schema differs from the first, rather than
                 # silently null-filling the way pd.concat would.
                 writer.write_table(table)
-                rows += table.num_rows
                 del table
         finally:
             if writer is not None:
@@ -278,8 +239,6 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
             (input_folder / filename).unlink(missing_ok=True)
 
     tmp_path.rename(output_file)
-
-    return rows
 
 
 IDS_EXPORT_SPEC = ExportSpec(

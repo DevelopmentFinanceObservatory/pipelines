@@ -1,5 +1,4 @@
 import json
-from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -16,24 +15,21 @@ from upath import UPath
 from dfo_pipelines.defs.imf.weo.assets import (
     PUBLICATION_DATE_URL,
     fetch_weo_publication_date,
+    fetch_weo_raw_file,
     imf_weo_dc_export,
-    imf_weo_raw_file,
     imf_weo_raw_metadata,
     imf_weo_raw_table,
     imf_weo_source,
 )
 from dfo_pipelines.extraction.metadata import (
-    read_extraction_metadata,
     write_extraction_metadata,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    AutomationHarness,
     column_list,
     list_first_row,
     list_parquet_columns,
     list_parquet_first_row,
-    meta,
     row_count,
 )
 
@@ -48,82 +44,11 @@ def return_dataframe(parquet: Path) -> pd.DataFrame:
     return pd.read_parquet(parquet)
 
 
-@contextmanager
-def _patched_weo(release: tuple = ("April", 2026), parquet: str = "data.parquet"):
-    """Patch the WEO version lookup and download together
-
-    The asset resolves its release via get_weo_versions before fetching, so
-    both stubs are needed to keep the download off the network.
-    """
-    with (
-        patch(
-            "dfo_pipelines.defs.imf.weo.assets.weo.get_weo_versions",
-            return_value=[release, ("October", 2025)],
-        ),
-        patch(
-            "dfo_pipelines.defs.imf.weo.assets.weo.fetch_data_with_metadata",
-            side_effect=lambda version: return_dataframe(FIXTURES / parquet),
-        ),
-        patch(
-            "dfo_pipelines.defs.imf.weo.assets.fetch_weo_publication_date",
-            return_value=PUBLICATION_DATE,
-        ),
-    ):
-        yield
-
-
-def test_imf_weo_raw_file_writes_parquet(tmp_path: Path) -> None:
-    """Test IMF WEO raw file asset writes the download to a date-partitioned path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
-    with (
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
-        _patched_weo(),
-    ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("imf_weo/weo")
-        result = imf_weo_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.value == str(raw_dir / "data.parquet")
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
-        "file_size": dg.IntMetadataValue((raw_dir / "data.parquet").stat().st_size),
-        "dagster/row_count": dg.IntMetadataValue(FIXTURE_ROWS),
-        "version": dg.TextMetadataValue("April 2026"),
-        "source_release_date": dg.TextMetadataValue(PUBLICATION_DATE.isoformat()),
-    }
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
-    recorded = read_extraction_metadata(raw_dir, release_names=("source",))
-    assert recorded.release_dates == {"source": PUBLICATION_DATE}
-
-
-def test_imf_weo_raw_file_check_fails_when_file_empty(tmp_path: Path) -> None:
-    """Test IMF WEO raw file check fails when the download is empty"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
-    with _patched_weo(parquet="data-0.parquet"):
-        result = imf_weo_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
-
-
-def test_imf_weo_raw_file_pins_the_download_to_the_resolved_release(
+def test_fetch_weo_raw_file_pins_the_download_to_the_resolved_release(
     tmp_path: Path,
 ) -> None:
     """Test the download names its release, so imf_reader cannot roll back to an older one"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_path = UPath(tmp_path / "data.parquet")
 
     with (
         patch(
@@ -137,22 +62,22 @@ def test_imf_weo_raw_file_pins_the_download_to_the_resolved_release(
         patch(
             "dfo_pipelines.defs.imf.weo.assets.fetch_weo_publication_date",
             return_value=PUBLICATION_DATE,
-        ),
+        ) as publication_date,
     ):
-        result = imf_weo_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        release_dates, metadata = fetch_weo_raw_file(file_path)
 
     fetch.assert_called_once_with(version=("April", 2026))
-    assert isinstance(result, dg.MaterializeResult)
-    assert meta(result, "version", dg.TextMetadataValue).value == "April 2026"
+    publication_date.assert_called_once_with(("April", 2026))
+    assert len(pd.read_parquet(file_path)) == FIXTURE_ROWS
+    assert release_dates == {"source": PUBLICATION_DATE}
+    assert metadata == {"version": "April 2026"}
 
 
-def test_imf_weo_raw_file_raises_when_the_release_cannot_be_served(
+def test_fetch_weo_raw_file_raises_when_the_release_cannot_be_served(
     tmp_path: Path,
 ) -> None:
     """Test an unservable release surfaces rather than rolling back to an older one"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_path = UPath(tmp_path / "data.parquet")
 
     with (
         patch(
@@ -165,11 +90,9 @@ def test_imf_weo_raw_file_raises_when_the_release_cannot_be_served(
         ),
         pytest.raises(NoDataError, match="no data for April;2026"),
     ):
-        imf_weo_raw_file(context=dg.build_asset_context(), raw_file_store=file_store)
+        fetch_weo_raw_file(file_path)
 
-    assert not (
-        file_store.build_date_partitioned_path("imf_weo/weo") / "data.parquet"
-    ).exists()
+    assert not file_path.exists()
 
 
 def test_imf_weo_raw_table_loads_parquet(tmp_path: Path) -> None:
@@ -228,125 +151,6 @@ def test_imf_weo_source_observe_fn_raises_when_lookup_fails() -> None:
         pytest.raises(DataflowDiscoveryError, match="no usable WEO dataflow"),
     ):
         observe()
-
-
-class _WEOAutomation(AutomationHarness):
-    """Drives the WEO assets against an ephemeral instance, as the daemon does
-
-    get_weo_versions is mocked for as long as the context is open. Assign to
-    `release` to make the next observation see a newly published release.
-    """
-
-    def __init__(self, tmp_path: Path) -> None:
-        super().__init__(
-            tmp_path,
-            source=imf_weo_source,
-            raw_assets=[imf_weo_raw_file, imf_weo_raw_table],
-        )
-        self.release: tuple = ("April", 2026)
-
-    def _start_mocks(self) -> None:
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.weo.get_weo_versions",
-                side_effect=lambda: [self.release, ("October", 2025)],
-            )
-        )
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.weo.fetch_data_with_metadata",
-                side_effect=lambda version: return_dataframe(FIXTURES / "data.parquet"),
-            )
-        )
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.imf.weo.assets.fetch_weo_publication_date",
-                return_value=PUBLICATION_DATE,
-            )
-        )
-
-
-def test_imf_weo_source_observation_records_an_observation_event(
-    tmp_path: Path,
-) -> None:
-    """Test observing the source records one observation against the source"""
-
-    with _WEOAutomation(tmp_path) as automation:
-        result = automation.observe()
-
-    assert [
-        entry.asset_key
-        for entry in result.all_events
-        if entry.event_type_value == "ASSET_OBSERVATION"
-    ] == [imf_weo_source.key]
-
-
-def test_imf_weo_raw_assets_are_not_rerun_when_the_source_is_unchanged(
-    tmp_path: Path,
-) -> None:
-    """Test a repeat observation at an unchanged data version requests no rerun
-
-    This is the point of the new data check: the raw assets must not re-run
-    while the IMF has not published a new WEO release.
-    """
-    with _WEOAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-        # A baseline tick, not evidence: every condition is reset on its initial
-        # evaluation, so the first tick requests nothing whatever the source did.
-        automation.tick()
-
-        automation.observe()
-
-        assert automation.tick() == {
-            "imf_weo_raw_file": 0,
-            "imf_weo_raw_table": 0,
-        }
-
-
-def test_imf_weo_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
-    """Test the source's condition requests one observation per UTC day
-
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
-    """
-    with _WEOAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
-        # so the first tick requests nothing whatever the time is.
-        automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
-
-        assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
-
-
-def test_imf_weo_raw_assets_are_rerun_when_the_source_data_version_changes(
-    tmp_path: Path,
-) -> None:
-    """Test a changed data version requests the raw assets, and only once"""
-    with _WEOAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-        automation.tick()  # baseline, as above
-
-        automation.release = ("October", 2026)
-        automation.observe()
-
-        # Both are requested on the same tick: eager() counts a dependency that
-        # will be requested as updated, so the chain is launched in one run.
-        assert automation.tick() == {
-            "imf_weo_raw_file": 1,
-            "imf_weo_raw_table": 1,
-        }
-
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-
-        assert automation.tick() == {
-            "imf_weo_raw_file": 0,
-            "imf_weo_raw_table": 0,
-        }
 
 
 def test_imf_weo_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:

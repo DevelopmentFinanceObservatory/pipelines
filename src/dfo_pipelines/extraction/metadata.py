@@ -4,10 +4,24 @@ import json
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any, NamedTuple
 
 from upath import UPath
 
 METADATA_FILE_NAME = "metadata.json"
+
+
+class FetchedRelease(NamedTuple):
+    """What a fetch found: the release dates and the source's own metadata
+
+    Attributes:
+        release_dates: Date each named source released the fetched data, keyed by
+            source name.
+        metadata: The source's own materialization metadata.
+    """
+
+    release_dates: Mapping[str, date]
+    metadata: Mapping[str, Any]
 
 
 @dataclass(frozen=True, kw_only=True)

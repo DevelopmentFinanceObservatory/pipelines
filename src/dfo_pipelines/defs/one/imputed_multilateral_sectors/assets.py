@@ -1,6 +1,6 @@
 import re
 from collections.abc import Mapping
-from datetime import UTC, date, datetime
+from datetime import date
 from importlib.metadata import version as installed_version
 
 import dagster as dg
@@ -8,11 +8,8 @@ import pandas as pd
 from oda_data import sector_imputations
 from oda_data.clean_data.schema import ODASchema
 from oda_data.indicators.research.imputation_quality import imputation_quality_report
-from oda_reader.download.download_tools import (
-    CRS_FLOW_URL,
-    MULTI_FLOW_URL,
-    get_bulk_file_url_with_version,
-)
+from oda_reader.download.download_tools import CRS_FLOW_URL, MULTI_FLOW_URL
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -22,14 +19,12 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
-from dfo_pipelines.orchestration.automation import (
-    EAGER_WHEN_CHECKS_PASS,
-)
+from dfo_pipelines.extraction.metadata import FetchedRelease
+from dfo_pipelines.extraction.oecd import resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 CRS_BULK_LABEL = "CRS-Parquet"
 MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
@@ -74,22 +69,14 @@ def resolve_bulk_versions() -> tuple[tuple[str, str], tuple[str, str]]:
         ValueError: If either lookup returns no version, or returns a token
             that does not carry a release date (see `parse_release_date`).
     """
-    crs_url, crs_version = get_bulk_file_url_with_version(
-        flow_url=CRS_FLOW_URL, label=CRS_BULK_LABEL, bypass_annotation_cache=True
+    crs_url, crs_version = resolve_bulk_file(
+        flow_url=CRS_FLOW_URL, label=CRS_BULK_LABEL
     )
-    if crs_version is None:
-        raise ValueError(f"CRS version check: could not get version for {crs_url}")
     parse_release_date(crs_version, label="CRS")
 
-    multi_url, multi_version = get_bulk_file_url_with_version(
-        flow_url=MULTI_FLOW_URL,
-        label=MULTISYSTEM_BULK_LABEL,
-        bypass_annotation_cache=True,
+    multi_url, multi_version = resolve_bulk_file(
+        flow_url=MULTI_FLOW_URL, label=MULTISYSTEM_BULK_LABEL
     )
-    if multi_version is None:
-        raise ValueError(
-            f"Members' Total Use version check: could not get version for {multi_url}"
-        )
     parse_release_date(multi_version, label="Members' Total Use")
     return (crs_url, crs_version), (multi_url, multi_version)
 
@@ -306,23 +293,10 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
     )
 
 
-@dg.asset(
-    deps=[one_imputed_multilateral_sectors_source],
-    group_name="one_imputed_multilateral_sectors",
-    kinds={"file", "parquet"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="file_not_empty",
-            asset="one_imputed_multilateral_sectors_raw_file",
-            blocking=True,
-        )
-    ],
-)
-def one_imputed_multilateral_sectors_raw_file(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
-):
-    """Raw imputed multilateral spending by purpose.
+def fetch_imputed_multilateral_sectors_raw_file(
+    file_path: UPath,
+) -> FetchedRelease:
+    """Compute the imputation between two release observations and write it
 
     Computes `imputed_multilateral_by_purpose` for every provider and year
     `oda-data` has, gross disbursements at current USD prices, sector shares
@@ -339,13 +313,6 @@ def one_imputed_multilateral_sectors_raw_file(
     disagreement, or a republish mid-compute, refuses the run rather than
     writing a result that may not match what was observed.
     """
-    downloaded_at = datetime.now(UTC)
-    directory = raw_file_store.build_date_partitioned_path(
-        "one_imputed_multilateral_sectors/imputed_multilateral_sectors",
-        partition_date=downloaded_at.date(),
-    )
-    directory.mkdir(parents=True, exist_ok=True)
-
     (_, crs_before), (_, multi_before) = resolve_bulk_versions()
     observed_before = {"crs": crs_before, "multisystem": multi_before}
 
@@ -382,37 +349,24 @@ def one_imputed_multilateral_sectors_raw_file(
             f"{prices}, expected {{'current'}} for base_year=None"
         )
 
-    file_path = directory / "data.parquet"
     data.to_parquet(file_path, index=False)
-    rows = len(data)
-    file_size = file_path.stat().st_size
 
-    write_extraction_metadata(
-        directory,
-        downloaded_at=downloaded_at,
+    return FetchedRelease(
         release_dates=release_dates,
+        metadata={
+            "crs_version": observed_before["crs"],
+            "multisystem_version": observed_before["multisystem"],
+            **build_quality_metadata(data, provenance=provenance),
+        },
     )
 
-    return dg.MaterializeResult(
-        value=str(file_path),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(file_path)),
-            "file_size": dg.MetadataValue.int(file_size),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-            "crs_version": dg.MetadataValue.text(observed_before["crs"]),
-            "multisystem_version": dg.MetadataValue.text(
-                observed_before["multisystem"]
-            ),
-            **build_quality_metadata(data, provenance=provenance),
-            "crs_release_date": dg.MetadataValue.text(release_dates["crs"].isoformat()),
-            "multisystem_release_date": dg.MetadataValue.text(
-                release_dates["multisystem"].isoformat()
-            ),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
-        ],
-    )
+
+one_imputed_multilateral_sectors_raw_file = build_raw_file_asset(
+    group="one_imputed_multilateral_sectors",
+    dataset="imputed_multilateral_sectors",
+    title="imputed multilateral spending by purpose",
+    fetch=fetch_imputed_multilateral_sectors_raw_file,
+)
 
 
 (

@@ -16,21 +16,19 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     IDS_SOURCE_API_URL,
     download_ids_bulk_data_files,
     fetch_ids_bulk_file_metadata,
+    fetch_ids_raw_file,
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
-    world_bank_ids_raw_file,
     world_bank_ids_raw_metadata,
     world_bank_ids_raw_table,
     world_bank_ids_source,
 )
 from dfo_pipelines.extraction.metadata import (
-    read_extraction_metadata,
     write_extraction_metadata,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    AutomationHarness,
     column_list,
     list_first_row,
     meta,
@@ -108,46 +106,6 @@ def _get_mock_head_headers(*, filename: str, version: str) -> dict[str, str]:
         "content-length": "132758204",
         "x-ms-version-id": VERSION_HEADERS[version][1],
     }
-
-
-class _IDSAutomation(AutomationHarness):
-    """Drives the IDS assets against an ephemeral instance, as the daemon does
-
-    HEAD responses and downloads are mocked for as long as the context is open.
-    Assign to `version` to make the next observation see a republished source.
-    """
-
-    def __init__(self, tmp_path: Path) -> None:
-        super().__init__(
-            tmp_path,
-            source=world_bank_ids_source,
-            raw_assets=[world_bank_ids_raw_file, world_bank_ids_raw_table],
-        )
-        self.version = "v1"
-
-    def _start_mocks(self) -> None:
-        # The gate compares data versions rather than data, so the frame's
-        # contents just needs to not be empty.
-        source_df = pd.DataFrame(
-            {"Country Code": ["AFG"], "Country Name": ["Afghanistan"]}
-        )
-        self._stack.enter_context(_mock_http(self._head_response))
-        self._stack.enter_context(patch_release_date())
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-                side_effect=_fake_download(source_df),
-            )
-        )
-
-    def _head_response(self, request: httpx.Request) -> httpx.Response:
-        """Answer a HEAD request with headers for the current version"""
-        return httpx.Response(
-            200,
-            headers=_get_mock_head_headers(
-                filename=request.url.path.rsplit("/", 1)[1], version=self.version
-            ),
-        )
 
 
 def test_fetch_ids_bulk_file_metadata_heads_every_file() -> None:
@@ -302,90 +260,10 @@ def test_world_bank_ids_source_observe_fn_raises_on_connection_error() -> None:
         observe()
 
 
-def test_ids_source_observation_records_an_observation_event(tmp_path: Path) -> None:
-    """Test observing the source records one observation against the source"""
-
-    with _IDSAutomation(tmp_path) as automation:
-        result = automation.observe()
-
-    assert [
-        entry.asset_key
-        for entry in result.all_events
-        if entry.event_type_value == "ASSET_OBSERVATION"
-    ] == [world_bank_ids_source.key]
-
-
-def test_ids_raw_assets_are_not_rerun_when_the_source_is_unchanged(
-    tmp_path: Path,
-) -> None:
-    """Test a repeat observation at an unchanged data version requests no rerun
-
-    This is the point of the new data check: the raw assets must not re-run
-    while the World Bank has not republished the bulk files.
-    """
-    with _IDSAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(world_bank_ids_raw_file, world_bank_ids_raw_table)
-        # A baseline tick, not evidence: every condition is reset on its initial
-        # evaluation, so the first tick requests nothing whatever the source did.
-        automation.tick()
-
-        automation.observe()
-
-        assert automation.tick() == {
-            "world_bank_ids_raw_file": 0,
-            "world_bank_ids_raw_table": 0,
-        }
-
-
-def test_ids_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
-    """Test the source's condition requests one observation per UTC day
-
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
-    """
-    with _IDSAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
-        # so the first tick requests nothing whatever the time is.
-        automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
-
-        assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
-
-
-def test_ids_raw_assets_are_rerun_when_the_source_data_version_changes(
-    tmp_path: Path,
-) -> None:
-    """Test a changed data version requests the raw assets, and only once"""
-    with _IDSAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(world_bank_ids_raw_file, world_bank_ids_raw_table)
-        automation.tick()  # baseline, as above
-
-        automation.version = "v2"
-        automation.observe()
-
-        # Both are requested on the same tick: eager() counts a dependency that
-        # will be requested as updated, so the chain is launched in one run.
-        assert automation.tick() == {
-            "world_bank_ids_raw_file": 1,
-            "world_bank_ids_raw_table": 1,
-        }
-
-        automation.materialize(world_bank_ids_raw_file, world_bank_ids_raw_table)
-
-        assert automation.tick() == {
-            "world_bank_ids_raw_file": 0,
-            "world_bank_ids_raw_table": 0,
-        }
-
-
-def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
-    """Test IDS raw file asset writes the download to a date-partitioned path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+def test_fetch_ids_raw_file_combines_the_downloads_unmodified(tmp_path: Path) -> None:
+    """Test the hook writes the six downloads as one text parquet file and returns
+    the release date and the files' metadata"""
+    file_path = UPath(tmp_path / "data.parquet")
     source_df = pd.DataFrame(
         {
             "Country Code": ["AFG", "ZMB"],
@@ -404,42 +282,20 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("world_bank_ids/ids")
-        result = world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        release_dates, metadata = fetch_ids_raw_file(file_path)
 
-    output_file = str(raw_dir / "data.parquet")
-
-    download.assert_called_once()
-
-    assert isinstance(result, dg.MaterializeResult)
-    file_size = meta(result, "file_size", dg.IntMetadataValue)
-
-    assert result.value == output_file
-    assert meta(result, "dagster/uri", dg.TextMetadataValue).value == output_file
-    assert file_size.value is not None and file_size.value > 0
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
-        source_df
-    ) * len(BULK_XLSX_URLS)
-    assert meta(result, "files", dg.JsonMetadataValue).data == BULK_FILE_METADATA
-    assert meta(result, "source_release_date", dg.TextMetadataValue).value == (
-        SOURCE_RELEASE_DATE.isoformat()
-    )
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
+    download.assert_called_once_with(file_path.parent)
+    assert release_dates == {"source": SOURCE_RELEASE_DATE}
+    assert metadata == {"files": BULK_FILE_METADATA}
 
     # files are combined unmodified: 2 rows x 6 files, original columns, year
     # headers carried through as strings
-    out = pd.read_parquet(output_file)
+    out = pd.read_parquet(file_path)
     assert len(out) == 12
     assert list(out.columns) == [
         "Country Code",
@@ -455,43 +311,12 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert set(out.dtypes.astype(str)) == {"str"}
     assert out["Counterpart-Area Code"].tolist() == ["WLD", "071"] * 6
 
-    # the downloaded XLSX are removed, leaving the published parquet and the
-    # extraction metadata beside it
-    assert sorted(p.name for p in raw_dir.iterdir()) == [
-        "data.parquet",
-        "metadata.json",
-    ]
-    recorded = read_extraction_metadata(raw_dir, release_names=("source",))
-    assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
-
-
-def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
-    """Test IDS raw file check fails when the combined download has no rows"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    empty_df = pd.DataFrame({"Country Name": [], "Country Code": []})
-
-    with (
-        patch_release_date(),
-        patch_bulk_file_metadata(),
-        patch(
-            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-            side_effect=_fake_download(empty_df),
-        ),
-    ):
-        result = world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
+    # the downloaded XLSX are removed, leaving the published parquet
+    assert [path.name for path in file_path.parent.iterdir()] == ["data.parquet"]
 
 
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
-def test_ids_raw_file_cleans_up_when_combine_fails(
+def test_fetch_ids_raw_file_cleans_up_when_combine_fails(
     tmp_path: Path, read_to_fail_on: int
 ) -> None:
     """Test downloads and output are cleaned up when combining fails
@@ -499,7 +324,7 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
     Parameterized with the read number to fail on so that a failure after the
     combined output file has been created can be tested.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_path = UPath(tmp_path / "data.parquet")
     df = pd.DataFrame({"Country Code": ["AFG"]})
     # Capture before patching: the patch target is the pandas module attribute
     # itself, so calling pd.read_excel inside the side effect would recurse.
@@ -516,7 +341,6 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(df),
@@ -527,13 +351,9 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("world_bank_ids/ids")
-        world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetch_ids_raw_file(file_path)
 
-    assert list(raw_dir.iterdir()) == []
+    assert list(file_path.parent.iterdir()) == []
 
 
 def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:

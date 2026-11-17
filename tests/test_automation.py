@@ -486,6 +486,28 @@ def _first_requested_ticks(
     return first_requested_tick
 
 
+def test_every_source_is_observed_once_a_day() -> None:
+    """Test each observable source requests an observation on a daily cron
+
+    The sources are written by hand, so this is the one place their cadence is
+    pinned.
+    """
+    graph = project_definitions().resolve_asset_graph()
+    sources = [
+        graph.get(key)
+        for key in graph.get_all_asset_keys()
+        if graph.get(key).is_observable
+    ]
+
+    assert sources
+    assert {
+        source.key.to_user_string(): source.automation_condition for source in sources
+    } == {
+        source.key.to_user_string(): dg.AutomationCondition.on_cron("@daily")
+        for source in sources
+    }
+
+
 def test_automation_sensor_is_the_only_sensor() -> None:
     """Test the declared sensor is loaded, and that Dagster adds none of its own
 

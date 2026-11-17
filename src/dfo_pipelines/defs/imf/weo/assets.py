@@ -1,11 +1,12 @@
 import csv
 import io
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
 import dagster as dg
 import httpx
 from imf_reader import weo
 from imf_reader.weo import api as weo_api
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -15,14 +16,11 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
-from dfo_pipelines.orchestration.automation import (
-    EAGER_WHEN_CHECKS_PASS,
-)
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # One observation of one series, with the dataflow's attributes, which include
 # the date the IMF published the release.
@@ -53,27 +51,10 @@ def imf_weo_source() -> dg.ObserveResult:
     )
 
 
-@dg.asset(
-    deps=[imf_weo_source],
-    group_name="imf_weo",
-    kinds={"file", "parquet"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    retry_policy=dg.RetryPolicy(max_retries=1),
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="file_not_empty", asset="imf_weo_raw_file", blocking=True
-        )
-    ],
-)
-def imf_weo_raw_file(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
-):
-    """Raw IMF WEO bulk download file and metadata"""
-    downloaded_at = datetime.now(UTC)
-    directory = raw_file_store.build_date_partitioned_path("imf_weo/weo")
-    directory.mkdir(parents=True, exist_ok=True)
-    file_path = directory / "data.parquet"
-
+def fetch_weo_raw_file(
+    file_path: UPath,
+) -> FetchedRelease:
+    """Write the latest WEO release to `file_path`"""
     # 'version' is resolved and passed explicitly because with version=None,
     # imf_reader rolls back up to three releases when the newest one is listed
     # in the dataflow catalogue but not yet servable (reader.py:160). This would
@@ -82,28 +63,19 @@ def imf_weo_raw_file(
     version = weo.get_weo_versions()[0]
     dataframe = weo.fetch_data_with_metadata(version=version)
     dataframe.to_parquet(file_path, compression="gzip")
-    release_date = fetch_weo_publication_date(version)
-    write_extraction_metadata(
-        directory,
-        downloaded_at=downloaded_at,
-        release_dates={"source": release_date},
+    return FetchedRelease(
+        release_dates={"source": fetch_weo_publication_date(version)},
+        metadata={"version": f"{version[0]} {version[1]}"},
     )
-    rows = dataframe.index.size
-    file_size = file_path.stat().st_size
-    context.log.info(f"Wrote IMF WEO data to {file_path}")
-    return dg.MaterializeResult(
-        value=str(file_path),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(file_path)),
-            "file_size": dg.MetadataValue.int(file_size),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-            "version": dg.MetadataValue.text(f"{version[0]} {version[1]}"),
-            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
-        ],
-    )
+
+
+imf_weo_raw_file = build_raw_file_asset(
+    group="imf_weo",
+    dataset="weo",
+    title="IMF WEO",
+    fetch=fetch_weo_raw_file,
+    retry_policy=dg.RetryPolicy(max_retries=1),
+)
 
 
 imf_weo_raw_table, imf_weo_raw_metadata = build_raw_table_assets(
