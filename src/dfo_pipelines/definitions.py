@@ -3,7 +3,7 @@ from pathlib import Path
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
     KnowledgeGraphResource,
     SkillsRepositoryResource,

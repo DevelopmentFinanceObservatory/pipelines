@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from dagster_duckdb import DuckDBResource
 
-from dfo_pipelines.defs.resources import UPathFileStoreResource
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
 def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:

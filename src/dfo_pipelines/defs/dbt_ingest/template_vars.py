@@ -1,6 +1,6 @@
 import dagster as dg
 
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 
 
 @dg.template_var

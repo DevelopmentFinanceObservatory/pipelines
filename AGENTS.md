@@ -6,6 +6,7 @@
 - After renaming or moving dbt models, run `dbt parse --warn-error`. dbt drops the tests of a `models.yml` entry and the config of a `dbt_project.yml` path that no longer match a model, with only a warning.
 - Prove each new test by breaking the code it covers: make the smallest change that makes its claim false, watch it fail, restore, and watch it pass. A contract can stop the mutated model building, so rebuild everything downstream before running the test.
 - Changes to pipelines follow the `building-pipelines` skill in `.claude/skills/`.
+- New code goes where "Project structure" in `README.md` puts it.
 
 ## Code Review Rules
 

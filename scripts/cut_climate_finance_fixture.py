@@ -1,8 +1,8 @@
 """Cut the climate finance test release from a built climate-finance release, and
 export it as the pipeline's test export.
 
-Writes `tests/one/climate_finance/fixtures/release`, the cut, and
-`tests/one/climate_finance/fixtures/export`, its export by
+Writes `tests/defs/one/climate_finance/fixtures/release`, the cut, and
+`tests/defs/one/climate_finance/fixtures/export`, its export by
 `export_climate_finance_release.py`, which the pipeline's tests read in place of the
 export in GCS.
 
@@ -55,7 +55,14 @@ WITHHELD_TABLES = dict.fromkeys(
     ("btr", "btr_links", "btr_multilateral"),
     "Left out of the published release, as the package's packs leave it out.",
 )
-FIXTURES = Path(__file__).parents[1] / "tests" / "one" / "climate_finance" / "fixtures"
+FIXTURES = (
+    Path(__file__).parents[1]
+    / "tests"
+    / "defs"
+    / "one"
+    / "climate_finance"
+    / "fixtures"
+)
 RELEASE = FIXTURES / "release"
 EXPORT = FIXTURES / "export"
 

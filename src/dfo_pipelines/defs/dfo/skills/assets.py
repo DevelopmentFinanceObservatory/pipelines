@@ -14,20 +14,19 @@ from upath import UPath
 from yaml.constructor import ConstructorError
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.data_commons.mcf import escape_markdown
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.data_commons.mcf import escape_markdown, mcf_node_dcids
 from dfo_pipelines.defs.dfo.ontology.assets import (
     ONTOLOGY_MCF,
     dfo_ontology_dc_ingestion,
-    mcf_node_dcids,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.defs.subprocesses import run_logged
+from dfo_pipelines.orchestration.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_skills"
 # Where the skills repository keeps the skills it offers for install, which
