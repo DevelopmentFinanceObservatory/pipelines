@@ -37,7 +37,7 @@ uv run dg dev
 
 ### Automation
 
-Each source is observed on a schedule, and the eager assets downstream of it rerun when it publishes new data. The shared conditions are in `src/dfo_pipelines/defs/automation.py`, which also explains why an asset waits while a blocking check on one of its parents has failed.
+Each source is observed on a schedule, and the eager assets downstream of it rerun when it publishes new data. The shared conditions are in `src/dfo_pipelines/orchestration/automation.py`, which also explains why an asset waits while a blocking check on one of its parents has failed.
 
 Automation runs through one sensor, `automation_condition_sensor`. On a new local instance it starts stopped, because `.env.example` sets `AUTOMATION_SENSOR_DEFAULT_STATUS=STOPPED`. Materialize what you need by hand, or start the sensor under Automation in the Dagster UI to run every pipeline. Its state is kept in `DAGSTER_HOME`, so it stays as you left it across `dg dev` restarts.
 

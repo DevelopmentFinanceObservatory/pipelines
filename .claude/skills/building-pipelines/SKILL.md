@@ -20,7 +20,7 @@ Every node the pipeline references, such as the population type, measurement met
 ## Rules the code does not show
 
 - **The source asset observes the publisher.** It observes something that changes when the publisher republishes, such as a version token or a release date, and bypasses any cache between it and the publisher, so the chain reruns on a republish. A package version does not qualify.
-- **Checks block.** Use the automation conditions in `defs/automation.py` and set `blocking=True` on every asset check. Plain `eager()` ignores a failed check on the next tick, so bad data flows on.
+- **Checks block.** Use the automation conditions in `orchestration/automation.py` and set `blocking=True` on every asset check. Plain `eager()` ignores a failed check on the next tick, so bad data flows on.
 - **Ingestion runs by hand.** An ingest rewrites the shared graph, so the ingestion asset has no automation condition. It depends on `dfo_ontology_dc_ingestion` and `dfo_shared_dc_ingestion`. Ingest those first: the graph accepts a bundle whose dcids are undefined and leaves the references dangling.
 - **One pipeline owns each raw table's staging.** Another pipeline that needs the same source reads that staging model. Staging takes everything any consumer needs, and each consumer filters to its own scope further down.
 

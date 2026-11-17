@@ -5,9 +5,9 @@ import dagster as dg
 import pytest
 
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.defs.automation import (
+from dfo_pipelines.defs.sensors import automation_sensor_default_status
+from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    automation_sensor_default_status,
 )
 
 SENSOR_NAME = "automation_condition_sensor"

@@ -7,8 +7,10 @@ import dfo_pipelines.defs
 import dfo_pipelines.defs.export_specs
 from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.defs.automation import EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
+from dfo_pipelines.orchestration.automation import (
+    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+)
 
 
 def defs_module_names() -> list[str]:

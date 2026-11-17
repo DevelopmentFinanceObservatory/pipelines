@@ -9,12 +9,12 @@ from dcp_tools import CustomDataManager
 from upath import UPath
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
 from dfo_pipelines.defs.subprocesses import run_logged
+from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 
 IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"

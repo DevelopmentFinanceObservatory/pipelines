@@ -15,7 +15,6 @@ from yaml.constructor import ConstructorError
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.data_commons.mcf import escape_markdown
-from dfo_pipelines.defs.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.defs.dfo.ontology.assets import (
     ONTOLOGY_MCF,
     dfo_ontology_dc_ingestion,
@@ -28,6 +27,7 @@ from dfo_pipelines.defs.resources import (
     UPathFileStoreResource,
 )
 from dfo_pipelines.defs.subprocesses import run_logged
+from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 
 IMPORT_NAME = "dfo_skills"
 # Where the skills repository keeps the skills it offers for install, which
