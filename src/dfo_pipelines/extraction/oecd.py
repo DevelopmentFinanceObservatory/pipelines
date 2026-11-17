@@ -2,9 +2,31 @@ from datetime import date
 from email.utils import parsedate_to_datetime
 
 import httpx
-from oda_reader.download.download_tools import DEFAULT_HEADERS
+from oda_reader.download.download_tools import (
+    DEFAULT_HEADERS,
+    get_bulk_file_url_with_version,
+)
 
 RELEASE_DATE_TIMEOUT_SECONDS = 30
+
+
+def resolve_bulk_file(*, flow_url: str, label: str) -> tuple[str, str]:
+    """The URL and version token of the OECD bulk file `label` lists at `flow_url`
+
+    Raises:
+        ValueError: If the lookup returns no version token.
+    """
+    # bypass_annotation_cache defeats oda_reader's 7-day on-disk HTTP cache,
+    # which would otherwise let a daily observation serve a version token up to
+    # a week old.
+    url, version = get_bulk_file_url_with_version(
+        flow_url=flow_url, label=label, bypass_annotation_cache=True
+    )
+    if version is None:
+        raise ValueError(
+            f"Bulk file version check: could not get the version of {label!r} at {url}"
+        )
+    return url, version
 
 
 def fetch_bulk_file_release_date(url: str) -> date:

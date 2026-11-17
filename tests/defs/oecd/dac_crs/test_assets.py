@@ -1,68 +1,34 @@
 import json
-import shutil
-from contextlib import contextmanager
 from datetime import UTC, date, datetime
-from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
 import pytest
-import requests
 from dagster_duckdb import DuckDBResource
 from oda_reader.download.download_tools import CRS_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
     oecd_dac_crs_dc_export,
-    oecd_dac_crs_raw_file,
     oecd_dac_crs_raw_metadata,
     oecd_dac_crs_raw_table,
     oecd_dac_crs_source,
     parse_crs_release_date,
 )
-from dfo_pipelines.extraction.metadata import (
-    METADATA_FILE_NAME,
-    read_extraction_metadata,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import AutomationHarness, row_count
+from tests.helpers import row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-# Stand-in for the resolved bulk-download URL: never fetched, the lookup is
-# mocked, but joined into the data version so it is pinned in assertions.
+# Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
 
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_VERSION = "v20260801"
 SOURCE_RELEASE_DATE = date(2026, 8, 1)
-
-
-def write_download(parquet: Path, save_to_path: str, **kwargs) -> None:
-    """Write the given fixture to bulk_download_crs path"""
-    shutil.copyfile(parquet, Path(save_to_path) / "CRS.parquet")
-
-
-@contextmanager
-def patch_download_clock():
-    """Freeze the instant the raw file asset stamps a download with"""
-    with patch("dfo_pipelines.defs.oecd.dac_crs.assets.datetime") as mock_datetime:
-        mock_datetime.now.return_value = DOWNLOADED_AT
-        yield
-
-
-@contextmanager
-def patch_bulk_lookup():
-    """Answer the version lookup the raw file asset makes before downloading"""
-    with patch(
-        "dfo_pipelines.defs.oecd.dac_crs.assets.get_bulk_file_url_with_version",
-        autospec=True,
-        return_value=(CRS_TEST_URL, SOURCE_VERSION),
-    ) as lookup:
-        yield lookup
 
 
 def test_parse_crs_release_date_reads_the_date_from_the_version_token() -> None:
@@ -87,284 +53,21 @@ def test_parse_crs_release_date_raises_when_the_token_carries_no_date(
         parse_crs_release_date(version)
 
 
-def test_dac_crs_source_observe_fn_returns_metadata_and_data_version() -> None:
-    """Test the source's observe fn records the URL, version and data version"""
+def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
+    """Test the source looks up the full CRS parquet in its dataflow"""
     observe = oecd_dac_crs_source.observe_fn
     assert observe is not None
 
-    with patch_bulk_lookup() as lookup:
-        result = observe()
+    with patch(
+        "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+        autospec=True,
+        return_value=(CRS_TEST_URL, "v20260801"),
+    ) as lookup:
+        observe()
 
-    # the full CRS parquet with a cache-bypassing lookup
     lookup.assert_called_once_with(
         flow_url=CRS_FLOW_URL, label="CRS-Parquet", bypass_annotation_cache=True
     )
-
-    assert isinstance(result, dg.ObserveResult)
-    assert result.data_version == dg.DataVersion(f"{CRS_TEST_URL};{SOURCE_VERSION}")
-    metadata = result.metadata
-    assert metadata is not None
-    url_meta = metadata["dagster/uri"]
-    version_meta = metadata["version"]
-    assert isinstance(url_meta, dg.TextMetadataValue)
-    assert isinstance(version_meta, dg.TextMetadataValue)
-    assert url_meta.value == CRS_TEST_URL
-    assert version_meta.value == SOURCE_VERSION
-
-
-def test_dac_crs_source_observe_fn_raises_when_version_unavailable() -> None:
-    """Test the observe fn raises when the lookup returns no version token
-
-    Without a token there is nothing to gate the pipeline on, so the
-    observation must fail loudly rather than record an empty data version.
-    """
-    observe = oecd_dac_crs_source.observe_fn
-    assert observe is not None
-
-    with (
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.get_bulk_file_url_with_version",
-            autospec=True,
-            return_value=(CRS_TEST_URL, None),
-        ),
-        pytest.raises(ValueError, match="CRS version check"),
-    ):
-        observe()
-
-
-def test_dac_crs_source_observe_fn_raises_when_lookup_fails() -> None:
-    """Test an unreachable OECD API surfaces rather than being skipped"""
-    observe = oecd_dac_crs_source.observe_fn
-    assert observe is not None
-
-    with (
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.get_bulk_file_url_with_version",
-            autospec=True,
-            side_effect=requests.exceptions.ConnectionError("sdmx unreachable"),
-        ),
-        pytest.raises(requests.exceptions.ConnectionError, match="sdmx unreachable"),
-    ):
-        observe()
-
-
-class _CRSAutomation(AutomationHarness):
-    """Drives the CRS assets against an ephemeral instance, as the daemon does
-
-    Version lookups and downloads are mocked for as long as the context is
-    open. Assign to `version` to make the next observation see a republished
-    source.
-    """
-
-    def __init__(self, tmp_path: Path) -> None:
-        super().__init__(
-            tmp_path,
-            source=oecd_dac_crs_source,
-            raw_assets=[
-                oecd_dac_crs_raw_file,
-                oecd_dac_crs_raw_table,
-                oecd_dac_crs_raw_metadata,
-            ],
-        )
-        self.version = SOURCE_VERSION
-
-    def _start_mocks(self) -> None:
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.oecd.dac_crs.assets.get_bulk_file_url_with_version",
-                autospec=True,
-                side_effect=lambda **kwargs: (CRS_TEST_URL, self.version),
-            )
-        )
-        self._stack.enter_context(
-            patch(
-                "dfo_pipelines.defs.oecd.dac_crs.assets.bulk_download_crs",
-                side_effect=partial(write_download, FIXTURES / "data.parquet"),
-            )
-        )
-
-
-def test_dac_crs_source_observation_records_an_observation_event(
-    tmp_path: Path,
-) -> None:
-    """Test observing the source records one observation against the source"""
-
-    with _CRSAutomation(tmp_path) as automation:
-        result = automation.observe()
-
-    assert [
-        entry.asset_key
-        for entry in result.all_events
-        if entry.event_type_value == "ASSET_OBSERVATION"
-    ] == [oecd_dac_crs_source.key]
-
-
-def test_dac_crs_raw_assets_are_not_rerun_when_the_source_is_unchanged(
-    tmp_path: Path,
-) -> None:
-    """Test a repeat observation at an unchanged data version requests no rerun
-
-    This is the point of the new data check: the raw assets must not re-run
-    while the OECD has not republished the bulk file.
-    """
-    with _CRSAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(
-            oecd_dac_crs_raw_file, oecd_dac_crs_raw_table, oecd_dac_crs_raw_metadata
-        )
-        # A baseline tick, not evidence: every condition is reset on its initial
-        # evaluation, so the first tick requests nothing whatever the source did.
-        automation.tick()
-
-        automation.observe()
-
-        assert automation.tick() == {
-            "oecd_dac_crs_raw_file": 0,
-            "oecd_dac_crs_raw_table": 0,
-            "oecd_dac_crs_raw_metadata": 0,
-        }
-
-
-def test_dac_crs_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
-    """Test the source's condition requests one observation per UTC day
-
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
-    """
-    with _CRSAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
-        # so the first tick requests nothing whatever the time is.
-        automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
-
-        assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
-        assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
-
-
-def test_dac_crs_raw_assets_are_rerun_when_the_source_data_version_changes(
-    tmp_path: Path,
-) -> None:
-    """Test a changed data version requests the raw assets, and only once"""
-    with _CRSAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(
-            oecd_dac_crs_raw_file, oecd_dac_crs_raw_table, oecd_dac_crs_raw_metadata
-        )
-        automation.tick()  # baseline, as above
-
-        automation.version = "v20260901"
-        automation.observe()
-
-        # Both are requested on the same tick: eager() counts a dependency that
-        # will be requested as updated, so the chain is launched in one run.
-        assert automation.tick() == {
-            "oecd_dac_crs_raw_file": 1,
-            "oecd_dac_crs_raw_table": 1,
-            "oecd_dac_crs_raw_metadata": 1,
-        }
-
-        automation.materialize(
-            oecd_dac_crs_raw_file, oecd_dac_crs_raw_table, oecd_dac_crs_raw_metadata
-        )
-
-        assert automation.tick() == {
-            "oecd_dac_crs_raw_file": 0,
-            "oecd_dac_crs_raw_table": 0,
-            "oecd_dac_crs_raw_metadata": 0,
-        }
-
-
-def test_dac_crs_raw_file_writes_parquet(tmp_path: Path) -> None:
-    """Test the raw file asset writes the download, and the metadata beside it
-
-    Both are stamped from one clock reading, so the partition a file lands in
-    and the date the provenance publishes for it can never disagree - not
-    across midnight, and not across timezones.
-    """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
-    raw_dir = file_store.build_date_partitioned_path(
-        "oecd_dac_crs/dac_crs", partition_date=DOWNLOADED_AT.date()
-    )
-
-    with (
-        patch_download_clock(),
-        patch_bulk_lookup(),
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.bulk_download_crs",
-            side_effect=partial(write_download, FIXTURES / "data.parquet"),
-        ) as bulk_download,
-    ):
-        result = oecd_dac_crs_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    bulk_download.assert_called_once()
-    assert bulk_download.call_args.kwargs["save_to_path"] == str(raw_dir)
-
-    recorded = read_extraction_metadata(raw_dir, release_names=("source",))
-    downloaded_at = recorded.downloaded_at
-    assert downloaded_at == DOWNLOADED_AT
-    assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
-    assert raw_dir.parts[-3:] == tuple(downloaded_at.strftime("%Y/%m/%d").split("/"))
-
-    metadata_json = json.loads((raw_dir / METADATA_FILE_NAME).read_text())
-    assert set(metadata_json) == {"downloaded_at", "source_release_date"}
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.value == str(raw_dir / "data.parquet")
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(raw_dir / "data.parquet")),
-        "file_size": dg.IntMetadataValue((FIXTURES / "data.parquet").stat().st_size),
-        "version": dg.TextMetadataValue(SOURCE_VERSION),
-        "dagster/row_count": dg.IntMetadataValue(25),
-        "source_release_date": dg.TextMetadataValue(SOURCE_RELEASE_DATE.isoformat()),
-    }
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
-
-
-def test_dac_crs_raw_file_check_fails_when_file_empty(tmp_path: Path) -> None:
-    """Test DAC CRS raw file check fails when the download has no rows"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
-    with (
-        patch_bulk_lookup(),
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.bulk_download_crs",
-            side_effect=partial(write_download, FIXTURES / "data-0.parquet"),
-        ),
-    ):
-        result = oecd_dac_crs_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
-
-
-def test_dac_crs_raw_file_raises_when_download_fails(tmp_path: Path) -> None:
-    """Test a download error surfaces rather than being skipped"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-
-    with (
-        patch_bulk_lookup(),
-        patch(
-            "dfo_pipelines.defs.oecd.dac_crs.assets.bulk_download_crs",
-            side_effect=requests.exceptions.ConnectionError("download failed"),
-        ),
-        pytest.raises(requests.exceptions.ConnectionError, match="download failed"),
-    ):
-        oecd_dac_crs_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
 
 
 def test_dac_crs_raw_table_loads_parquet(tmp_path: Path) -> None:

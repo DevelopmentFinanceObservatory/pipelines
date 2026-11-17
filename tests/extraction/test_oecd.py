@@ -4,10 +4,15 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
+from dfo_pipelines.extraction.oecd import (
+    fetch_bulk_file_release_date,
+    resolve_bulk_file,
+)
 
 # Stand-in for a resolved bulk-download URL: never fetched, the GET is mocked.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
+
+FLOW_URL = "https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_DAC1@DF_DAC1"
 
 
 def _release_date_response(headers: dict[str, str], status_code: int = 206):
@@ -50,3 +55,35 @@ def test_fetch_bulk_file_release_date_raises_on_http_error() -> None:
         pytest.raises(httpx.HTTPStatusError),
     ):
         fetch_bulk_file_release_date(BULK_FILE_URL)
+
+
+def _version_lookup(version: str | None):
+    """Patch the bulk file lookup oda_reader makes"""
+    return patch(
+        "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+        autospec=True,
+        return_value=(BULK_FILE_URL, version),
+    )
+
+
+def test_resolve_bulk_file_returns_the_url_and_version_bypassing_the_cache() -> None:
+    """Test the bulk file is looked up by flow and label, bypassing oda_reader's
+    annotation cache so a daily observation sees a republish"""
+    with _version_lookup("0x8DEDC2882EAC20B") as lookup:
+        assert resolve_bulk_file(flow_url=FLOW_URL, label="DAC1 full dataset") == (
+            BULK_FILE_URL,
+            "0x8DEDC2882EAC20B",
+        )
+
+    lookup.assert_called_once_with(
+        flow_url=FLOW_URL, label="DAC1 full dataset", bypass_annotation_cache=True
+    )
+
+
+def test_resolve_bulk_file_raises_without_a_version() -> None:
+    """Test a lookup with no version token raises, since nothing could gate a rerun"""
+    with (
+        _version_lookup(None),
+        pytest.raises(ValueError, match="Bulk file version check"),
+    ):
+        resolve_bulk_file(flow_url=FLOW_URL, label="DAC1 full dataset")

@@ -37,6 +37,7 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import column_list, list_first_row, meta, row_count
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
+OECD_MODULE = "dfo_pipelines.extraction.oecd"
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "imputed_multilateral_sectors"
@@ -87,7 +88,7 @@ def _bulk_lookup(*, flow_url: str, label: str, bypass_annotation_cache: bool) ->
 def test_resolve_bulk_versions_reads_both_releases() -> None:
     """Test both the CRS and Members' Total Use bulk files are resolved"""
     with patch(
-        f"{ASSETS_MODULE}.get_bulk_file_url_with_version",
+        f"{OECD_MODULE}.get_bulk_file_url_with_version",
         autospec=True,
         side_effect=_bulk_lookup,
     ) as lookup:
@@ -102,11 +103,11 @@ def test_resolve_bulk_versions_raises_when_crs_version_unavailable() -> None:
     """Test a missing CRS version fails loudly rather than fingerprinting one input"""
     with (
         patch(
-            f"{ASSETS_MODULE}.get_bulk_file_url_with_version",
+            f"{OECD_MODULE}.get_bulk_file_url_with_version",
             autospec=True,
             return_value=(CRS_TEST_URL, None),
         ),
-        pytest.raises(ValueError, match="CRS version check"),
+        pytest.raises(ValueError, match="Bulk file version check"),
     ):
         resolve_bulk_versions()
 
@@ -125,11 +126,11 @@ def test_resolve_bulk_versions_raises_when_multisystem_version_unavailable() -> 
 
     with (
         patch(
-            f"{ASSETS_MODULE}.get_bulk_file_url_with_version",
+            f"{OECD_MODULE}.get_bulk_file_url_with_version",
             autospec=True,
             side_effect=lookup,
         ),
-        pytest.raises(ValueError, match="Members' Total Use version check"),
+        pytest.raises(ValueError, match="Bulk file version check"),
     ):
         resolve_bulk_versions()
 
@@ -148,7 +149,7 @@ def test_resolve_bulk_versions_raises_when_the_crs_token_carries_no_date() -> No
     """
     with (
         patch(
-            f"{ASSETS_MODULE}.get_bulk_file_url_with_version",
+            f"{OECD_MODULE}.get_bulk_file_url_with_version",
             autospec=True,
             return_value=(CRS_TEST_URL, ETAG_TOKEN),
         ),
@@ -169,7 +170,7 @@ def test_resolve_bulk_versions_raises_when_the_multisystem_token_carries_no_date
 
     with (
         patch(
-            f"{ASSETS_MODULE}.get_bulk_file_url_with_version",
+            f"{OECD_MODULE}.get_bulk_file_url_with_version",
             autospec=True,
             side_effect=lookup,
         ),
@@ -630,7 +631,7 @@ DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 @contextmanager
 def _patch_download_clock():
     """Freeze the instant the raw file asset stamps a download with"""
-    with patch(f"{ASSETS_MODULE}.datetime") as mock_datetime:
+    with patch("dfo_pipelines.orchestration.raw_files.datetime") as mock_datetime:
         mock_datetime.now.return_value = DOWNLOADED_AT
         yield
 
@@ -1080,32 +1081,6 @@ def test_raw_file_writes_nothing_when_a_release_token_carries_no_date(
     _refused_and_nothing_written(
         tmp_path, bulk_patch=bulk_patch, compute_patch=compute_patch
     )
-
-
-def test_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
-    """Test the file_not_empty check fails on a frame with no rows"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    frame = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE).iloc[:0]
-    frame.attrs["provenance"] = VALID_PROVENANCE
-    bulk_patch = _patched_bulk_versions(
-        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
-        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
-    )
-    compute_patch = patch(
-        f"{ASSETS_MODULE}.sector_imputations.imputed_multilateral_by_purpose",
-        autospec=True,
-        return_value=frame,
-    )
-
-    with _patch_download_clock(), bulk_patch, compute_patch:
-        result = one_imputed_multilateral_sectors_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
 
 
 IMPUTED_STATVAR_DCID = (

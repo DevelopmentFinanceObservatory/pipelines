@@ -1,6 +1,6 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 import dagster as dg
 import httpx
@@ -17,14 +17,10 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
-from dfo_pipelines.orchestration.automation import (
-    EAGER_WHEN_CHECKS_PASS,
-)
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import RawFileFetch, build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -137,62 +133,29 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-@dg.asset(
-    deps=[world_bank_ids_source],
-    group_name="world_bank_ids",
-    kinds={"file", "parquet"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="file_not_empty", asset="world_bank_ids_raw_file", blocking=True
-        )
-    ],
-)
-def world_bank_ids_raw_file(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
-):
-    """Raw World Bank IDS bulk download file and metadata
-
-    Unmodified concatenation of the World Bank's six IDS bulk XLSX files
-    ("Counterpart-Area: All") into a single wide-format parquet file.
-    """
-    downloaded_at = datetime.now(UTC)
-    directory = raw_file_store.build_date_partitioned_path("world_bank_ids/ids")
-    directory.mkdir(parents=True, exist_ok=True)
-
+def fetch_ids_raw_file(file_path: UPath) -> RawFileFetch:
+    """Write the combined IDS bulk files to `file_path`"""
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
-    download_ids_bulk_data_files(directory)
-
-    output_file = directory / "data.parquet"
-    rows = combine_ids_bulk_data_files(directory, output_file)
-    write_extraction_metadata(
-        directory,
-        downloaded_at=downloaded_at,
+    download_ids_bulk_data_files(file_path.parent)
+    combine_ids_bulk_data_files(file_path.parent, file_path)
+    return RawFileFetch(
         release_dates={"source": source_release_date},
+        metadata={"files": dg.MetadataValue.json(files)},
     )
 
-    file_size = output_file.stat().st_size
 
-    context.log.info(
-        f"Wrote World Bank IDS data to {output_file} ({file_size} bytes, {rows} rows)"
-    )
-
-    return dg.MaterializeResult(
-        value=str(output_file),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(output_file)),
-            "file_size": dg.MetadataValue.int(file_size),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-            "files": dg.MetadataValue.json(files),
-            "source_release_date": dg.MetadataValue.text(
-                source_release_date.isoformat()
-            ),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
-        ],
-    )
+world_bank_ids_raw_file = build_raw_file_asset(
+    group="world_bank_ids",
+    dataset="ids",
+    title="World Bank IDS",
+    fetch=fetch_ids_raw_file,
+    description=(
+        "Raw World Bank IDS bulk download file and metadata\n\n"
+        "Unmodified concatenation of the World Bank's six IDS bulk XLSX files\n"
+        '("Counterpart-Area: All") into a single wide-format parquet file.'
+    ),
+)
 
 
 world_bank_ids_raw_table, world_bank_ids_raw_metadata = build_raw_table_assets(

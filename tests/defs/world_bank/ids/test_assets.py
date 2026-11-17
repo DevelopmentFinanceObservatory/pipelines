@@ -16,6 +16,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     IDS_SOURCE_API_URL,
     download_ids_bulk_data_files,
     fetch_ids_bulk_file_metadata,
+    fetch_ids_raw_file,
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
@@ -25,7 +26,6 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     world_bank_ids_source,
 )
 from dfo_pipelines.extraction.metadata import (
-    read_extraction_metadata,
     write_extraction_metadata,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -383,9 +383,10 @@ def test_ids_raw_assets_are_rerun_when_the_source_data_version_changes(
         }
 
 
-def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
-    """Test IDS raw file asset writes the download to a date-partitioned path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+def test_fetch_ids_raw_file_combines_the_downloads_unmodified(tmp_path: Path) -> None:
+    """Test the hook writes the six downloads as one text parquet file and returns
+    the release date and the files' metadata"""
+    file_path = UPath(tmp_path / "data.parquet")
     source_df = pd.DataFrame(
         {
             "Country Code": ["AFG", "ZMB"],
@@ -404,42 +405,20 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("world_bank_ids/ids")
-        result = world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetched = fetch_ids_raw_file(file_path)
 
-    output_file = str(raw_dir / "data.parquet")
-
-    download.assert_called_once()
-
-    assert isinstance(result, dg.MaterializeResult)
-    file_size = meta(result, "file_size", dg.IntMetadataValue)
-
-    assert result.value == output_file
-    assert meta(result, "dagster/uri", dg.TextMetadataValue).value == output_file
-    assert file_size.value is not None and file_size.value > 0
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(
-        source_df
-    ) * len(BULK_XLSX_URLS)
-    assert meta(result, "files", dg.JsonMetadataValue).data == BULK_FILE_METADATA
-    assert meta(result, "source_release_date", dg.TextMetadataValue).value == (
-        SOURCE_RELEASE_DATE.isoformat()
-    )
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
+    download.assert_called_once_with(file_path.parent)
+    assert fetched.release_dates == {"source": SOURCE_RELEASE_DATE}
+    assert fetched.metadata == {"files": dg.JsonMetadataValue(BULK_FILE_METADATA)}
 
     # files are combined unmodified: 2 rows x 6 files, original columns, year
     # headers carried through as strings
-    out = pd.read_parquet(output_file)
+    out = pd.read_parquet(file_path)
     assert len(out) == 12
     assert list(out.columns) == [
         "Country Code",
@@ -455,43 +434,12 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     assert set(out.dtypes.astype(str)) == {"str"}
     assert out["Counterpart-Area Code"].tolist() == ["WLD", "071"] * 6
 
-    # the downloaded XLSX are removed, leaving the published parquet and the
-    # extraction metadata beside it
-    assert sorted(p.name for p in raw_dir.iterdir()) == [
-        "data.parquet",
-        "metadata.json",
-    ]
-    recorded = read_extraction_metadata(raw_dir, release_names=("source",))
-    assert recorded.release_dates == {"source": SOURCE_RELEASE_DATE}
-
-
-def test_ids_raw_file_check_fails_when_no_rows(tmp_path: Path) -> None:
-    """Test IDS raw file check fails when the combined download has no rows"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    empty_df = pd.DataFrame({"Country Name": [], "Country Code": []})
-
-    with (
-        patch_release_date(),
-        patch_bulk_file_metadata(),
-        patch(
-            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-            side_effect=_fake_download(empty_df),
-        ),
-    ):
-        result = world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
+    # the downloaded XLSX are removed, leaving the published parquet
+    assert [path.name for path in file_path.parent.iterdir()] == ["data.parquet"]
 
 
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
-def test_ids_raw_file_cleans_up_when_combine_fails(
+def test_fetch_ids_raw_file_cleans_up_when_combine_fails(
     tmp_path: Path, read_to_fail_on: int
 ) -> None:
     """Test downloads and output are cleaned up when combining fails
@@ -499,7 +447,7 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
     Parameterized with the read number to fail on so that a failure after the
     combined output file has been created can be tested.
     """
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_path = UPath(tmp_path / "data.parquet")
     df = pd.DataFrame({"Country Code": ["AFG"]})
     # Capture before patching: the patch target is the pandas module attribute
     # itself, so calling pd.read_excel inside the side effect would recurse.
@@ -516,7 +464,6 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(df),
@@ -527,13 +474,9 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        mock_date.today.return_value = date(2026, 8, 3)
-        raw_dir = file_store.build_date_partitioned_path("world_bank_ids/ids")
-        world_bank_ids_raw_file(
-            context=dg.build_asset_context(), raw_file_store=file_store
-        )
+        fetch_ids_raw_file(file_path)
 
-    assert list(raw_dir.iterdir()) == []
+    assert list(file_path.parent.iterdir()) == []
 
 
 def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:
