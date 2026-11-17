@@ -24,14 +24,14 @@ def load_parquet(
         schema: Schema to write into, created if it does not exist.
         table: Table to write, replaced if it does.
         renames: New name for each column to rename, keyed by its name in the
-            file. Columns are aliased by position, so the file's own column
-            names need not be valid or unique SQL identifiers.
+            file. Columns are aliased by position, so two columns whose names
+            differ only in case can be given distinct names.
 
     Returns:
         int: Count of rows written.
     """
     select_statement = "SELECT * FROM read_parquet(?)"
-    if renames is not None:
+    if renames:
         published = pq.read_schema(path).names
         aliases = [renames.get(name, name) for name in published]
         columns = ", ".join('"' + alias.replace('"', '""') + '"' for alias in aliases)
