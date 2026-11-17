@@ -21,7 +21,11 @@ cp .env.example .env
 
 ## Project structure
 
-- `src/dfo_pipelines/`: Dagster assets, resources and the shared export and ingestion code
+- `src/dfo_pipelines/`: Python package
+  - `definitions.py`: Dagster entry point and resource bindings
+  - `defs/`: Dagster definitions, one folder per pipeline
+  - `orchestration/`: Dagster code shared across pipelines
+  - `extraction/`, `warehouse.py`, `data_commons/`: Dagster-free code for the sources, DuckDB and Data Commons
 - `dbt/`: dbt models, from staging (`stg_`) through intermediate (`int_`) to the Data Commons schema (`dc_`)
 - `docs/`: how each source is transformed, one directory per dataset
 - `tests/`: Python tests

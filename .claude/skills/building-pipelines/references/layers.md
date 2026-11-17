@@ -11,7 +11,7 @@ Every layer passes the full CI suite on its own and automates what it adds, beca
 5. **Unified model layer:** the aggregation, the mapping onto Data Commons vocabulary and the StatVar name. Test the aggregation with two rows that differ only in the summed dimension, which collapse to their sum, and a third row in another group that stays separate: row counts and uniqueness tests do not notice a `max()` where a `sum()` belongs. Assert one minted StatVar dcid as a literal string.
 6. **DC schema mapping layer:** the `dc_*` models. Where the source has indicator codes, the StatVar model carries every one as `sourceIndicatorCode`, one quoted MCF value per code, so a StatVar minted from several codes keeps them all. For a source with a fixed release calendar, add its release months to `release_calendars` in `dbt_project.yml`, which the provenance model reads for the next release date, and its `completing_release_month` if it publishes partial years.
 7. **Documentation:** `transformations.md` and `changelog.md` under `docs/<source>/<dataset>/`, written for the reader described under published text in the skill.
-8. **Export to MCF/CSV:** the `ExportSpec` and export asset. Choose `conversion_recipe` deliberately: dfo-apis converts nothing from a provenance without one.
+8. **Export to MCF/CSV:** the `ExportSpec` and export asset, with the spec added to `EXPORT_SPECS` in `src/dfo_pipelines/defs/export_specs.py`. Choose `conversion_recipe` deliberately: dfo-apis converts nothing from a provenance without one.
 9. **DCP ingestion step:** the ingestion asset, with a test that runs the export and the ingestion together with `ingest_bundle` patched.
 
 ## Rebasing the stack
