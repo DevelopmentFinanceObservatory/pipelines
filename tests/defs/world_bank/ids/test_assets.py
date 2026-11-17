@@ -13,14 +13,12 @@ from upath import UPath
 
 from dfo_pipelines.defs.world_bank.ids.assets import (
     BULK_XLSX_URLS,
-    IDS_EXPORT_SPEC,
     IDS_SOURCE_API_URL,
     download_ids_bulk_data_files,
     fetch_ids_bulk_file_metadata,
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
-    world_bank_ids_dc_ingestion,
     world_bank_ids_raw_file,
     world_bank_ids_raw_metadata,
     world_bank_ids_raw_table,
@@ -30,10 +28,7 @@ from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     AutomationHarness,
     column_list,
@@ -1079,39 +1074,3 @@ def test_ids_dc_export_maps_the_ids_dimensions_to_ontology_properties(
         "fixedCapitalConsumptionBasis: dcid:GrossOfFixedCapitalConsumption\n"
         'sourceIndicatorCode: "NY.GNP.MKTP.CD"'
     )
-
-
-def test_ids_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    create_dc_models(duckdb)
-    import_name = IDS_EXPORT_SPEC.import_name
-    destination = f"gs://test-bucket/ingestion/input/{import_name}"
-
-    with patch(
-        "dfo_pipelines.defs.world_bank.ids.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [world_bank_ids_dc_export, world_bank_ids_dc_ingestion],
-            resources={
-                "duckdb": duckdb,
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node("world_bank_ids_dc_export")
-    [ingestion] = result.asset_materializations_for_node("world_bank_ids_dc_ingestion")
-    bundle = export.metadata["dagster/uri"].value
-    ingest_bundle.assert_called_once()
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == bundle
-    assert kwargs["import_name"] == import_name
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination

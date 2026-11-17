@@ -14,14 +14,9 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     DAC_EXPORT_SPEC,
     IMF_EXPORT_SPEC,
     one_conversion_tables_dac_dc_export,
-    one_conversion_tables_dac_dc_ingestion,
     one_conversion_tables_imf_dc_export,
-    one_conversion_tables_imf_dc_ingestion,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
@@ -30,10 +25,6 @@ type ExportAsset = Callable[..., dg.MaterializeResult]
 TABLES = {
     "dac": (DAC_EXPORT_SPEC, one_conversion_tables_dac_dc_export),
     "imf": (IMF_EXPORT_SPEC, one_conversion_tables_imf_dc_export),
-}
-INGESTIONS = {
-    "dac": one_conversion_tables_dac_dc_ingestion,
-    "imf": one_conversion_tables_imf_dc_ingestion,
 }
 
 
@@ -277,46 +268,3 @@ def test_dc_export_marks_only_projected_rows_with_a_measurement_method(
     assert pd.isna(written.loc["dcid:CurrencyEUR", mapping["measurementMethod"]])
     assert written.loc["dcid:CurrencyEUR", mapping["value"]] == 0.9246
     assert written.loc["dcid:country/KEN", mapping["unit"]] == "dcid:IndexPoint"
-
-
-@pytest.mark.parametrize("table", TABLES)
-def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, table: str, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test each ingestion is handed its own export's directory under its import name"""
-    spec, export_asset = TABLES[table]
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists one_conversion_tables")
-        connection.execute(_provenance_sql(table))
-        connection.execute(_statvars_sql(table))
-        connection.execute(_observations_sql(table))
-    destination = f"gs://test-bucket/ingestion/input/{spec.import_name}"
-
-    with patch(
-        "dfo_pipelines.defs.one.conversion_tables.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [export_asset, INGESTIONS[table]],
-            resources={
-                "duckdb": duckdb,
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node(export_asset.key.path[-1])
-    [ingestion] = result.asset_materializations_for_node(INGESTIONS[table].key.path[-1])
-    ingest_bundle.assert_called_once()
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == export.metadata["dagster/uri"].value
-    assert kwargs["import_name"] == spec.import_name
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata == {
-        "dagster/uri": dg.TextMetadataValue(destination),
-        "import_name": dg.TextMetadataValue(spec.import_name),
-    }

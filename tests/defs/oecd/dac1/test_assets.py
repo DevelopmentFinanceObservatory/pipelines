@@ -14,9 +14,7 @@ from oda_reader.download.download_tools import DAC1_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac1.assets import (
-    OECD_DAC1_EXPORT_SPEC,
     oecd_dac1_dc_export,
-    oecd_dac1_dc_ingestion,
     oecd_dac1_raw_file,
     oecd_dac1_raw_metadata,
     oecd_dac1_raw_table,
@@ -27,10 +25,7 @@ from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     AutomationHarness,
     column_list,
@@ -620,40 +615,3 @@ def test_oecd_dac1_dc_export_writes_each_property_the_statvar_sets(
         "financialFlowType: dcid:Disbursement\n"
         "dac1AidType: dcid:DAC1AidType1010",
     ]
-
-
-def test_oecd_dac1_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    with duckdb.get_connection() as connection:
-        connection.execute(DC_MODELS_SQL)
-    import_name = OECD_DAC1_EXPORT_SPEC.import_name
-    destination = f"gs://test-bucket/ingestion/input/{import_name}"
-
-    with patch(
-        "dfo_pipelines.defs.oecd.dac1.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [oecd_dac1_dc_export, oecd_dac1_dc_ingestion],
-            resources={
-                "duckdb": duckdb,
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node("oecd_dac1_dc_export")
-    [ingestion] = result.asset_materializations_for_node("oecd_dac1_dc_ingestion")
-    bundle = export.metadata["dagster/uri"].value
-    ingest_bundle.assert_called_once()
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == bundle
-    assert kwargs["import_name"] == import_name
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination

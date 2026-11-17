@@ -11,7 +11,6 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.climate_finance import (
@@ -27,13 +26,13 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import (
     metadata_table_result,
     raw_table_result,
 )
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
-    KnowledgeGraphResource,
     UPathFileStoreResource,
 )
 from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
@@ -422,95 +421,21 @@ def unfccc_btr_dc_export(
     )
 
 
-def _ingest(
-    spec: ExportSpec,
-    *,
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    bundle: str,
-) -> dg.MaterializeResult:
-    """Ingest the bundle `spec`'s export wrote and report where it was staged."""
-    destination = ingest_bundle(
-        UPath(bundle),
-        import_name=spec.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(spec.import_name),
-        },
-    )
-
-
-# TODO: Make these eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="one_climate_finance",
-    kinds={"gcs"},
+one_climate_finance_dc_ingestion = build_dc_ingestion_asset(
+    import_name=ONE_CLIMATE_FINANCE_EXPORT_SPEC.import_name,
+    group="one_climate_finance",
+    title="ONE Data Climate Finance",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def one_climate_finance_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    one_climate_finance_dc_export: str,
-) -> dg.MaterializeResult:
-    """ONE Data Climate Finance bundle ingested into the knowledge graph
-
-    Materialized by hand only. An ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    return _ingest(
-        ONE_CLIMATE_FINANCE_EXPORT_SPEC,
-        context=context,
-        knowledge_graph=knowledge_graph,
-        bundle=one_climate_finance_dc_export,
-    )
-
-
-@dg.asset(
-    group_name="one_climate_finance",
-    kinds={"gcs"},
+oecd_crdf_dc_ingestion = build_dc_ingestion_asset(
+    import_name=OECD_CRDF_EXPORT_SPEC.import_name,
+    group="one_climate_finance",
+    title="OECD climate-related development finance",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def oecd_crdf_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    oecd_crdf_dc_export: str,
-) -> dg.MaterializeResult:
-    """OECD climate-related development finance bundle ingested into the knowledge
-    graph
-
-    Materialized by hand only. An ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    return _ingest(
-        OECD_CRDF_EXPORT_SPEC,
-        context=context,
-        knowledge_graph=knowledge_graph,
-        bundle=oecd_crdf_dc_export,
-    )
-
-
-@dg.asset(
-    group_name="one_climate_finance",
-    kinds={"gcs"},
+unfccc_btr_dc_ingestion = build_dc_ingestion_asset(
+    import_name=UNFCCC_BTR_EXPORT_SPEC.import_name,
+    group="one_climate_finance",
+    title="UNFCCC Biennial Transparency Reports",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def unfccc_btr_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    unfccc_btr_dc_export: str,
-) -> dg.MaterializeResult:
-    """UNFCCC Biennial Transparency Reports bundle ingested into the knowledge graph
-
-    Materialized by hand only. An ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    return _ingest(
-        UNFCCC_BTR_EXPORT_SPEC,
-        context=context,
-        knowledge_graph=knowledge_graph,
-        bundle=unfccc_btr_dc_export,
-    )

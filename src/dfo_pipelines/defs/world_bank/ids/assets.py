@@ -17,7 +17,6 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
@@ -25,11 +24,9 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -384,32 +381,9 @@ def world_bank_ids_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="world_bank_ids",
-    kinds={"gcs"},
+world_bank_ids_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IDS_EXPORT_SPEC.import_name,
+    group="world_bank_ids",
+    title="World Bank IDS",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def world_bank_ids_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    world_bank_ids_dc_export: str,
-) -> dg.MaterializeResult:
-    """World Bank IDS bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    destination = ingest_bundle(
-        UPath(world_bank_ids_dc_export),
-        import_name=IDS_EXPORT_SPEC.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IDS_EXPORT_SPEC.import_name),
-        },
-    )

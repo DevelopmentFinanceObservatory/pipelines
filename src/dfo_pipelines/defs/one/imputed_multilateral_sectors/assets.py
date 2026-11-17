@@ -14,7 +14,6 @@ from oda_reader.download.download_tools import (
     MULTI_FLOW_URL,
     get_bulk_file_url_with_version,
 )
-from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -23,7 +22,6 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
@@ -31,11 +29,9 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 CRS_BULK_LABEL = "CRS-Parquet"
 MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
@@ -536,34 +532,9 @@ def one_imputed_multilateral_sectors_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="one_imputed_multilateral_sectors",
-    kinds={"gcs"},
+one_imputed_multilateral_sectors_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name,
+    group="one_imputed_multilateral_sectors",
+    title="Imputed multilateral sectors",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def one_imputed_multilateral_sectors_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    one_imputed_multilateral_sectors_dc_export: str,
-) -> dg.MaterializeResult:
-    """Imputed multilateral sectors bundle ingested into the knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    destination = ingest_bundle(
-        UPath(one_imputed_multilateral_sectors_dc_export),
-        import_name=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(
-                IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
-            ),
-        },
-    )

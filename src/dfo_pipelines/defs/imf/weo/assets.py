@@ -7,7 +7,6 @@ import httpx
 from dagster_duckdb import DuckDBResource
 from imf_reader import weo
 from imf_reader.weo import api as weo_api
-from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -16,7 +15,6 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
@@ -24,11 +22,9 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # One observation of one series, with the dataflow's attributes, which include
 # the date the IMF published the release.
@@ -207,32 +203,9 @@ def imf_weo_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="imf_weo",
-    kinds={"gcs"},
+imf_weo_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IMF_WEO_EXPORT_SPEC.import_name,
+    group="imf_weo",
+    title="IMF WEO",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def imf_weo_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    imf_weo_dc_export: str,
-) -> dg.MaterializeResult:
-    """IMF WEO bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    destination = ingest_bundle(
-        UPath(imf_weo_dc_export),
-        import_name=IMF_WEO_EXPORT_SPEC.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMF_WEO_EXPORT_SPEC.import_name),
-        },
-    )

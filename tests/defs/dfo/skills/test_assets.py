@@ -16,18 +16,15 @@ from dfo_pipelines.data_commons.export import ExportSpec
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.dfo.ontology.assets import ONTOLOGY_MCF
 from dfo_pipelines.defs.dfo.skills.assets import (
-    IMPORT_NAME,
     MAX_FILE_BYTES,
     MAX_PATH_CHARACTERS,
     MAX_REFERENCES,
     dfo_skills_dc_export,
-    dfo_skills_dc_ingestion,
     dfo_skills_raw_directory,
     dfo_skills_source,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
@@ -360,50 +357,6 @@ def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
     assert isinstance(result, dg.MaterializeResult)
     out_dir = Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
     assert files_under(out_dir) == files_under(FIXTURES / "dc_export")
-
-
-@dg.asset(name="dfo_skills_raw_directory")
-def _stub_skills_raw_directory() -> str:
-    """Raw skills, standing in for a clone of dfo-skills"""
-    return str(FIXTURES)
-
-
-def test_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
-
-    with patch(
-        "dfo_pipelines.defs.dfo.skills.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [
-                _stub_skills_raw_directory,
-                _stub_ontology_raw_directory,
-                dfo_skills_dc_export,
-                dfo_skills_dc_ingestion,
-            ],
-            resources={
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-                "skills_repository": SKILLS_REPOSITORY,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node("dfo_skills_dc_export")
-    [ingestion] = result.asset_materializations_for_node("dfo_skills_dc_ingestion")
-    bundle = export.metadata["dagster/uri"].value
-    ingest_bundle.assert_called_once()
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == bundle
-    assert kwargs["import_name"] == IMPORT_NAME
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination
 
 
 def write_skill(

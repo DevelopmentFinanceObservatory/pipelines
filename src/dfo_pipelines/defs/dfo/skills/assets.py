@@ -13,7 +13,6 @@ from dcp_tools import CustomDataManager
 from upath import UPath
 from yaml.constructor import ConstructorError
 
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.data_commons.mcf import escape_markdown, mcf_node_dcids
 from dfo_pipelines.defs.dfo.ontology.assets import (
     ONTOLOGY_MCF,
@@ -21,8 +20,8 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
@@ -677,30 +676,13 @@ def dfo_skills_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(group_name="dfo_skills", kinds={"gcs"}, deps=[dfo_ontology_dc_ingestion])
-def dfo_skills_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    dfo_skills_dc_export: str,
-) -> dg.MaterializeResult:
-    """DFO agent skills bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started. It follows the
-    ontology's ingestion, which defines the source, the skill classes and
-    properties, and the nodes skills link to.
-    """
-    destination = ingest_bundle(
-        UPath(dfo_skills_dc_export),
-        import_name=IMPORT_NAME,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
-        },
-    )
+dfo_skills_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IMPORT_NAME,
+    group="dfo_skills",
+    title="DFO agent skills",
+    deps=[dfo_ontology_dc_ingestion],
+    description_note=(
+        "It follows the ontology's ingestion, which defines the source, the skill "
+        "classes and properties, and the nodes skills link to."
+    ),
+)
