@@ -9,7 +9,6 @@ from unittest.mock import patch
 import dagster as dg
 import pytest
 from dagster_duckdb import DuckDBResource
-from upath import UPath
 
 from dfo_pipelines.defs.dfo.ontology.assets import (
     CODE_MAPPING_CSV,
@@ -20,7 +19,6 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_dc_ingestion,
     dfo_ontology_raw_code_mapping_table,
     dfo_ontology_raw_directory,
-    mcf_node_dcids,
 )
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
@@ -117,14 +115,6 @@ def materialize_raw_directory(tmp_path: Path) -> Any:
 def checks(result: dg.MaterializeResult) -> dict[str, bool]:
     """The asset's checks, keyed on name"""
     return {str(check.check_name): bool(check.passed) for check in result.check_results}
-
-
-def test_mcf_node_dcids_collects_only_the_node_lines(tmp_path: Path) -> None:
-    """Test the parser collects each node's dcid, not the property lines under it"""
-    mcf_path = tmp_path / ONTOLOGY_MCF
-    mcf_path.write_text(STUB_MCF)
-
-    assert mcf_node_dcids(UPath(mcf_path)) == {"dcid:FinancialFlow", "dcid:crsPurpose"}
 
 
 def test_raw_directory_counts_the_nodes_the_mcf_declares(

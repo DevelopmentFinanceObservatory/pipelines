@@ -14,11 +14,10 @@ from upath import UPath
 from yaml.constructor import ConstructorError
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.data_commons.mcf import escape_markdown
+from dfo_pipelines.data_commons.mcf import escape_markdown, mcf_node_dcids
 from dfo_pipelines.defs.dfo.ontology.assets import (
     ONTOLOGY_MCF,
     dfo_ontology_dc_ingestion,
-    mcf_node_dcids,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.defs.resources import (
