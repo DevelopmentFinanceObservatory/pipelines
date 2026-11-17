@@ -35,7 +35,7 @@ class ReleaseDateLookupError(Exception):
 
 
 def test_dac2a_source_observes_the_dac2a_bulk_file() -> None:
-    """Test the source looks up the full DAC2a parquet in its dataflow"""
+    """Test the source looks up the full DAC2a parquet in its dataflow and records its URL and version"""
     observe = oecd_dac2a_source.observe_fn
     assert observe is not None
 
@@ -44,13 +44,19 @@ def test_dac2a_source_observes_the_dac2a_bulk_file() -> None:
         autospec=True,
         return_value=(DAC2A_TEST_URL, "v20260801"),
     ) as lookup:
-        observe()
+        result = observe()
 
     lookup.assert_called_once_with(
         flow_url=DAC2A_FLOW_URL,
         label="DAC2A full dataset (dotStat format)",
         bypass_annotation_cache=True,
     )
+    assert isinstance(result, dg.ObserveResult)
+    assert result.data_version == dg.DataVersion(f"{DAC2A_TEST_URL};v20260801")
+    assert result.metadata == {
+        "dagster/uri": dg.TextMetadataValue(DAC2A_TEST_URL),
+        "version": dg.TextMetadataValue("v20260801"),
+    }
 
 
 def test_dac2a_raw_file_dates_the_release_from_the_url(

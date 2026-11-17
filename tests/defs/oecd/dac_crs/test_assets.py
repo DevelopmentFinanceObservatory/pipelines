@@ -59,7 +59,7 @@ def test_parse_crs_release_date_raises_when_the_token_carries_no_date(
 
 
 def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
-    """Test the source looks up the full CRS parquet in its dataflow"""
+    """Test the source looks up the full CRS parquet in its dataflow and records its URL and version"""
     observe = oecd_dac_crs_source.observe_fn
     assert observe is not None
 
@@ -68,11 +68,17 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
         autospec=True,
         return_value=(CRS_TEST_URL, "v20260801"),
     ) as lookup:
-        observe()
+        result = observe()
 
     lookup.assert_called_once_with(
         flow_url=CRS_FLOW_URL, label="CRS-Parquet", bypass_annotation_cache=True
     )
+    assert isinstance(result, dg.ObserveResult)
+    assert result.data_version == dg.DataVersion(f"{CRS_TEST_URL};v20260801")
+    assert result.metadata == {
+        "dagster/uri": dg.TextMetadataValue(CRS_TEST_URL),
+        "version": dg.TextMetadataValue("v20260801"),
+    }
 
 
 def test_dac_crs_raw_file_dates_the_release_from_the_version(

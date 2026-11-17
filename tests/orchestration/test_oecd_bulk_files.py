@@ -11,17 +11,13 @@ import pyarrow.parquet as pq
 import pytest
 from upath import UPath
 
-from dfo_pipelines.orchestration.oecd_bulk_files import (
-    fetch_bulk_file,
-    observe_bulk_file,
-)
+from dfo_pipelines.orchestration.oecd_bulk_files import fetch_bulk_file
 
 FLOW_URL = "https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_EXAMPLE"
 LABEL = "Example full dataset"
 DOWNLOADED_NAME = "example_data.parquet"
 
-# Stand-in for the resolved bulk-download URL. The lookup is mocked, so the URL
-# is never fetched, and it is joined into the data version the tests pin.
+# Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/example/Example.parquet"
 VERSION = "v20260801"
 
@@ -35,7 +31,7 @@ def write_download(save_to_path: str, use_raw_cache: bool) -> None:
 
 @contextmanager
 def patch_bulk_lookup() -> Iterator[Mock]:
-    """Answer the bulk file lookup the observation and the fetch make"""
+    """Answer the bulk file lookup the fetch makes"""
     with patch(
         "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
         autospec=True,
@@ -53,22 +49,6 @@ def build_fetch(*, download: Mock, release_date: Mock):
         downloaded_name=DOWNLOADED_NAME,
         release_date=release_date,
     )
-
-
-def test_observe_bulk_file_records_the_url_and_version() -> None:
-    """Test the observation records the labelled file's URL and version, and joins
-    them into the data version"""
-    with patch_bulk_lookup() as lookup:
-        result = observe_bulk_file(flow_url=FLOW_URL, label=LABEL)
-
-    lookup.assert_called_once_with(
-        flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True
-    )
-    assert result.data_version == dg.DataVersion(f"{BULK_FILE_URL};{VERSION}")
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(BULK_FILE_URL),
-        "version": dg.TextMetadataValue(VERSION),
-    }
 
 
 def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> None:

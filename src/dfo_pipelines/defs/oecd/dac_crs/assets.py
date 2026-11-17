@@ -14,12 +14,10 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.extraction.oecd import resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.oecd_bulk_files import (
-    fetch_bulk_file,
-    observe_bulk_file,
-)
+from dfo_pipelines.orchestration.oecd_bulk_files import fetch_bulk_file
 from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
@@ -56,7 +54,14 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
 
     The source is observed daily via calls to the OECD API.
     """
-    return observe_bulk_file(flow_url=CRS_FLOW_URL, label=CRS_BULK_LABEL)
+    url, version = resolve_bulk_file(flow_url=CRS_FLOW_URL, label=CRS_BULK_LABEL)
+    return dg.ObserveResult(
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(url),
+            "version": dg.MetadataValue.text(version),
+        },
+        data_version=dg.DataVersion(f"{url};{version}"),
+    )
 
 
 oecd_dac_crs_raw_file = build_raw_file_asset(

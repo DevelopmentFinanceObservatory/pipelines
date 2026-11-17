@@ -7,18 +7,6 @@ from upath import UPath
 from dfo_pipelines.extraction.oecd import resolve_bulk_file
 
 
-def observe_bulk_file(*, flow_url: str, label: str) -> dg.ObserveResult:
-    """Observe the URL and version of the bulk file `label` lists at `flow_url`"""
-    url, version = resolve_bulk_file(flow_url=flow_url, label=label)
-    return dg.ObserveResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(url),
-            "version": dg.MetadataValue.text(version),
-        },
-        data_version=dg.DataVersion(f"{url};{version}"),
-    )
-
-
 def fetch_bulk_file(
     file_path: UPath,
     *,
