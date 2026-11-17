@@ -55,23 +55,6 @@ def test_build_dc_ingestion_asset_ingests_the_bundle_the_export_wrote(
     assert example_dc_ingestion.specs_by_key[example_dc_ingestion.key].kinds == {"gcs"}
 
 
-def test_build_dc_ingestion_asset_appends_the_note_to_the_description() -> None:
-    """Test the note follows the standard description"""
-    ingestion = build_dc_ingestion_asset(
-        import_name="example",
-        group="example",
-        title="Example",
-        description_note="It follows the ontology's ingestion.",
-    )
-
-    assert ingestion.descriptions_by_key[ingestion.key] == (
-        "Example bundle ingested into the Data Commons knowledge graph\n\n"
-        "Materialized by hand only: an ingestion rewrites the shared graph and runs\n"
-        "for as long as it takes after the workflow is started. It follows the "
-        "ontology's ingestion."
-    )
-
-
 def test_every_export_has_an_ingestion_run_by_hand_after_the_shared_nodes() -> None:
     """Test each export has an ingestion, which runs by hand, since it rewrites the
     shared graph, reads its own pipeline's export, and waits on the ontology's and

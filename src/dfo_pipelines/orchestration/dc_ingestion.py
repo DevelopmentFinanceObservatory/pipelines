@@ -13,7 +13,6 @@ def build_dc_ingestion_asset(
     group: str,
     title: str,
     deps: Sequence[dg.AssetsDefinition] = (),
-    description_note: str | None = None,
 ) -> dg.AssetsDefinition:
     """The `<import_name>_dc_ingestion` asset ingesting its export's bundle"""
     description = (
@@ -21,8 +20,6 @@ def build_dc_ingestion_asset(
         "Materialized by hand only: an ingestion rewrites the shared graph and runs\n"
         "for as long as it takes after the workflow is started."
     )
-    if description_note is not None:
-        description = f"{description} {description_note}"
 
     # TODO: Make this eager in a single-slot pool once the ingestion step can wait
     # for the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109

@@ -94,9 +94,6 @@ dfo_shared_dc_ingestion = build_dc_ingestion_asset(
     import_name=IMPORT_NAME,
     group="dfo_shared",
     title="DFO shared nodes",
+    # The ontology defines the source the provenance names.
     deps=[dfo_ontology_dc_ingestion],
-    description_note=(
-        "It follows the ontology's ingestion, which defines the source the "
-        "provenance names."
-    ),
 )
