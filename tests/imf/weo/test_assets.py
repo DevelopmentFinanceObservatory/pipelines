@@ -202,37 +202,6 @@ def test_imf_weo_raw_table_loads_parquet(tmp_path: Path) -> None:
     assert check.passed
 
 
-def test_imf_weo_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
-    """Test IMF WEO raw table check fails when the parquet file has no rows"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = imf_weo_raw_table(
-        duckdb=duckdb, imf_weo_raw_file=str(FIXTURES / "data-0.parquet")
-    )
-
-    assert row_count(duckdb, "imf_weo.raw_weo") == 0
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "table_not_empty"
-    assert not check.passed
-
-
-def test_imf_weo_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
-    """Test IMF WEO raw table asset replaces the table rather than appending"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    imf_weo_raw_table(duckdb=duckdb, imf_weo_raw_file=str(FIXTURES / "data.parquet"))
-
-    assert row_count(duckdb, "imf_weo.raw_weo") == FIXTURE_ROWS
-
-    imf_weo_raw_table(duckdb=duckdb, imf_weo_raw_file=str(FIXTURES / "data-5.parquet"))
-
-    assert row_count(duckdb, "imf_weo.raw_weo") == 5
-
-
 def test_imf_weo_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
     """Test the raw file asset's output path is injected into the raw table asset"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))

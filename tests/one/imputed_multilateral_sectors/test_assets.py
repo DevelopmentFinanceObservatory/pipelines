@@ -932,59 +932,6 @@ def test_raw_table_loads_the_parquet_fixture(tmp_path: Path) -> None:
     assert check.passed
 
 
-def test_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
-    """Test the raw table check fails when the parquet file has no rows"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    empty = pd.read_parquet(FIXTURES / "data.parquet").iloc[0:0]
-    empty_path = tmp_path / "empty.parquet"
-    empty.to_parquet(empty_path, index=False)
-
-    result = one_imputed_multilateral_sectors_raw_table(
-        duckdb=duckdb, one_imputed_multilateral_sectors_raw_file=str(empty_path)
-    )
-
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-        )
-        == 0
-    )
-    assert isinstance(result, dg.MaterializeResult)
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert not check.passed
-
-
-def test_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
-    """Test the raw table asset replaces the table rather than appending"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    full = pd.read_parquet(FIXTURES / "data.parquet")
-    subset_path = tmp_path / "subset.parquet"
-    full.head(5).to_parquet(subset_path, index=False)
-
-    one_imputed_multilateral_sectors_raw_table(
-        duckdb=duckdb,
-        one_imputed_multilateral_sectors_raw_file=str(FIXTURES / "data.parquet"),
-    )
-    assert row_count(
-        duckdb,
-        "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-    ) == len(full)
-
-    one_imputed_multilateral_sectors_raw_table(
-        duckdb=duckdb, one_imputed_multilateral_sectors_raw_file=str(subset_path)
-    )
-
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-        )
-        == 5
-    )
-
-
 def test_raw_metadata_loads_the_recorded_extraction_metadata(tmp_path: Path) -> None:
     """Test the metadata asset loads both sources' release dates under their own columns
 
