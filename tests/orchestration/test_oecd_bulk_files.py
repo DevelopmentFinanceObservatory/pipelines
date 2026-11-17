@@ -19,8 +19,8 @@ FLOW_URL = "https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_EXAMPLE"
 LABEL = "Example full dataset"
 DOWNLOADED_NAME = "example_data.parquet"
 
-# Stand-in for the resolved bulk-download URL: never fetched, the lookup is
-# mocked, but joined into the data version so it is pinned in assertions.
+# Stand-in for the resolved bulk-download URL. The lookup is mocked, so the URL
+# is never fetched, and it is joined into the data version the tests pin.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/example/Example.parquet"
 VERSION = "v20260801"
 
@@ -188,13 +188,13 @@ def test_source_observation_records_an_observation_event(tmp_path: Path) -> None
 def test_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
     """Test the source's condition requests one observation per UTC day
 
-    The 13:00 tick is what pins the cadence: a shorter cron would request an
-    observation an hour after the last one. The 00:01 tick proves the condition
-    requests an observation at all once the daily tick has passed, and 00:02
-    proves it is not requested again before the next one.
+    The 13:00 tick pins the cadence, since a shorter cron would request an
+    observation an hour after the last one. The 00:01 tick shows the condition
+    requests an observation once the daily tick has passed, and 00:02 shows it
+    is not requested again before the next one.
     """
     with _ExampleAutomation(tmp_path) as automation:
-        # A baseline tick: every condition is reset on its initial evaluation,
+        # A baseline tick. Every condition is reset on its initial evaluation,
         # so the first tick requests nothing whatever the time is.
         automation.source_tick(at=datetime(2026, 8, 25, 12, 0, tzinfo=UTC))
 

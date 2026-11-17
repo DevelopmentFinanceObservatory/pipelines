@@ -11,6 +11,7 @@ from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
     oecd_dac_crs_dc_export,
+    oecd_dac_crs_raw_file,
     oecd_dac_crs_raw_metadata,
     oecd_dac_crs_raw_table,
     oecd_dac_crs_source,
@@ -29,6 +30,10 @@ DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_VERSION = "v20260801"
 SOURCE_RELEASE_DATE = date(2026, 8, 1)
+
+
+class ReleaseDateLookupError(Exception):
+    """Raised by the mocked release date lookup to stop before the download"""
 
 
 def test_parse_crs_release_date_reads_the_date_from_the_version_token() -> None:
@@ -68,6 +73,31 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
     lookup.assert_called_once_with(
         flow_url=CRS_FLOW_URL, label="CRS-Parquet", bypass_annotation_cache=True
     )
+
+
+def test_dac_crs_raw_file_dates_the_release_from_the_version(
+    tmp_path: Path,
+) -> None:
+    """Test the raw file asks for the release date from the version token"""
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+
+    with (
+        patch(
+            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+            autospec=True,
+            return_value=(CRS_TEST_URL, SOURCE_VERSION),
+        ),
+        patch(
+            "dfo_pipelines.defs.oecd.dac_crs.assets.parse_crs_release_date",
+            side_effect=ReleaseDateLookupError,
+        ) as release_date,
+        pytest.raises(ReleaseDateLookupError),
+    ):
+        oecd_dac_crs_raw_file(
+            context=dg.build_asset_context(), raw_file_store=file_store
+        )
+
+    release_date.assert_called_once_with(SOURCE_VERSION)
 
 
 def test_dac_crs_raw_table_loads_parquet(tmp_path: Path) -> None:

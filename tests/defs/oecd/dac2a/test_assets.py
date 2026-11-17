@@ -4,12 +4,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
+import pytest
 from dagster_duckdb import DuckDBResource
 from oda_reader.download.download_tools import DAC2A_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac2a.assets import (
     oecd_dac2a_dc_export,
+    oecd_dac2a_raw_file,
     oecd_dac2a_raw_metadata,
     oecd_dac2a_raw_table,
     oecd_dac2a_source,
@@ -26,6 +28,10 @@ DAC2A_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2a/DAC2a.parquet"
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_RELEASE_DATE = date(2026, 7, 7)
+
+
+class ReleaseDateLookupError(Exception):
+    """Raised by the mocked release date lookup to stop before the download"""
 
 
 def test_dac2a_source_observes_the_dac2a_bulk_file() -> None:
@@ -45,6 +51,29 @@ def test_dac2a_source_observes_the_dac2a_bulk_file() -> None:
         label="DAC2A full dataset (dotStat format)",
         bypass_annotation_cache=True,
     )
+
+
+def test_dac2a_raw_file_dates_the_release_from_the_url(
+    tmp_path: Path,
+) -> None:
+    """Test the raw file asks for the release date from the bulk file's URL"""
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+
+    with (
+        patch(
+            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+            autospec=True,
+            return_value=(DAC2A_TEST_URL, "v20260801"),
+        ),
+        patch(
+            "dfo_pipelines.defs.oecd.dac2a.assets.fetch_bulk_file_release_date",
+            side_effect=ReleaseDateLookupError,
+        ) as release_date,
+        pytest.raises(ReleaseDateLookupError),
+    ):
+        oecd_dac2a_raw_file(context=dg.build_asset_context(), raw_file_store=file_store)
+
+    release_date.assert_called_once_with(DAC2A_TEST_URL)
 
 
 def test_dac2a_raw_table_loads_parquet(tmp_path: Path) -> None:

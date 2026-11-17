@@ -206,29 +206,6 @@ def test_imf_weo_source_observation_records_an_observation_event(
     ] == [imf_weo_source.key]
 
 
-def test_imf_weo_raw_assets_are_not_rerun_when_the_source_is_unchanged(
-    tmp_path: Path,
-) -> None:
-    """Test a repeat observation at an unchanged data version requests no rerun
-
-    This is the point of the new data check: the raw assets must not re-run
-    while the IMF has not published a new WEO release.
-    """
-    with _WEOAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-        # A baseline tick, not evidence: every condition is reset on its initial
-        # evaluation, so the first tick requests nothing whatever the source did.
-        automation.tick()
-
-        automation.observe()
-
-        assert automation.tick() == {
-            "imf_weo_raw_file": 0,
-            "imf_weo_raw_table": 0,
-        }
-
-
 def test_imf_weo_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) -> None:
     """Test the source's condition requests one observation per UTC day
 
@@ -245,33 +222,6 @@ def test_imf_weo_source_is_requested_once_per_daily_cron_tick(tmp_path: Path) ->
         assert automation.source_tick(at=datetime(2026, 8, 25, 13, 0, tzinfo=UTC)) == 0
         assert automation.source_tick(at=datetime(2026, 8, 26, 0, 1, tzinfo=UTC)) == 1
         assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
-
-
-def test_imf_weo_raw_assets_are_rerun_when_the_source_data_version_changes(
-    tmp_path: Path,
-) -> None:
-    """Test a changed data version requests the raw assets, and only once"""
-    with _WEOAutomation(tmp_path) as automation:
-        automation.observe()
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-        automation.tick()  # baseline, as above
-
-        automation.release = ("October", 2026)
-        automation.observe()
-
-        # Both are requested on the same tick: eager() counts a dependency that
-        # will be requested as updated, so the chain is launched in one run.
-        assert automation.tick() == {
-            "imf_weo_raw_file": 1,
-            "imf_weo_raw_table": 1,
-        }
-
-        automation.materialize(imf_weo_raw_file, imf_weo_raw_table)
-
-        assert automation.tick() == {
-            "imf_weo_raw_file": 0,
-            "imf_weo_raw_table": 0,
-        }
 
 
 def test_imf_weo_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:

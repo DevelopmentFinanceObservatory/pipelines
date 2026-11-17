@@ -19,9 +19,9 @@ def _fetch_bulk_file(
     release_date: Callable[[str, str], date],
 ) -> RawFileFetch:
     """Download the bulk file `label` lists at `flow_url` to `file_path`"""
-    # Resolve before downloading: the cache-bypassing resolve refreshes
-    # oda_reader's cached annotation, which is what lets the download, which
-    # re-resolves the URL itself without a bypass, see the version observed.
+    # Resolve before downloading. The cache-bypassing resolve refreshes
+    # oda_reader's cached annotation, so the download, which re-resolves the URL
+    # without a bypass, sees the version observed.
     url, version = resolve_bulk_file(flow_url=flow_url, label=label)
     released = release_date(url, version)
     download(save_to_path=str(file_path.parent), use_raw_cache=False)

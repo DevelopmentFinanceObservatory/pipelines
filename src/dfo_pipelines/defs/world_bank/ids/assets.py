@@ -190,7 +190,7 @@ def download_ids_bulk_data_files(output_folder: UPath) -> None:
         raise
 
 
-def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
+def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> None:
     """Concatenate the downloaded XLSX files into a single parquet file.
 
     The files are combined unmodified (wide format as published, original
@@ -199,12 +199,10 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
 
     Each file is appended as its own row group rather than being concatenated
     in memory first, so peak memory is bounded by the largest single file
-    rather than by the whole dataset. Returns the row count.
+    rather than by the whole dataset.
     """
     tmp_path = output_file.with_suffix(".tmp")
     writer: pq.ParquetWriter | None = None
-    rows = 0
-
     try:
         try:
             for filename in BULK_XLSX_URLS:
@@ -228,7 +226,6 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
                 # This raises if a file's schema differs from the first, rather than
                 # silently null-filling the way pd.concat would.
                 writer.write_table(table)
-                rows += table.num_rows
                 del table
         finally:
             if writer is not None:
@@ -241,8 +238,6 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> int:
             (input_folder / filename).unlink(missing_ok=True)
 
     tmp_path.rename(output_file)
-
-    return rows
 
 
 IDS_EXPORT_SPEC = ExportSpec(

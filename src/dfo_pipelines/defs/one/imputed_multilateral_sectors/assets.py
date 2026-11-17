@@ -292,7 +292,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
     )
 
 
-def _fetch_imputed_multilateral_sectors(file_path: UPath) -> RawFileFetch:
+def fetch_imputed_multilateral_sectors_raw_file(file_path: UPath) -> RawFileFetch:
     """Compute the imputation between two release observations and write it"""
     (_, crs_before), (_, multi_before) = resolve_bulk_versions()
     observed_before = {"crs": crs_before, "multisystem": multi_before}
@@ -348,7 +348,7 @@ one_imputed_multilateral_sectors_raw_file = build_raw_file_asset(
     group="one_imputed_multilateral_sectors",
     dataset="imputed_multilateral_sectors",
     title="imputed multilateral spending by purpose",
-    fetch=_fetch_imputed_multilateral_sectors,
+    fetch=fetch_imputed_multilateral_sectors_raw_file,
     description="""Raw imputed multilateral spending by purpose.
 
 Computes `imputed_multilateral_by_purpose` for every provider and year

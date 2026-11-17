@@ -68,8 +68,8 @@ def build_raw_file_asset(
         ],
         retry_policy=retry_policy,
     )
-    # Unannotated: a MaterializeResult return annotation types the output as
-    # Nothing, and the IO manager then rejects the path this returns as its value.
+    # Left unannotated, since a MaterializeResult return annotation types the
+    # output as Nothing and the IO manager then rejects the path returned as its value.
     def raw_file(
         context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
     ):
@@ -80,11 +80,11 @@ def build_raw_file_asset(
         directory.mkdir(parents=True, exist_ok=True)
         file_path = directory / "data.parquet"
         fetched = fetch(file_path)
+        with file_path.open("rb") as handle:
+            rows = pq.read_metadata(handle).num_rows
         write_extraction_metadata(
             directory, downloaded_at=downloaded_at, release_dates=fetched.release_dates
         )
-        with file_path.open("rb") as handle:
-            rows = pq.read_metadata(handle).num_rows
         file_size = file_path.stat().st_size
         context.log.info(f"Wrote {title} data to {file_path}")
         return dg.MaterializeResult(

@@ -164,6 +164,21 @@ def test_build_raw_file_asset_writes_no_metadata_when_the_fetch_fails(
     assert not list((tmp_path / "raw").rglob(METADATA_FILE_NAME))
 
 
+def test_build_raw_file_asset_writes_no_metadata_when_the_file_is_unreadable(
+    tmp_path: Path,
+) -> None:
+    """Test a hook writing a truncated file leaves no record claiming a download"""
+
+    def truncate(file_path: UPath) -> RawFileFetch:
+        file_path.write_bytes(b"PAR1")
+        return RawFileFetch(release_dates={"source": RELEASE_DATE})
+
+    with pytest.raises(pa.ArrowInvalid):
+        materialize_directly(build_example(truncate), tmp_path)
+
+    assert not list((tmp_path / "raw").rglob(METADATA_FILE_NAME))
+
+
 def test_build_raw_file_asset_logs_where_it_wrote(tmp_path: Path) -> None:
     """Test the run log names the source and the file written"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
@@ -232,7 +247,7 @@ class _ExampleAutomation(AutomationHarness):
         )
 
     def _start_mocks(self) -> None:
-        """Nothing to patch: the stub source and fetch hook reach no network"""
+        """Nothing to patch. The stub source and fetch hook reach no network"""
 
 
 def test_build_raw_file_asset_is_not_rerun_when_the_source_is_unchanged(
@@ -242,7 +257,7 @@ def test_build_raw_file_asset_is_not_rerun_when_the_source_is_unchanged(
     with _ExampleAutomation(tmp_path) as automation:
         automation.observe()
         automation.materialize(automation.raw_file, automation.raw_table)
-        # A baseline tick, not evidence: every condition is reset on its initial
+        # A baseline tick, not evidence. Every condition is reset on its initial
         # evaluation, so the first tick requests nothing whatever the source did.
         automation.tick()
 
@@ -255,7 +270,7 @@ def test_build_raw_file_asset_is_rerun_with_its_table_when_the_source_changes(
     tmp_path: Path,
 ) -> None:
     """Test a changed data version requests the raw file and the table loading it on
-    one tick, and only once; the table loads the path the raw file returned"""
+    one tick, and only once. The table loads the path the raw file returned"""
     with _ExampleAutomation(tmp_path) as automation:
         automation.observe()
         automation.materialize(automation.raw_file, automation.raw_table)
