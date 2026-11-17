@@ -12,7 +12,7 @@ Every layer passes the full CI suite on its own and automates what it adds, beca
 6. **DC schema mapping layer:** the `dc_*` models. Where the source has indicator codes, the StatVar model carries every one as `sourceIndicatorCode`, one quoted MCF value per code, so a StatVar minted from several codes keeps them all. For a source with a fixed release calendar, add its release months to `release_calendars` in `dbt_project.yml`, which the provenance model reads for the next release date, and its `completing_release_month` if it publishes partial years.
 7. **Documentation:** `transformations.md` and `changelog.md` under `docs/<source>/<dataset>/`, written for the reader described under published text in the skill.
 8. **Export to MCF/CSV:** the `ExportSpec` and export asset, with the spec added to `EXPORT_SPECS` in `src/dfo_pipelines/defs/export_specs.py`. Choose `conversion_recipe` deliberately: dfo-apis converts nothing from a provenance without one.
-9. **DCP ingestion step:** the ingestion asset, with a test that runs the export and the ingestion together with `ingest_bundle` patched.
+9. **DCP ingestion step:** the ingestion asset, declared with `build_dc_ingestion_asset` (`src/dfo_pipelines/orchestration/dc_ingestion.py`), which reads the `<import_name>_dc_export` asset. The tests in `tests/orchestration/test_dc_ingestion.py` cover every ingestion asset, so the step adds none.
 
 ## Rebasing the stack
 

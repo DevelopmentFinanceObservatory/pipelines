@@ -7,13 +7,10 @@ from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 from upath import UPath
 
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_ontology"
@@ -171,28 +168,6 @@ def dfo_ontology_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(group_name="dfo_ontology", kinds={"gcs"})
-def dfo_ontology_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    dfo_ontology_dc_export: str,
-) -> dg.MaterializeResult:
-    """DFO ontology bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    destination = ingest_bundle(
-        UPath(dfo_ontology_dc_export),
-        import_name=IMPORT_NAME,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(IMPORT_NAME),
-        },
-    )
+dfo_ontology_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IMPORT_NAME, group="dfo_ontology", title="DFO ontology"
+)

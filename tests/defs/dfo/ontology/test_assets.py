@@ -13,17 +13,12 @@ from dagster_duckdb import DuckDBResource
 from dfo_pipelines.defs.dfo.ontology.assets import (
     CODE_MAPPING_CSV,
     COMPILE_REPORT,
-    IMPORT_NAME,
     ONTOLOGY_MCF,
     dfo_ontology_dc_export,
-    dfo_ontology_dc_ingestion,
     dfo_ontology_raw_code_mapping_table,
     dfo_ontology_raw_directory,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import column_list, meta, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -316,42 +311,3 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
         result.get_asset_check_evaluations()
     )
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(mapping_rows())
-
-
-def test_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, compiler: Any, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
-
-    with patch(
-        "dfo_pipelines.defs.dfo.ontology.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [
-                dfo_ontology_raw_directory,
-                dfo_ontology_dc_export,
-                dfo_ontology_dc_ingestion,
-            ],
-            resources={
-                "raw_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "raw")
-                ),
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node("dfo_ontology_dc_export")
-    [ingestion] = result.asset_materializations_for_node("dfo_ontology_dc_ingestion")
-    bundle = export.metadata["dagster/uri"].value
-    ingest_bundle.assert_called_once()
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == bundle
-    assert kwargs["import_name"] == IMPORT_NAME
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination

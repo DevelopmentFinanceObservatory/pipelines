@@ -8,7 +8,6 @@ and the two tables refresh with different sources.
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
-from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -16,16 +15,13 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 SCHEMA = "one_conversion_tables"
 DOCS_DIR = DOCS_ROOT / "one" / "conversion_tables"
@@ -155,71 +151,15 @@ def one_conversion_tables_imf_dc_export(
     )
 
 
-def _ingest(
-    spec: ExportSpec,
-    *,
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    bundle: str,
-) -> dg.MaterializeResult:
-    """Ingest the bundle `spec`'s export wrote and report where it was staged."""
-    destination = ingest_bundle(
-        UPath(bundle),
-        import_name=spec.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(spec.import_name),
-        },
-    )
-
-
-# TODO: Make these eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="one_conversion_tables",
-    kinds={"gcs"},
+one_conversion_tables_dac_dc_ingestion = build_dc_ingestion_asset(
+    import_name=DAC_EXPORT_SPEC.import_name,
+    group="one_conversion_tables",
+    title="DAC conversion table",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def one_conversion_tables_dac_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    one_conversion_tables_dac_dc_export: str,
-) -> dg.MaterializeResult:
-    """DAC conversion table bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    return _ingest(
-        DAC_EXPORT_SPEC,
-        context=context,
-        knowledge_graph=knowledge_graph,
-        bundle=one_conversion_tables_dac_dc_export,
-    )
-
-
-@dg.asset(
-    group_name="one_conversion_tables",
-    kinds={"gcs"},
+one_conversion_tables_imf_dc_ingestion = build_dc_ingestion_asset(
+    import_name=IMF_EXPORT_SPEC.import_name,
+    group="one_conversion_tables",
+    title="IMF conversion table",
     deps=[dfo_ontology_dc_ingestion, dfo_shared_dc_ingestion],
 )
-def one_conversion_tables_imf_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    one_conversion_tables_imf_dc_export: str,
-) -> dg.MaterializeResult:
-    """IMF conversion table bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    return _ingest(
-        IMF_EXPORT_SPEC,
-        context=context,
-        knowledge_graph=knowledge_graph,
-        bundle=one_conversion_tables_imf_dc_export,
-    )

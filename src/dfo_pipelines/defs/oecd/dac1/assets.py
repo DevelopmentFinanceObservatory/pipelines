@@ -8,7 +8,6 @@ from oda_reader.download.download_tools import (
     DAC1_FLOW_URL,
     get_bulk_file_url_with_version,
 )
-from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -17,7 +16,6 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
@@ -27,11 +25,9 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
 def resolve_dac1_bulk_file() -> tuple[str, str]:
@@ -223,11 +219,10 @@ def oecd_dac1_dc_export(
     )
 
 
-# TODO: Make this eager in a single-slot pool once the ingestion step can wait for
-# the workflow to finish: https://github.com/ONEcampaign/dcp-tools/issues/109
-@dg.asset(
-    group_name="oecd_dac1",
-    kinds={"gcs"},
+oecd_dac1_dc_ingestion = build_dc_ingestion_asset(
+    import_name=OECD_DAC1_EXPORT_SPEC.import_name,
+    group="oecd_dac1",
+    title="OECD DAC1",
     deps=[
         dfo_ontology_dc_ingestion,
         dfo_shared_dc_ingestion,
@@ -235,25 +230,3 @@ def oecd_dac1_dc_export(
         world_bank_ids_dc_ingestion,
     ],
 )
-def oecd_dac1_dc_ingestion(
-    context: dg.AssetExecutionContext,
-    knowledge_graph: KnowledgeGraphResource,
-    oecd_dac1_dc_export: str,
-) -> dg.MaterializeResult:
-    """OECD DAC1 bundle ingested into the Data Commons knowledge graph
-
-    Materialized by hand only: an ingestion rewrites the shared graph and runs
-    for as long as it takes after the workflow is started.
-    """
-    destination = ingest_bundle(
-        UPath(oecd_dac1_dc_export),
-        import_name=OECD_DAC1_EXPORT_SPEC.import_name,
-        settings=knowledge_graph.settings,
-        log=context.log,
-    )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(destination),
-            "import_name": dg.MetadataValue.text(OECD_DAC1_EXPORT_SPEC.import_name),
-        },
-    )

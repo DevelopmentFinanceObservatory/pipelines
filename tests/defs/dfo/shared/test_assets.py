@@ -1,18 +1,12 @@
 from pathlib import Path
-from unittest.mock import patch
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.defs.dfo.shared.assets import (
-    IMPORT_NAME,
     dfo_shared_dc_export,
-    dfo_shared_dc_ingestion,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import meta
 
 LICENSE_TYPES_SQL = """
@@ -80,34 +74,3 @@ def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     assert "Node: dcid:provenance/DFOShared\n" in provenance
     assert meta(result, "license_type_count", dg.IntMetadataValue).value == 1
     assert meta(result, "property_count", dg.IntMetadataValue).value == 1
-
-
-def test_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    destination = f"gs://test-bucket/ingestion/input/{IMPORT_NAME}"
-
-    with patch(
-        "dfo_pipelines.defs.dfo.shared.assets.ingest_bundle",
-        return_value=destination,
-    ) as ingest_bundle:
-        result = dg.materialize(
-            [dfo_shared_dc_export, dfo_shared_dc_ingestion],
-            resources={
-                "duckdb": create_seeds(tmp_path),
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node("dfo_shared_dc_export")
-    [ingestion] = result.asset_materializations_for_node("dfo_shared_dc_ingestion")
-    args, kwargs = ingest_bundle.call_args
-    assert str(args[0]) == export.metadata["dagster/uri"].value
-    assert kwargs["import_name"] == IMPORT_NAME
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination

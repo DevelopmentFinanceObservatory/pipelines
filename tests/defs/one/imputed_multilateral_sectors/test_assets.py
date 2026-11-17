@@ -21,7 +21,6 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     MULTISYSTEM_BULK_LABEL,
     build_quality_metadata,
     one_imputed_multilateral_sectors_dc_export,
-    one_imputed_multilateral_sectors_dc_ingestion,
     one_imputed_multilateral_sectors_raw_file,
     one_imputed_multilateral_sectors_raw_metadata,
     one_imputed_multilateral_sectors_raw_table,
@@ -34,10 +33,7 @@ from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
 )
-from dfo_pipelines.orchestration.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import column_list, list_first_row, meta, row_count
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
@@ -1256,45 +1252,6 @@ def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(tmp_path: Path) ->
         "statvar_count": dg.IntMetadataValue(1),
         "observation_file_count": dg.IntMetadataValue(2),
     }
-
-
-def test_dc_ingestion_ingests_the_bundle_the_export_wrote(
-    tmp_path: Path, knowledge_graph: KnowledgeGraphResource
-) -> None:
-    """Test the ingestion is handed the export's directory under its import name"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    _create_dc_models(duckdb)
-    import_name = IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
-    destination = f"gs://test-bucket/ingestion/input/{import_name}"
-
-    with patch(f"{ASSETS_MODULE}.ingest_bundle", return_value=destination) as ingest:
-        result = dg.materialize(
-            [
-                one_imputed_multilateral_sectors_dc_export,
-                one_imputed_multilateral_sectors_dc_ingestion,
-            ],
-            resources={
-                "duckdb": duckdb,
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-                "knowledge_graph": knowledge_graph,
-            },
-        )
-
-    assert result.success
-    [export] = result.asset_materializations_for_node(
-        "one_imputed_multilateral_sectors_dc_export"
-    )
-    [ingestion] = result.asset_materializations_for_node(
-        "one_imputed_multilateral_sectors_dc_ingestion"
-    )
-    ingest.assert_called_once()
-    args, kwargs = ingest.call_args
-    assert str(args[0]) == export.metadata["dagster/uri"].value
-    assert kwargs["import_name"] == import_name
-    assert kwargs["settings"] == knowledge_graph.settings
-    assert ingestion.metadata["dagster/uri"].value == destination
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
