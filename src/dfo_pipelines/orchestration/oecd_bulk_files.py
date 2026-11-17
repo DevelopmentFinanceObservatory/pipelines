@@ -6,7 +6,7 @@ import dagster as dg
 from upath import UPath
 
 from dfo_pipelines.extraction.oecd import resolve_bulk_file
-from dfo_pipelines.orchestration.raw_files import RawFileFetch, build_raw_file_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 
 
 def _fetch_bulk_file(
@@ -17,7 +17,7 @@ def _fetch_bulk_file(
     download: Callable[..., object],
     downloaded_name: str,
     release_date: Callable[[str, str], date],
-) -> RawFileFetch:
+) -> tuple[dict[str, date], dict[str, dg.MetadataValue]]:
     """Download the bulk file `label` lists at `flow_url` to `file_path`"""
     # Resolve before downloading. The cache-bypassing resolve refreshes
     # oda_reader's cached annotation, so the download, which re-resolves the URL
@@ -26,10 +26,7 @@ def _fetch_bulk_file(
     released = release_date(url, version)
     download(save_to_path=str(file_path.parent), use_raw_cache=False)
     (file_path.parent / downloaded_name).rename(file_path)
-    return RawFileFetch(
-        release_dates={"source": released},
-        metadata={"version": dg.MetadataValue.text(version)},
-    )
+    return {"source": released}, {"version": dg.MetadataValue.text(version)}
 
 
 def build_oecd_bulk_file_assets(

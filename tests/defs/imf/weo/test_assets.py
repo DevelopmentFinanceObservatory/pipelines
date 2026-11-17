@@ -66,13 +66,13 @@ def test_fetch_weo_raw_file_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        fetched = fetch_weo_raw_file(file_path)
+        release_dates, metadata = fetch_weo_raw_file(file_path)
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
     assert len(pd.read_parquet(file_path)) == FIXTURE_ROWS
-    assert fetched.release_dates == {"source": PUBLICATION_DATE}
-    assert fetched.metadata == {"version": dg.TextMetadataValue("April 2026")}
+    assert release_dates == {"source": PUBLICATION_DATE}
+    assert metadata == {"version": dg.TextMetadataValue("April 2026")}
 
 
 def test_fetch_weo_raw_file_raises_when_the_release_cannot_be_served(

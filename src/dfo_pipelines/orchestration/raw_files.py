@@ -1,5 +1,4 @@
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
 import dagster as dg
@@ -9,20 +8,6 @@ from upath import UPath
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-
-
-@dataclass(frozen=True)
-class RawFileFetch:
-    """What a source's fetch hook returns after writing `data.parquet`
-
-    Attributes:
-        release_dates: Date each named source released the fetched data, keyed by
-            source name, recorded as `<name>_release_date`.
-        metadata: The source's own materialization metadata.
-    """
-
-    release_dates: Mapping[str, date]
-    metadata: Mapping[str, dg.MetadataValue] = field(default_factory=dict)
 
 
 def _raw_file_directory(
@@ -39,7 +24,7 @@ def build_raw_file_asset(
     group: str,
     dataset: str,
     title: str,
-    fetch: Callable[[UPath], RawFileFetch],
+    fetch: Callable[[UPath], tuple[Mapping[str, date], Mapping[str, dg.MetadataValue]]],
     description: str | None = None,
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
@@ -50,7 +35,9 @@ def build_raw_file_asset(
         dataset: Directory under the group the raw file is written to.
         title: Name of the source in the description and logs, such as "OECD DAC1".
         fetch: Writes the download to the path it is given, putting any working
-            files in that path's directory and nowhere else.
+            files in that path's directory and nowhere else. Returns the date each
+            named source released the data, recorded as `<name>_release_date`,
+            and the source's own materialization metadata.
         description: The asset's description, if not the standard one.
         retry_policy: Retry policy of the asset.
     """
@@ -79,11 +66,11 @@ def build_raw_file_asset(
         )
         directory.mkdir(parents=True, exist_ok=True)
         file_path = directory / "data.parquet"
-        fetched = fetch(file_path)
+        release_dates, source_metadata = fetch(file_path)
         with file_path.open("rb") as handle:
             rows = pq.read_metadata(handle).num_rows
         write_extraction_metadata(
-            directory, downloaded_at=downloaded_at, release_dates=fetched.release_dates
+            directory, downloaded_at=downloaded_at, release_dates=release_dates
         )
         file_size = file_path.stat().st_size
         context.log.info(f"Wrote {title} data to {file_path}")
@@ -93,12 +80,12 @@ def build_raw_file_asset(
                 "dagster/uri": dg.MetadataValue.text(str(file_path)),
                 "file_size": dg.MetadataValue.int(file_size),
                 "dagster/row_count": dg.MetadataValue.int(rows),
-                **fetched.metadata,
+                **source_metadata,
                 **{
                     f"{release}_release_date": dg.MetadataValue.text(
                         release_date.isoformat()
                     )
-                    for release, release_date in fetched.release_dates.items()
+                    for release, release_date in release_dates.items()
                 },
             },
             check_results=[

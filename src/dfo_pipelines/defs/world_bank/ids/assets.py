@@ -19,7 +19,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import RawFileFetch, build_raw_file_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
@@ -133,16 +133,15 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids_raw_file(file_path: UPath) -> RawFileFetch:
+def fetch_ids_raw_file(
+    file_path: UPath,
+) -> tuple[dict[str, date], dict[str, dg.MetadataValue]]:
     """Write the combined IDS bulk files to `file_path`"""
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
     download_ids_bulk_data_files(file_path.parent)
     combine_ids_bulk_data_files(file_path.parent, file_path)
-    return RawFileFetch(
-        release_dates={"source": source_release_date},
-        metadata={"files": dg.MetadataValue.json(files)},
-    )
+    return {"source": source_release_date}, {"files": dg.MetadataValue.json(files)}
 
 
 world_bank_ids_raw_file = build_raw_file_asset(

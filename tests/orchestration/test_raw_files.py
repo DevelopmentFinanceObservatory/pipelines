@@ -13,7 +13,7 @@ from upath import UPath
 
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.orchestration.raw_files import RawFileFetch, build_raw_file_asset
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import AutomationHarness, logged_messages
@@ -32,12 +32,9 @@ def fetch_rows(
 ):
     """A fetch hook writing a parquet file of `rows` rows to the path it is given"""
 
-    def fetch(file_path: UPath) -> RawFileFetch:
+    def fetch(file_path: UPath):
         pq.write_table(pa.table({"code": list(range(rows))}), file_path)
-        return RawFileFetch(
-            release_dates=release_dates or {"source": RELEASE_DATE},
-            metadata=metadata or {},
-        )
+        return release_dates or {"source": RELEASE_DATE}, metadata or {}
 
     return fetch
 
@@ -155,7 +152,7 @@ def test_build_raw_file_asset_writes_no_metadata_when_the_fetch_fails(
 ) -> None:
     """Test a failed fetch leaves no record claiming a download happened"""
 
-    def fail(file_path: UPath) -> RawFileFetch:
+    def fail(file_path: UPath):
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
@@ -169,9 +166,9 @@ def test_build_raw_file_asset_writes_no_metadata_when_the_file_is_unreadable(
 ) -> None:
     """Test a hook writing a truncated file leaves no record claiming a download"""
 
-    def truncate(file_path: UPath) -> RawFileFetch:
+    def truncate(file_path: UPath):
         file_path.write_bytes(b"PAR1")
-        return RawFileFetch(release_dates={"source": RELEASE_DATE})
+        return {"source": RELEASE_DATE}, {}
 
     with pytest.raises(pa.ArrowInvalid):
         materialize_directly(build_example(truncate), tmp_path)
