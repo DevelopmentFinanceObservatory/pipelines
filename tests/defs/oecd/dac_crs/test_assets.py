@@ -529,19 +529,19 @@ def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     return result, Path(str(out_dir))
 
 
-def test_dac_crs_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path,
-) -> None:
-    """Test DAC CRS export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = run_export(tmp_path)
+def test_dac_crs_dc_export_reports_what_its_bundle_holds(tmp_path: Path) -> None:
+    """Test DAC CRS export asset reports the observations, StatVars and files it wrote"""
+    result, _ = run_export(tmp_path)
 
-    assert out_dir == tmp_path / "processed" / "oecd_dac_crs" / "2026" / "08" / "03"
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
+    assert result.metadata is not None
+    assert (
+        result.metadata.items()
+        >= {
+            "observation_count": dg.IntMetadataValue(3),
+            "statvar_count": dg.IntMetadataValue(2),
+            "observation_file_count": dg.IntMetadataValue(2),
+        }.items()
+    )
 
 
 def test_dac_crs_dc_export_writes_the_import_config(tmp_path: Path) -> None:

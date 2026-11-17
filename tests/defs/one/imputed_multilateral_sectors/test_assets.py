@@ -1233,25 +1233,19 @@ def _run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     return result, Path(str(out_dir))
 
 
-def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(tmp_path: Path) -> None:
-    """Test the export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_export(tmp_path)
+def test_dc_export_reports_what_its_bundle_holds(tmp_path: Path) -> None:
+    """Test the export asset reports the observations, StatVars and files it wrote"""
+    result, _ = _run_export(tmp_path)
 
+    assert result.metadata is not None
     assert (
-        out_dir
-        == tmp_path
-        / "processed"
-        / "one_imputed_multilateral_sectors"
-        / "2026"
-        / "08"
-        / "03"
+        result.metadata.items()
+        >= {
+            "observation_count": dg.IntMetadataValue(2),
+            "statvar_count": dg.IntMetadataValue(1),
+            "observation_file_count": dg.IntMetadataValue(2),
+        }.items()
     )
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(2),
-        "statvar_count": dg.IntMetadataValue(1),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(

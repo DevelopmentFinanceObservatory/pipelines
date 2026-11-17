@@ -10,7 +10,6 @@ import pytest
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES, ExportSpec
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.one.climate_finance.assets import (
     OECD_CRDF_EXPORT_SPEC,
     ONE_CLIMATE_FINANCE_EXPORT_SPEC,
@@ -185,21 +184,21 @@ def _run_export(tmp_path: Path, export: Export) -> tuple[dg.MaterializeResult, P
 
 
 @pytest.mark.parametrize("export", EXPORTS)
-def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(
+def test_dc_export_reports_what_its_bundle_holds(
     tmp_path: Path, export: Export
 ) -> None:
-    """Test the export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_export(tmp_path, export)
+    """Test the export asset reports the observations, StatVars and files it wrote"""
+    result, _ = _run_export(tmp_path, export)
 
-    assert out_dir == (
-        tmp_path / "processed" / export.spec.import_name / "2026" / "08" / "03"
+    assert result.metadata is not None
+    assert (
+        result.metadata.items()
+        >= {
+            "observation_count": dg.IntMetadataValue(3),
+            "statvar_count": dg.IntMetadataValue(2),
+            "observation_file_count": dg.IntMetadataValue(2),
+        }.items()
     )
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(2),
-    }
 
 
 @pytest.mark.parametrize("export", EXPORTS)
@@ -332,16 +331,3 @@ def test_unfccc_btr_export_names_no_recipient(tmp_path: Path) -> None:
     nodes = (out_dir / "custom_nodes.mcf").read_text()
     assert "observationProperties: dcid:financingProvider\n" in nodes
     assert "financingRecipient" not in nodes
-
-
-@pytest.mark.parametrize("export", EXPORTS)
-def test_dc_export_depends_on_the_models_its_spec_reads(export: Export) -> None:
-    """Test the export asset waits on the dbt models its spec names"""
-    spec = export.spec
-    read = {spec.provenance_model, spec.statvar_model, spec.observation_inputs[0].model}
-    if spec.source_model is not None:
-        read.add(spec.source_model)
-
-    node = defs().resolve_asset_graph().get(export.asset.key)
-
-    assert node.parent_keys == {dg.AssetKey(model.split(".")) for model in read}

@@ -1,0 +1,154 @@
+from datetime import date
+from pathlib import Path
+from unittest.mock import patch
+
+import dagster as dg
+from dagster_duckdb import DuckDBResource
+
+from dfo_pipelines.data_commons.export import (
+    DOCUMENTATION_FILES,
+    ExportMetadata,
+    ExportSpec,
+    ObservationInput,
+)
+from dfo_pipelines.orchestration.automation import (
+    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
+)
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+
+EXPORT_KEY = dg.AssetKey("example_dc_export")
+RATE_DIAGNOSTIC = dg.AssetKey(["example", "int_example_rates"])
+
+
+def _spec(docs_dir: Path, *, source_model: str | None) -> ExportSpec:
+    """An export reading two observation models, with docs in `docs_dir`"""
+    for file_name in DOCUMENTATION_FILES.values():
+        (docs_dir / file_name).write_text(f"{file_name}\n")
+    return ExportSpec(
+        import_name="example",
+        provenance_dcid="Example",
+        provenance_model="example.dc_example_provenance",
+        conversion_recipe=None,
+        statvar_model="example.dc_example_statvars",
+        observation_inputs=(
+            ObservationInput(
+                model="example.dc_example_observations",
+                property_to_column={"variable": "variable"},
+            ),
+            ObservationInput(
+                model="example.dc_example_flows",
+                property_to_column={"variable": "variable"},
+                file_stem="flows",
+            ),
+        ),
+        source_model=source_model,
+        statvar_column_to_property={"name": "name"},
+        docs_dir=docs_dir,
+    )
+
+
+def _dep_keys(asset: dg.AssetsDefinition) -> set[dg.AssetKey]:
+    return {dep.asset_key for dep in asset.specs_by_key[asset.key].deps}
+
+
+def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
+    tmp_path: Path,
+) -> None:
+    """Test the export hands its spec and today's partition of the file store to
+    `export_bundle`, returns the directory, and reports what the bundle holds"""
+    spec = _spec(tmp_path, source_model=None)
+    export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
+    out_dir = tmp_path / "processed" / "example" / "2026" / "10" / "01"
+    asset = build_dc_export_asset(spec=spec, group="example", title="Example")
+
+    with (
+        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
+        patch(
+            "dfo_pipelines.orchestration.dc_export.export_bundle",
+            return_value=ExportMetadata(
+                observation_count=7, statvar_count=3, observation_file_count=2
+            ),
+        ) as export_bundle,
+    ):
+        mock_date.today.return_value = date(2026, 10, 1)
+        result = dg.materialize(
+            [asset],
+            resources={
+                "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+                "export_file_store": export_file_store,
+            },
+        )
+
+    assert result.success
+    export_bundle.assert_called_once()
+    args, kwargs = export_bundle.call_args
+    assert args == (spec,)
+    assert kwargs["out_dir"] == out_dir
+    assert result.output_for_node("example_dc_export") == str(out_dir)
+    [materialization] = result.asset_materializations_for_node("example_dc_export")
+    reported = {
+        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
+        "observation_count": dg.IntMetadataValue(7),
+        "statvar_count": dg.IntMetadataValue(3),
+        "observation_file_count": dg.IntMetadataValue(2),
+    }
+    # The IO manager adds the `path` it stored the value at.
+    assert materialization.metadata.items() >= reported.items()
+
+
+def test_build_dc_export_asset_is_named_and_versioned_by_its_spec(
+    tmp_path: Path,
+) -> None:
+    """Test the export takes its name from the import, its description from the
+    title, and reruns eagerly when its documentation changes"""
+    spec = _spec(tmp_path, source_model=None)
+
+    asset = build_dc_export_asset(spec=spec, group="example", title="Example")
+
+    assert asset.key == EXPORT_KEY
+    assert asset.group_names_by_key[EXPORT_KEY] == "example"
+    assert asset.descriptions_by_key[EXPORT_KEY] == "Data Commons export for Example"
+    assert asset.code_versions_by_key[EXPORT_KEY] == spec.documentation_version
+    assert (
+        asset.automation_conditions_by_key[EXPORT_KEY]
+        == EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS
+    )
+
+
+def test_build_dc_export_asset_depends_on_every_model_its_spec_reads(
+    tmp_path: Path,
+) -> None:
+    """Test the export waits on the provenance, StatVar, every observation and the
+    Source models, then on the extra deps it is given"""
+    spec = _spec(tmp_path, source_model="example.example_source")
+
+    asset = build_dc_export_asset(
+        spec=spec, group="example", title="Example", deps=[RATE_DIAGNOSTIC]
+    )
+
+    assert _dep_keys(asset) == {
+        dg.AssetKey(["example", "dc_example_provenance"]),
+        dg.AssetKey(["example", "dc_example_statvars"]),
+        dg.AssetKey(["example", "dc_example_observations"]),
+        dg.AssetKey(["example", "dc_example_flows"]),
+        dg.AssetKey(["example", "example_source"]),
+        RATE_DIAGNOSTIC,
+    }
+
+
+def test_build_dc_export_asset_without_a_source_model_depends_on_no_source(
+    tmp_path: Path,
+) -> None:
+    """Test an export whose provenance's source already exists waits only on the
+    models its spec names"""
+    spec = _spec(tmp_path, source_model=None)
+
+    asset = build_dc_export_asset(spec=spec, group="example", title="Example")
+
+    assert _dep_keys(asset) == {
+        dg.AssetKey(["example", "dc_example_provenance"]),
+        dg.AssetKey(["example", "dc_example_statvars"]),
+        dg.AssetKey(["example", "dc_example_observations"]),
+        dg.AssetKey(["example", "dc_example_flows"]),
+    }

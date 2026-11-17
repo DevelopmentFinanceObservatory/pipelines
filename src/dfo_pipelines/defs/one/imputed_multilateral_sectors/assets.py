@@ -5,7 +5,6 @@ from importlib.metadata import version as installed_version
 
 import dagster as dg
 import pandas as pd
-from dagster_duckdb import DuckDBResource
 from oda_data import sector_imputations
 from oda_data.clean_data.schema import ODASchema
 from oda_data.indicators.research.imputation_quality import imputation_quality_report
@@ -20,15 +19,14 @@ from dfo_pipelines.data_commons.export import (
     ConversionRecipe,
     ExportSpec,
     ObservationInput,
-    export_bundle,
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import (
-    EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
@@ -476,60 +474,11 @@ IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC = ExportSpec(
 )
 
 
-@dg.asset(
-    group_name="one_imputed_multilateral_sectors",
-    automation_condition=EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
-    code_version=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.documentation_version,
-    deps=[
-        dg.AssetKey(
-            [
-                "one_imputed_multilateral_sectors",
-                "dc_imputed_multilateral_sectors_observations",
-            ]
-        ),
-        dg.AssetKey(
-            [
-                "one_imputed_multilateral_sectors",
-                "dc_imputed_multilateral_sectors_provenance",
-            ]
-        ),
-        dg.AssetKey(
-            [
-                "one_imputed_multilateral_sectors",
-                "dc_imputed_multilateral_sectors_statvars",
-            ]
-        ),
-    ],
+one_imputed_multilateral_sectors_dc_export = build_dc_export_asset(
+    spec=IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
+    group="one_imputed_multilateral_sectors",
+    title="imputed multilateral sectors",
 )
-def one_imputed_multilateral_sectors_dc_export(
-    context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
-    export_file_store: UPathFileStoreResource,
-) -> dg.MaterializeResult:
-    """Data Commons export for imputed multilateral sectors"""
-    out_dir = export_file_store.build_date_partitioned_path(
-        IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
-    )
-    with duckdb.get_connection() as connection:
-        export_metadata = export_bundle(
-            IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
-            connection=connection,
-            out_dir=out_dir,
-            log=context.log,
-        )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "observation_count": dg.MetadataValue.int(
-                export_metadata.observation_count
-            ),
-            "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-            "observation_file_count": dg.MetadataValue.int(
-                export_metadata.observation_file_count
-            ),
-        },
-    )
 
 
 one_imputed_multilateral_sectors_dc_ingestion = build_dc_ingestion_asset(

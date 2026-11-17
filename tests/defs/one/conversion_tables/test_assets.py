@@ -152,21 +152,19 @@ def test_the_tables_export_under_their_own_import_names() -> None:
 
 
 @pytest.mark.parametrize("table", TABLES)
-def test_dc_export_writes_a_bundle_to_a_date_partitioned_path(
-    tmp_path: Path, table: str
-) -> None:
-    """Test the export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = _run_export(tmp_path, table)
+def test_dc_export_reports_what_its_bundle_holds(tmp_path: Path, table: str) -> None:
+    """Test the export asset reports the observations, StatVars and files it wrote"""
+    result, _ = _run_export(tmp_path, table)
 
-    assert out_dir == (
-        tmp_path / "processed" / f"one_conversion_tables_{table}" / "2026" / "10" / "01"
+    assert result.metadata is not None
+    assert (
+        result.metadata.items()
+        >= {
+            "observation_count": dg.IntMetadataValue(3),
+            "statvar_count": dg.IntMetadataValue(2),
+            "observation_file_count": dg.IntMetadataValue(3),
+        }.items()
     )
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(3),
-        "statvar_count": dg.IntMetadataValue(2),
-        "observation_file_count": dg.IntMetadataValue(3),
-    }
 
 
 @pytest.mark.parametrize("table", TABLES)

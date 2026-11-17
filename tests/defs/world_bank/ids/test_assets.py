@@ -917,13 +917,12 @@ def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     return result, Path(str(out_dir))
 
 
-def test_ids_dc_export_writes_a_bundle_to_a_date_partitioned_path(
+def test_ids_dc_export_writes_each_observation_input_to_its_own_files_by_year(
     tmp_path: Path,
 ) -> None:
-    """Test IDS export asset reports the bundle it wrote to today's partition"""
-    result, out_dir = run_export(tmp_path)
+    """Test the bundle splits the flow and economy observations into files by year"""
+    _, out_dir = run_export(tmp_path)
 
-    assert out_dir == tmp_path / "processed" / "world_bank_ids" / "2026" / "08" / "03"
     assert sorted(path.name for path in out_dir.iterdir()) == [
         "config.json",
         "custom_nodes.mcf",
@@ -932,12 +931,21 @@ def test_ids_dc_export_writes_a_bundle_to_a_date_partitioned_path(
         "observations_2024.csv",
         "provenance.mcf",
     ]
-    assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(out_dir)),
-        "observation_count": dg.IntMetadataValue(4),
-        "statvar_count": dg.IntMetadataValue(3),
-        "observation_file_count": dg.IntMetadataValue(3),
-    }
+
+
+def test_ids_dc_export_reports_what_its_bundle_holds(tmp_path: Path) -> None:
+    """Test IDS export asset reports the observations, StatVars and files it wrote"""
+    result, _ = run_export(tmp_path)
+
+    assert result.metadata is not None
+    assert (
+        result.metadata.items()
+        >= {
+            "observation_count": dg.IntMetadataValue(4),
+            "statvar_count": dg.IntMetadataValue(3),
+            "observation_file_count": dg.IntMetadataValue(3),
+        }.items()
+    )
 
 
 def test_ids_dc_export_registers_the_observation_columns(tmp_path: Path) -> None:
