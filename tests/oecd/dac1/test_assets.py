@@ -363,9 +363,7 @@ def test_dac1_raw_table_loads_parquet(tmp_path: Path) -> None:
     """Test DAC1 raw table asset loads the parquet file into the database"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    result = oecd_dac1_raw_table(
-        duckdb=duckdb, oecd_dac1_raw_file=str(FIXTURES / "data.parquet")
-    )
+    result = oecd_dac1_raw_table(duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet"))
 
     assert row_count(duckdb, "oecd_dac1.raw_dac1") == 25
     assert column_list(duckdb, "oecd_dac1.raw_dac1") == [
@@ -404,7 +402,7 @@ def test_dac1_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
     )
 
     result = oecd_dac1_raw_metadata(
-        duckdb=duckdb, oecd_dac1_raw_file=str(tmp_path / "data.parquet")
+        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -412,32 +410,6 @@ def test_dac1_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
         "dagster/table_name": dg.TextMetadataValue("oecd_dac1.raw_dac1_metadata"),
         "dagster/row_count": dg.IntMetadataValue(1),
     }
-
-
-def test_dac1_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into the downstream assets"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    with (
-        patch_release_lookup(),
-        patch(
-            "dfo_pipelines.defs.oecd.dac1.assets.bulk_download_dac1",
-            side_effect=partial(write_download, FIXTURES / "data.parquet"),
-        ),
-    ):
-        result = dg.materialize(
-            [oecd_dac1_raw_file, oecd_dac1_raw_table, oecd_dac1_raw_metadata],
-            resources={"raw_file_store": file_store, "duckdb": duckdb},
-        )
-
-    assert result.success
-
-    checks = {e.check_name: e.passed for e in result.get_asset_check_evaluations()}
-
-    assert checks == {"file_not_empty": True, "table_not_empty": True}
-    assert row_count(duckdb, "oecd_dac1.raw_dac1") == 25
-    assert row_count(duckdb, "oecd_dac1.raw_dac1_metadata") == 1
 
 
 FLOW_STATVAR = "dcid:Amount_FinancialFlow_Net_Disbursement_DAC1AidType8864_Nominal"

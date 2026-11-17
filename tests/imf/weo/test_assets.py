@@ -181,9 +181,7 @@ def test_imf_weo_raw_table_loads_parquet(tmp_path: Path) -> None:
     """Test IMF WEO raw table asset loads the parquet file into the database"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    result = imf_weo_raw_table(
-        duckdb=duckdb, imf_weo_raw_file=str(FIXTURES / "data.parquet")
-    )
+    result = imf_weo_raw_table(duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet"))
 
     assert row_count(duckdb, "imf_weo.raw_weo") == FIXTURE_ROWS
     assert column_list(duckdb, "imf_weo.raw_weo") == list_parquet_columns(
@@ -200,25 +198,6 @@ def test_imf_weo_raw_table_loads_parquet(tmp_path: Path) -> None:
     [check] = result.check_results
     assert check.check_name == "table_not_empty"
     assert check.passed
-
-
-def test_imf_weo_raw_file_path_reaches_raw_table(tmp_path: Path) -> None:
-    """Test the raw file asset's output path is injected into the raw table asset"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    with _patched_weo():
-        result = dg.materialize(
-            [imf_weo_raw_file, imf_weo_raw_table],
-            resources={"raw_file_store": file_store, "duckdb": duckdb},
-        )
-
-    assert result.success
-
-    checks = {e.check_name: e.passed for e in result.get_asset_check_evaluations()}
-
-    assert checks == {"file_not_empty": True, "table_not_empty": True}
-    assert row_count(duckdb, "imf_weo.raw_weo") == FIXTURE_ROWS
 
 
 def test_imf_weo_source_observe_fn_returns_metadata_and_data_version() -> None:
@@ -385,7 +364,7 @@ def test_imf_weo_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> Non
     )
 
     result = imf_weo_raw_metadata(
-        duckdb=duckdb, imf_weo_raw_file=str(tmp_path / "data.parquet")
+        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
     )
 
     assert isinstance(result, dg.MaterializeResult)

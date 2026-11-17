@@ -24,16 +24,12 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
+from dfo_pipelines.defs.raw_tables import build_raw_table_assets
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
-from dfo_pipelines.extraction.parquet import load_parquet
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -204,52 +200,11 @@ def world_bank_ids_raw_file(
     )
 
 
-@dg.asset(
-    group_name="world_bank_ids",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="table_not_empty", asset="world_bank_ids_raw_table", blocking=True
-        )
-    ],
+world_bank_ids_raw_table, world_bank_ids_raw_metadata = build_raw_table_assets(
+    group="world_bank_ids",
+    table="raw_ids",
+    title="World Bank IDS",
 )
-def world_bank_ids_raw_table(
-    duckdb: DuckDBResource, world_bank_ids_raw_file: str
-) -> dg.MaterializeResult:
-    """Raw World Bank IDS database table
-
-    The combined bulk extract parquet, loaded unmodified (years in wide format,
-    all values as text) into DuckDB. Fully overwritten on each materialization.
-    """
-    with duckdb.get_connection() as connection:
-        rows = load_parquet(
-            connection,
-            path=world_bank_ids_raw_file,
-            schema="world_bank_ids",
-            table="raw_ids",
-        )
-    return raw_table_result("world_bank_ids.raw_ids", rows)
-
-
-@dg.asset(
-    group_name="world_bank_ids",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-)
-def world_bank_ids_raw_metadata(
-    duckdb: DuckDBResource, world_bank_ids_raw_file: str
-) -> dg.MaterializeResult:
-    """Extraction metadata for the World Bank IDS raw data"""
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(world_bank_ids_raw_file).parent,
-            schema="world_bank_ids",
-            table="raw_ids_metadata",
-            release_names=("source",),
-        )
-    return metadata_table_result("world_bank_ids.raw_ids_metadata", rows)
 
 
 def fetch_ids_release_date() -> date:
