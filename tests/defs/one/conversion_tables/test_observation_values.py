@@ -5,7 +5,7 @@ import pytest
 import yaml
 
 MODELS_YML = (
-    Path(__file__).parents[3]
+    Path(__file__).parents[4]
     / "dbt"
     / "models"
     / "one"

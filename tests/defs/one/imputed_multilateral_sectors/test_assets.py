@@ -43,7 +43,7 @@ from tests.helpers import column_list, list_first_row, meta, row_count
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 
 FIXTURES = Path(__file__).parent / "fixtures"
-DOCS_DIR = Path(__file__).parents[3] / "docs" / "one" / "imputed_multilateral_sectors"
+DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "imputed_multilateral_sectors"
 
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
 MULTI_TEST_URL = "https://webfs-dcd.oecd.org/data/multisystem/MULTISYSTEM.parquet"

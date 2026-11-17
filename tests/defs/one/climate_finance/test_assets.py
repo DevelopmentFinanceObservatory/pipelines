@@ -30,8 +30,8 @@ from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
 )
+from tests.defs.one.climate_finance.conftest import EXPORT
 from tests.helpers import meta
-from tests.one.climate_finance.conftest import EXPORT
 
 NAME = "2026a-rc9"
 STEMS = ["spending", "crdf_commitments", "btr_totals"]

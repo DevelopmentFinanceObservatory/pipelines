@@ -23,7 +23,7 @@ from dfo_pipelines.defs.resources import (
     UPathFileStoreResource,
 )
 
-DOCS_DIR = Path(__file__).parents[3] / "docs" / "one" / "conversion_tables"
+DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
 type ExportAsset = Callable[..., dg.MaterializeResult]
 

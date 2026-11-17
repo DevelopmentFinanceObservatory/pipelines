@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 SEED = (
-    Path(__file__).parents[2]
+    Path(__file__).parents[3]
     / "dbt/seeds/one/climate_finance/climate_finance_methods.csv"
 )
 

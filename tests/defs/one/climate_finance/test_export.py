@@ -25,7 +25,7 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from tests.one.climate_finance.conftest import EXPORT, RELEASE
+from tests.defs.one.climate_finance.conftest import EXPORT, RELEASE
 
 cf = pytest.importorskip("climate_finance")
 pl = pytest.importorskip("polars")

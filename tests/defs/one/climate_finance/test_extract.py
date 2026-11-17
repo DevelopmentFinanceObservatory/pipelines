@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from tests.one.climate_finance.conftest import RELEASE
+from tests.defs.one.climate_finance.conftest import RELEASE
 
 cf = pytest.importorskip("climate_finance")
 pl = pytest.importorskip("polars")
