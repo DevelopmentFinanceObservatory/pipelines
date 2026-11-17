@@ -1,5 +1,6 @@
 from contextlib import ExitStack
 from datetime import datetime
+from functools import cache
 from pathlib import Path
 from typing import Self
 
@@ -8,7 +9,14 @@ import numpy as np
 import pandas as pd
 from dagster_duckdb import DuckDBResource
 
+from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+
+
+@cache
+def project_definitions() -> dg.Definitions:
+    """The project's definitions, loaded as dg dev and dg check defs load them"""
+    return defs()
 
 
 def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:

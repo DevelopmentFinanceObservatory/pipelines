@@ -1,14 +1,13 @@
 from collections.abc import Set
-from functools import cache
 
 import dagster as dg
 import pytest
 
-from dfo_pipelines.definitions import defs
 from dfo_pipelines.defs.sensors import automation_sensor_default_status
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
+from tests.helpers import project_definitions
 
 SENSOR_NAME = "automation_condition_sensor"
 
@@ -358,15 +357,9 @@ CONVERSION_TABLES_PARENT_KEYS = SHARED_MAPPING_KEYS | {
 }
 
 
-@cache
-def _project_definitions() -> dg.Definitions:
-    """The project's definitions, loaded as dg dev and dg check defs load them"""
-    return defs()
-
-
 def _project_sensors() -> list[dg.SensorDefinition]:
     """Every sensor the project's definitions declare"""
-    return list(_project_definitions().sensors or [])
+    return list(project_definitions().sensors or [])
 
 
 def _automation_sensor() -> dg.AutomationConditionSensorDefinition:
@@ -386,7 +379,7 @@ def _report_runs(
     Their checks are reported as passing, as a real run evaluates them, except
     `failed_check_keys`.
     """
-    graph = _project_definitions().resolve_asset_graph()
+    graph = project_definitions().resolve_asset_graph()
     for asset_key in materialized_keys:
         instance.report_runless_asset_event(
             dg.AssetMaterialization(asset_key=asset_key)
@@ -407,7 +400,7 @@ def _requested_counts(
     failed_check_keys: frozenset[dg.AssetCheckKey] = frozenset(),
 ) -> dict[str, int]:
     """Count what one automation tick requests after `materialized_keys` materialize"""
-    project = _project_definitions()
+    project = project_definitions()
     selection = dg.AssetSelection.assets(*requested_keys)
 
     with dg.DagsterInstance.ephemeral() as instance:
@@ -448,7 +441,7 @@ def _first_requested_ticks(
         dict[dg.AssetKey, int]: Every asset that was requested at least once,
         mapped to the 1-indexed tick it was first requested on.
     """
-    project = _project_definitions()
+    project = project_definitions()
     selection = dg.AssetSelection.assets(*asset_keys)
 
     first_requested_tick: dict[dg.AssetKey, int] = {}
@@ -577,7 +570,7 @@ def test_automation_sensor_targets_the_automated_assets(
     sensor = _automation_sensor()
 
     selected = sensor.asset_selection.resolve(
-        _project_definitions().resolve_asset_graph()
+        project_definitions().resolve_asset_graph()
     )
 
     assert asset_keys <= selected
@@ -802,7 +795,7 @@ def test_shared_export_is_requested_when_its_seeds_update() -> None:
 
 def test_dbt_translation_predicate_matches_intended_schemas() -> None:
     """Test the translation predicate automates only the intended dbt schemas"""
-    graph = _project_definitions().resolve_asset_graph()
+    graph = project_definitions().resolve_asset_graph()
 
     automated_dbt_schemas = {
         key.path[0]
@@ -862,9 +855,7 @@ def test_a_failed_blocking_check_stops_the_child_being_requested(
     each kind of edge is covered.
     """
     child_key = dg.AssetKey.from_user_string(child)
-    parent_keys = (
-        _project_definitions().resolve_asset_graph().get(child_key).parent_keys
-    )
+    parent_keys = project_definitions().resolve_asset_graph().get(child_key).parent_keys
     failed = dg.AssetCheckKey(dg.AssetKey.from_user_string(parent), check_name)
 
     assert _requested_counts({child_key}, set(parent_keys)) == {child: 1}
@@ -875,7 +866,7 @@ def test_a_failed_blocking_check_stops_the_child_being_requested(
 
 def test_a_failed_check_recovers_on_new_upstream_data() -> None:
     """Test new upstream data requests a failed parent and its child on one tick"""
-    project = _project_definitions()
+    project = project_definitions()
     graph = project.resolve_asset_graph()
     upstream = dg.AssetKey("oecd_dac_crs_raw_table")
     parent = dg.AssetKey(["oecd_dac_crs", "stg_dac_crs"])
@@ -925,7 +916,7 @@ def test_the_imf_conversion_table_reads_no_dac1_asset() -> None:
     IMF and World Bank data. The DAC export reads the DAC1 chain, which shows the
     keys name assets that exist.
     """
-    graph = _project_definitions().resolve_asset_graph()
+    graph = project_definitions().resolve_asset_graph()
 
     def upstream(key: dg.AssetKey) -> Set[dg.AssetKey]:
         return dg.AssetSelection.assets(key).upstream().resolve(graph)

@@ -3,10 +3,10 @@ name: CI
 # Runs on every pull request, including a stacked one whose base is another
 # feature branch, and skips while the pull request is a draft. `ready_for_review` is in the types so that marking it ready starts
 # the run: without it the skipped jobs would stand as passing required checks
-# on the commit and nothing would have tested it. `lint` and `test` are the
-# required checks on both branches, which require the head to be up to date
-# with its base, so the tree a merge produces is the tree these jobs tested and
-# a push run would repeat them.
+# on the commit and nothing would have tested it. `lint`, `test` and
+# `dbt-build` are the required checks on both branches, which require the head
+# to be up to date with its base, so the tree a merge produces is the tree these
+# jobs tested and a push run would repeat them.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -87,21 +87,63 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt deps --project-dir dbt/ --profiles-dir dbt/
 
+      # Writes the manifest the project's definitions load.
+      - name: Parse dbt project
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dbt parse --project-dir dbt/ --profiles-dir dbt/
+
+      - name: Run tests
+        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term --ignore=tests/defs/dbt_ingest/test_defs.py
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./coverage.xml
+
+  # The row-count test materializes every dbt model through Dagster, running
+  # their data, source, singular and unit tests: CI's only dbt build.
+  dbt-build:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Cache uv
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install dbt dependencies
+        env:
+          DUCKDB_PATH: /tmp/ci.duckdb
+        run: uv run dbt deps --project-dir dbt/ --profiles-dir dbt/
+
       - name: Check Dagster definitions load
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dg check defs
 
-      - name: Load test data
-        run: uv run duckdb /tmp/ci.duckdb < scripts/load_ci_fixtures.sql
-
-      - name: Check dbt models build
+      # Dagster's dbt build runs only tests attached to its assets, so not these.
+      - name: Run dbt macro tests
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
-        run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
+        run: uv run dbt test --project-dir dbt/ --profiles-dir dbt/ --select "path:tests/test_mint_*"
 
-      - name: Run tests
-        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
+      - name: Run the row-count test
+        run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term tests/defs/dbt_ingest/test_defs.py
 
       - name: Upload coverage
         uses: codecov/codecov-action@v6
