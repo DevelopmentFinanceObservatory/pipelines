@@ -1,9 +1,8 @@
-from functools import partial
-
 import dagster as dg
 from oda_reader import bulk_download_dac2a
 from oda_reader.dac2a import DAC2A_BULK_LABEL
 from oda_reader.download.download_tools import DAC2A_FLOW_URL
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -14,6 +13,7 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import (
     fetch_bulk_file,
     fetch_bulk_file_release_date,
@@ -47,18 +47,20 @@ def oecd_dac2a_source() -> dg.ObserveResult:
     )
 
 
-oecd_dac2a_raw_file = build_raw_file_asset(
-    group="oecd_dac2a",
-    dataset="dac2a",
-    title="OECD DAC2a",
-    fetch=partial(
-        fetch_bulk_file,
+def fetch_dac2a_raw_file(file_path: UPath) -> FetchedRelease:
+    """Write the DAC2a bulk file to `file_path`"""
+    return fetch_bulk_file(
+        file_path,
         flow_url=DAC2A_FLOW_URL,
         label=DAC2A_BULK_LABEL,
         download=bulk_download_dac2a,
         downloaded_name="table2a_data.parquet",
         release_date=lambda url, _: fetch_bulk_file_release_date(url),
-    ),
+    )
+
+
+oecd_dac2a_raw_file = build_raw_file_asset(
+    group="oecd_dac2a", dataset="dac2a", title="OECD DAC2a", fetch=fetch_dac2a_raw_file
 )
 
 

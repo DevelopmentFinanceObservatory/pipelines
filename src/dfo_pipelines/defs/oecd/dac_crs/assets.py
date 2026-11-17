@@ -1,10 +1,10 @@
 import re
 from datetime import date
-from functools import partial
 
 import dagster as dg
 from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import CRS_FLOW_URL
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
     DOCS_ROOT,
@@ -14,6 +14,7 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import fetch_bulk_file, resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
@@ -66,18 +67,23 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
     )
 
 
-oecd_dac_crs_raw_file = build_raw_file_asset(
-    group="oecd_dac_crs",
-    dataset="dac_crs",
-    title="OECD DAC CRS",
-    fetch=partial(
-        fetch_bulk_file,
+def fetch_dac_crs_raw_file(file_path: UPath) -> FetchedRelease:
+    """Write the CRS bulk file to `file_path`"""
+    return fetch_bulk_file(
+        file_path,
         flow_url=CRS_FLOW_URL,
         label=CRS_BULK_LABEL,
         download=bulk_download_crs,
         downloaded_name="CRS.parquet",
         release_date=lambda _, version: parse_crs_release_date(version),
-    ),
+    )
+
+
+oecd_dac_crs_raw_file = build_raw_file_asset(
+    group="oecd_dac_crs",
+    dataset="dac_crs",
+    title="OECD DAC CRS",
+    fetch=fetch_dac_crs_raw_file,
 )
 
 
