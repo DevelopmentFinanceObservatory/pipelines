@@ -26,8 +26,8 @@ from dfo_pipelines.defs.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.defs.subprocesses import run_logged
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_skills"
 # Where the skills repository keeps the skills it offers for install, which

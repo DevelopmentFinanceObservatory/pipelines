@@ -3,7 +3,7 @@ import sys
 import dagster as dg
 import pytest
 
-from dfo_pipelines.defs.subprocesses import run_logged
+from dfo_pipelines.orchestration.subprocesses import run_logged
 from tests.helpers import logged_messages
 
 
