@@ -16,10 +16,6 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     one_climate_finance_raw_tables,
     one_climate_finance_source,
 )
-from dfo_pipelines.defs.resources import (
-    ClimateFinanceExportResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.climate_finance import (
     ExportedTable,
     ExportManifest,
@@ -29,6 +25,10 @@ from dfo_pipelines.extraction.climate_finance import (
 from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    ClimateFinanceExportResource,
+    UPathFileStoreResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT
 from tests.helpers import meta

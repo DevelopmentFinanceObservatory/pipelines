@@ -30,13 +30,13 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     resolve_bulk_versions,
     verify_release_provenance,
 )
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
 )
 from tests.helpers import column_list, list_first_row, meta, row_count
 
@@ -1222,7 +1222,7 @@ def _run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path(
             IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name

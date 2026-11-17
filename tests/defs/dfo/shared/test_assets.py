@@ -9,7 +9,7 @@ from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
     dfo_shared_dc_ingestion,
 )
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )

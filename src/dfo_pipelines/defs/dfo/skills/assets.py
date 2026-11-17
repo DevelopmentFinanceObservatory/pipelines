@@ -20,12 +20,12 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_dc_ingestion,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.subprocesses import run_logged
 
 IMPORT_NAME = "dfo_skills"

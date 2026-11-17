@@ -23,14 +23,14 @@ from dfo_pipelines.defs.oecd.dac_crs.assets import (
     oecd_dac_crs_source,
     parse_crs_release_date,
 )
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.metadata import (
     METADATA_FILE_NAME,
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
 )
 from tests.helpers import AutomationHarness, row_count
 
@@ -520,7 +520,7 @@ def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path("oecd_dac_crs")
         result = oecd_dac_crs_dc_export(

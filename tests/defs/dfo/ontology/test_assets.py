@@ -20,7 +20,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_raw_code_mapping_table,
     dfo_ontology_raw_directory,
 )
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )

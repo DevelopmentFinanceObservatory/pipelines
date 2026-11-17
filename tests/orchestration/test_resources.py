@@ -7,7 +7,10 @@ import pytest
 from pydantic import ValidationError
 
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.defs.resources import KnowledgeGraphResource, UPathFileStoreResource
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
+)
 
 # KGSettings fields the resource leaves to dcp-tools' defaults
 DEFAULTED_SETTINGS = {
@@ -32,7 +35,7 @@ def test_upath_file_store_build_date_partitioned_path_defaults_to_today(
 ) -> None:
     """Test the partition defaults to today when no date is given"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path))
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         path = file_store.build_date_partitioned_path("oecd_dac_crs/dac_crs")
 

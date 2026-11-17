@@ -26,7 +26,7 @@ from dfo_pipelines.defs.dfo.skills.assets import (
     dfo_skills_source,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     SkillsRepositoryResource,
     UPathFileStoreResource,

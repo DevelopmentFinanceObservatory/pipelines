@@ -11,10 +11,6 @@ import pytest
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.defs.world_bank.ids.assets import (
     BULK_XLSX_URLS,
     IDS_EXPORT_SPEC,
@@ -33,6 +29,10 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
 from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
 )
 from tests.helpers import (
     AutomationHarness,
@@ -409,7 +409,7 @@ def test_ids_raw_file_writes_parquet(tmp_path: Path) -> None:
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.defs.resources.date") as mock_date,
+        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),
@@ -521,7 +521,7 @@ def test_ids_raw_file_cleans_up_when_combine_fails(
     with (
         patch_release_date(),
         patch_bulk_file_metadata(),
-        patch("dfo_pipelines.defs.resources.date") as mock_date,
+        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(df),
@@ -908,7 +908,7 @@ def run_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path("world_bank_ids")
         result = world_bank_ids_dc_export(

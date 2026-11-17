@@ -18,7 +18,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
     one_conversion_tables_imf_dc_ingestion,
 )
-from dfo_pipelines.defs.resources import (
+from dfo_pipelines.orchestration.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
 )
@@ -132,7 +132,7 @@ def _run_export(tmp_path: Path, table: str) -> tuple[dg.MaterializeResult, Path]
         connection.execute(_statvars_sql(table))
         connection.execute(_observations_sql(table))
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 1)
         out_dir = file_store.build_date_partitioned_path(spec.import_name)
         result = export_asset(

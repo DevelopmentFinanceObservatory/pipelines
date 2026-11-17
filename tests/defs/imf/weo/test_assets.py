@@ -24,13 +24,13 @@ from dfo_pipelines.defs.imf.weo.assets import (
     imf_weo_raw_table,
     imf_weo_source,
 )
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.metadata import (
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
 )
 from tests.helpers import (
     AutomationHarness,
@@ -82,7 +82,7 @@ def test_imf_weo_raw_file_writes_parquet(tmp_path: Path) -> None:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
 
     with (
-        patch("dfo_pipelines.defs.resources.date") as mock_date,
+        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
         _patched_weo(),
     ):
         mock_date.today.return_value = date(2026, 8, 3)
@@ -482,7 +482,7 @@ def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
         connection.execute(DC_MODELS_SQL)
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 1)
         result = imf_weo_dc_export(
             context=dg.build_asset_context(),

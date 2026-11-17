@@ -22,14 +22,14 @@ from dfo_pipelines.defs.oecd.dac1.assets import (
     oecd_dac1_raw_table,
     oecd_dac1_source,
 )
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.metadata import (
     METADATA_FILE_NAME,
     read_extraction_metadata,
     write_extraction_metadata,
+)
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
 )
 from tests.helpers import (
     AutomationHarness,
@@ -505,7 +505,7 @@ def _run_dc_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
         connection.execute(DC_MODELS_SQL)
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 2)
         result = oecd_dac1_dc_export(
             context=dg.build_asset_context(),

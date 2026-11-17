@@ -22,7 +22,10 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
     unfccc_btr_dc_ingestion,
 )
-from dfo_pipelines.defs.resources import KnowledgeGraphResource, UPathFileStoreResource
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
+)
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.climate_finance.assets"
 
@@ -180,7 +183,7 @@ def _run_export(tmp_path: Path, export: Export) -> tuple[dg.MaterializeResult, P
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb, export)
 
-    with patch("dfo_pipelines.defs.resources.date") as mock_date:
+    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 8, 3)
         out_dir = file_store.build_date_partitioned_path(export.spec.import_name)
         result = export.asset(

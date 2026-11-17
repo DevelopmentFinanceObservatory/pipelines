@@ -1,6 +1,6 @@
 import pytest
 
-from dfo_pipelines.defs.resources import KnowledgeGraphResource
+from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 
 
 @pytest.fixture

@@ -20,16 +20,16 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
-from dfo_pipelines.defs.resources import (
-    KnowledgeGraphResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.resources import (
+    KnowledgeGraphResource,
+    UPathFileStoreResource,
+)
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
