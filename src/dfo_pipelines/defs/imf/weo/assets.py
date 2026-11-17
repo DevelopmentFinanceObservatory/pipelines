@@ -16,6 +16,7 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
@@ -52,7 +53,7 @@ def imf_weo_source() -> dg.ObserveResult:
 
 def fetch_weo_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, str]]:
+) -> FetchedRelease:
     """Write the latest WEO release to `file_path`"""
     # 'version' is resolved and passed explicitly because with version=None,
     # imf_reader rolls back up to three releases when the newest one is listed
@@ -62,9 +63,9 @@ def fetch_weo_raw_file(
     version = weo.get_weo_versions()[0]
     dataframe = weo.fetch_data_with_metadata(version=version)
     dataframe.to_parquet(file_path, compression="gzip")
-    return (
-        {"source": fetch_weo_publication_date(version)},
-        {"version": f"{version[0]} {version[1]}"},
+    return FetchedRelease(
+        release_dates={"source": fetch_weo_publication_date(version)},
+        metadata={"version": f"{version[0]} {version[1]}"},
     )
 
 

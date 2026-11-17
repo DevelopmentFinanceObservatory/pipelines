@@ -9,6 +9,8 @@ from oda_reader.download.download_tools import (
 )
 from upath import UPath
 
+from dfo_pipelines.extraction.metadata import FetchedRelease
+
 RELEASE_DATE_TIMEOUT_SECONDS = 30
 
 
@@ -61,7 +63,7 @@ def fetch_bulk_file(
     download: Callable[..., object],
     downloaded_name: str,
     release_date: Callable[[str, str], date],
-) -> tuple[dict[str, date], dict[str, str]]:
+) -> FetchedRelease:
     """Download the bulk file `label` lists at `flow_url` to `file_path`
 
     Args:
@@ -79,4 +81,6 @@ def fetch_bulk_file(
     released = release_date(url, version)
     download(save_to_path=str(file_path.parent), use_raw_cache=False)
     (file_path.parent / downloaded_name).rename(file_path)
-    return {"source": released}, {"version": version}
+    return FetchedRelease(
+        release_dates={"source": released}, metadata={"version": version}
+    )

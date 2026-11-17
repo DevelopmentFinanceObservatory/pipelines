@@ -2,7 +2,6 @@ import re
 from collections.abc import Mapping
 from datetime import date
 from importlib.metadata import version as installed_version
-from typing import Any
 
 import dagster as dg
 import pandas as pd
@@ -20,6 +19,7 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
@@ -295,7 +295,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
 def fetch_imputed_multilateral_sectors_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, Any]]:
+) -> FetchedRelease:
     """Compute the imputation between two release observations and write it"""
     (_, crs_before), (_, multi_before) = resolve_bulk_versions()
     observed_before = {"crs": crs_before, "multisystem": multi_before}
@@ -335,11 +335,14 @@ def fetch_imputed_multilateral_sectors_raw_file(
 
     data.to_parquet(file_path, index=False)
 
-    return release_dates, {
-        "crs_version": observed_before["crs"],
-        "multisystem_version": observed_before["multisystem"],
-        **build_quality_metadata(data, provenance=provenance),
-    }
+    return FetchedRelease(
+        release_dates=release_dates,
+        metadata={
+            "crs_version": observed_before["crs"],
+            "multisystem_version": observed_before["multisystem"],
+            **build_quality_metadata(data, provenance=provenance),
+        },
+    )
 
 
 one_imputed_multilateral_sectors_raw_file = build_raw_file_asset(

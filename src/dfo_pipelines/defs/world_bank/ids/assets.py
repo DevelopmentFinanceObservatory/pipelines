@@ -1,7 +1,6 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
 from datetime import date
-from typing import Any
 
 import dagster as dg
 import httpx
@@ -18,6 +17,7 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
@@ -136,13 +136,15 @@ def world_bank_ids_source() -> dg.ObserveResult:
 
 def fetch_ids_raw_file(
     file_path: UPath,
-) -> tuple[dict[str, date], dict[str, Any]]:
+) -> FetchedRelease:
     """Write the combined IDS bulk files to `file_path`"""
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
     download_ids_bulk_data_files(file_path.parent)
     combine_ids_bulk_data_files(file_path.parent, file_path)
-    return {"source": source_release_date}, {"files": files}
+    return FetchedRelease(
+        release_dates={"source": source_release_date}, metadata={"files": files}
+    )
 
 
 world_bank_ids_raw_file = build_raw_file_asset(

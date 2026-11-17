@@ -1,12 +1,11 @@
-from collections.abc import Callable, Mapping
-from datetime import UTC, date, datetime
-from typing import Any
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 import dagster as dg
 import pyarrow.parquet as pq
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
@@ -25,7 +24,7 @@ def build_raw_file_asset(
     group: str,
     dataset: str,
     title: str,
-    fetch: Callable[[UPath], tuple[Mapping[str, date], Mapping[str, Any]]],
+    fetch: Callable[[UPath], FetchedRelease],
     description: str | None = None,
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
@@ -36,9 +35,8 @@ def build_raw_file_asset(
         dataset: Directory under the group the raw file is written to.
         title: Name of the source in the description and logs, such as "OECD DAC1".
         fetch: Writes the download to the path it is given, putting any working
-            files in that path's directory and nowhere else. Returns the date each
-            named source released the data, recorded as `<name>_release_date`,
-            and the source's own materialization metadata.
+            files in that path's directory and nowhere else. Each of its release
+            dates is recorded as `<name>_release_date`.
         description: The asset's description, if not the standard one.
         retry_policy: Retry policy of the asset.
     """

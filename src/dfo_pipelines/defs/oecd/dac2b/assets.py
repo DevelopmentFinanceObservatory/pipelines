@@ -34,12 +34,15 @@ def oecd_dac2b_source() -> dg.ObserveResult:
     The source is observed daily via calls to the OECD API.
     """
     url, version = resolve_bulk_file(flow_url=DAC2B_FLOW_URL, label=DAC2B_BULK_LABEL)
+
+    data_version = dg.DataVersion(";".join([url, version]))
+
     return dg.ObserveResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(url),
             "version": dg.MetadataValue.text(version),
         },
-        data_version=dg.DataVersion(f"{url};{version}"),
+        data_version=data_version,
     )
 
 

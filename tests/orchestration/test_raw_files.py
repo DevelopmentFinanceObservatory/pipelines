@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 import pytest
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
+from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME, FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
@@ -34,7 +34,10 @@ def fetch_rows(
 
     def fetch(file_path: UPath):
         pq.write_table(pa.table({"code": list(range(rows))}), file_path)
-        return release_dates or {"source": RELEASE_DATE}, metadata or {}
+        return FetchedRelease(
+            release_dates=release_dates or {"source": RELEASE_DATE},
+            metadata=metadata or {},
+        )
 
     return fetch
 
@@ -168,7 +171,7 @@ def test_build_raw_file_asset_writes_no_metadata_when_the_file_is_unreadable(
 
     def truncate(file_path: UPath):
         file_path.write_bytes(b"PAR1")
-        return {"source": RELEASE_DATE}, {}
+        return FetchedRelease(release_dates={"source": RELEASE_DATE}, metadata={})
 
     with pytest.raises(pa.ArrowInvalid):
         materialize_directly(build_example(truncate), tmp_path)
