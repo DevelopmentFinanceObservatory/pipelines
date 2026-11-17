@@ -233,6 +233,33 @@ def _observation_file_name(stem: str, partition: Any) -> str:
     return f"{stem}_{partition}.csv"
 
 
+def write_statvars_csv(
+    connection: DuckDBPyConnection, spec: ExportSpec, path: Path
+) -> int:
+    """Write `spec`'s StatVar model to `path` as the CSV the MCF is built from.
+
+    `export_bundle` and the graph check both read their StatVars from this file,
+    so the check sees the rows and values the export publishes.
+
+    Args:
+        connection: Connection to the database holding the model.
+        spec: The export whose StatVar model is written.
+        path: The CSV file to write, with a header row.
+
+    Returns:
+        The number of StatVar rows written.
+
+    Raises:
+        duckdb.CatalogException: The model is not in the database.
+    """
+    (count,) = connection.execute(
+        f"copy (select * from {spec.statvar_model} order by all) to ?"
+        " (format csv, header)",
+        [str(path)],
+    ).fetchall()[0]
+    return count
+
+
 def export_bundle(
     spec: ExportSpec,
     *,
@@ -309,11 +336,7 @@ def export_bundle(
     log.info("Registering StatisticalVariable nodes")
     with tempfile.TemporaryDirectory() as staging_dir:
         statvars_csv = Path(staging_dir) / "statvars.csv"
-        (statvar_count,) = connection.execute(
-            f"copy (select * from {spec.statvar_model} order by all) to ?"
-            " (format csv, header)",
-            [str(statvars_csv)],
-        ).fetchall()[0]
+        statvar_count = write_statvars_csv(connection, spec, statvars_csv)
         manager.add_variables_to_mcf_from_csv(
             statvars_csv,
             column_to_property_mapping=spec.statvar_column_to_property,

@@ -15,12 +15,18 @@ on:
 env:
   UV_LOCKED: "1"
 
+# A job that names no permissions gets only `contents: read`, which checkout needs.
+permissions:
+  contents: read
+
 jobs:
   lint:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -64,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -100,6 +108,18 @@ jobs:
           DUCKDB_PATH: /tmp/ci.duckdb
         run: uv run dbt build --project-dir dbt/ --profiles-dir dbt/
 
+      # The graph check job reads this file. It is uploaded after a failed build
+      # too, so the check reports on what the build wrote.
+      - name: Upload the build for the graph check
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-duckdb
+          path: /tmp/ci.duckdb
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 1
+
       - name: Run tests
         run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term
 
@@ -107,3 +127,124 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
+
+  # Advisory and not a required check: the report says whether the StatVar
+  # tables the build wrote name classes, properties and values the graph holds.
+  # The job runs after `test`, on the database `test` built, so `test` never waits
+  # for it, and it runs when `test` failed too, so the comment describes the
+  # latest push. It runs the pull request's code with a read-only token, writes
+  # the report to the job summary and uploads it for `graph-check-comment`.
+  graph-check:
+    needs: test
+    if: ${{ !cancelled() && github.event.pull_request.draft != true }}
+    runs-on: ubuntu-latest
+    # `test` built the merge of the pull request head into its base branch, and
+    # the report names both.
+    env:
+      GRAPH_CHECK_COMMIT: ${{ github.event.pull_request.head.sha }}
+      GRAPH_CHECK_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Cache uv
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download the build
+        id: build
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-duckdb
+          path: ${{ runner.temp }}/build
+
+      # A step that fails or a check that cannot run leaves the job green.
+      - name: Check StatVars against the graph
+        if: ${{ steps.build.outcome == 'success' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          DUCKDB_PATH: ${{ runner.temp }}/build/ci.duckdb
+          GRAPH_CHECK_URL: ${{ vars.GRAPH_CHECK_URL }}
+        run: uv run python scripts/graph_check.py "$RUNNER_TEMP/graph-check-report.md"
+
+      # A check that wrote no report uploads nothing, and the comment says the
+      # check did not run.
+      - name: Upload the report for the comment
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: graph-check-report
+          path: ${{ runner.temp }}/graph-check-report.md
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 1
+
+  # Posts or updates the graph check comment from the report `graph-check`
+  # uploaded. This is the only job that holds `pull-requests: write`, and it runs
+  # no code from the pull request: it checks out the base commit and runs that
+  # commit's `dfo_pipelines.graph_check.comment`, with no uv cache, which a job
+  # running the pull request's code could have written. The report is read as
+  # the comment body only. A base commit without that module fails the step and
+  # leaves the job green. The workflow file itself comes from the pull request,
+  # so a change to this job needs review like any code that holds the token. A
+  # pull request from a fork gets a read-only token, so the job skips there and
+  # the `graph-check` job summary carries the report.
+  graph-check-comment:
+    needs: graph-check
+    if: >-
+      ${{ !cancelled() && needs.graph-check.result != 'skipped'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GRAPH_CHECK_COMMIT: ${{ github.event.pull_request.head.sha }}
+      GRAPH_CHECK_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: false
+
+      - name: Set up Python 3.13
+        run: uv python install '3.13'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download the report
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: graph-check-report
+          path: ${{ runner.temp }}/report
+
+      - name: Comment the graph check on the pull request
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: uv run python -m dfo_pipelines.graph_check.comment "$RUNNER_TEMP/report/graph-check-report.md"
