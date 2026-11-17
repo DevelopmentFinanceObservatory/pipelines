@@ -25,8 +25,6 @@ from tests.helpers import row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-MODULE = "dfo_pipelines.defs.oecd.dac_crs.assets"
-
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
 
@@ -84,7 +82,9 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
 def test_dac_crs_raw_file_dates_the_release_from_the_version() -> None:
     """Test the raw file fetches the CRS bulk file and dates the release from its
     version token"""
-    with patch(f"{MODULE}.fetch_bulk_file", autospec=True) as fetch:
+    with patch(
+        "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
+    ) as fetch:
         fetch_dac_crs_raw_file(UPath("data.parquet"))
 
     arguments = dict(fetch.call_args.kwargs)

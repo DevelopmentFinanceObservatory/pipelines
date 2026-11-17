@@ -23,8 +23,6 @@ from tests.helpers import column_list, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-MODULE = "dfo_pipelines.defs.oecd.dac2b.assets"
-
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2B_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2b/DAC2b.parquet"
 
@@ -59,9 +57,11 @@ def test_dac2b_source_observes_the_dac2b_bulk_file() -> None:
 def test_dac2b_raw_file_dates_the_release_from_the_url() -> None:
     """Test the raw file fetches the DAC2b bulk file and dates the release from its URL"""
     with (
-        patch(f"{MODULE}.fetch_bulk_file", autospec=True) as fetch,
         patch(
-            f"{MODULE}.fetch_bulk_file_release_date",
+            "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file", autospec=True
+        ) as fetch,
+        patch(
+            "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file_release_date",
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
