@@ -28,15 +28,12 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import (
-    load_extraction_metadata,
-    write_extraction_metadata,
-)
-from dfo_pipelines.extraction.parquet import load_parquet
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
     EAGER_WHEN_CHECKS_PASS,
 )
+from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
 
 SCHEMA = "one_climate_finance"
 # The asset and database table each raw table loads into, by raw file stem.

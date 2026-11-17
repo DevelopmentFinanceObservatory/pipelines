@@ -3,7 +3,6 @@ from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 from upath import UPath
 
-from dfo_pipelines.data_commons.export import get_model_rows
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
@@ -12,6 +11,7 @@ from dfo_pipelines.defs.resources import (
     UPathFileStoreResource,
 )
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.warehouse import get_model_rows
 
 IMPORT_NAME = "dfo_shared"
 LICENSE_TYPES_SEED = "dfo_shared.license_types"

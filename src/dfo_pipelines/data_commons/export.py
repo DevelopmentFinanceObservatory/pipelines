@@ -31,6 +31,7 @@ from duckdb import DuckDBPyConnection
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import escape_markdown
+from dfo_pipelines.warehouse import get_model_rows
 
 # The observations are written one file per distinct value of this column. Every
 # pipeline's observation model carries the observation date in `date`, so the split
@@ -204,11 +205,6 @@ class ExportMetadata:
     observation_count: int
     statvar_count: int
     observation_file_count: int
-
-
-def get_model_rows(connection: DuckDBPyConnection, model: str) -> list[dict[str, Any]]:
-    """Retrieves every row of a model as a dict, keyed on column name"""
-    return connection.sql(f"select * from {model}").to_arrow_table().to_pylist()
 
 
 def _provenance_property_value(column: str, value: Any) -> str:

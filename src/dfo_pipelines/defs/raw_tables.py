@@ -4,9 +4,8 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import load_extraction_metadata
-from dfo_pipelines.extraction.parquet import load_parquet
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
 
 
 def raw_table_result(
