@@ -2,7 +2,7 @@
 
 ## Making Changes
 
-- Run every step of every job in `.github/workflows/ci.yml` from a script, against a DuckDB file of its own for each worktree, deleted before each run. CI runs a bare `dbt build`, and a narrowed `--select` proves less than it appears to.
+- Run every step of every job in `.github/workflows/ci.yml` from a script, against a DuckDB file of its own for each worktree, deleted before each run along with `dbt/target` and `src/dfo_pipelines/defs/.local_defs_state`, whose cached manifest hides a missing `dbt parse`. CI builds the dbt models through Dagster in the row-count test, which runs only the dbt tests attached to its assets, so a singular test that reads no model or source must be named `test_mint_*` to run in CI. Locally, a narrowed `--select` proves less than it appears to.
 - After renaming or moving dbt models, run `dbt parse --warn-error`. dbt drops the tests of a `models.yml` entry and the config of a `dbt_project.yml` path that no longer match a model, with only a warning.
 - Prove each new test by breaking the code it covers: make the smallest change that makes its claim false, watch it fail, restore, and watch it pass. A contract can stop the mutated model building, so rebuild everything downstream before running the test.
 - Changes to pipelines follow the `building-pipelines` skill in `.claude/skills/`.

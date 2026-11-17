@@ -140,7 +140,10 @@ jobs:
       - name: Run dbt macro tests
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
-        run: uv run dbt test --project-dir dbt/ --profiles-dir dbt/ --select "path:tests/test_mint_*"
+        run: >-
+          uv run dbt test --project-dir dbt/ --profiles-dir dbt/
+          --select "path:tests/test_mint_*"
+          --warn-error-options '{"error": ["NoNodesForSelectionCriteria"]}'
 
       - name: Run the row-count test
         run: uv run pytest --cov='src/dfo_pipelines' --cov-report=xml --cov-report=term tests/defs/dbt_ingest/test_defs.py
