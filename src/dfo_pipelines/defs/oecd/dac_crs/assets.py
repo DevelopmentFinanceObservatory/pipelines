@@ -1,6 +1,8 @@
 import re
 from datetime import date
+from functools import partial
 
+import dagster as dg
 from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import CRS_FLOW_URL
 
@@ -14,7 +16,11 @@ from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.oecd_bulk_files import build_oecd_bulk_file_assets
+from dfo_pipelines.orchestration.oecd_bulk_files import (
+    fetch_bulk_file,
+    observe_bulk_file,
+)
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
 
@@ -38,15 +44,33 @@ def parse_crs_release_date(version: str) -> date:
     return date(int(matched["year"]), int(matched["month"]), int(matched["day"]))
 
 
-oecd_dac_crs_source, oecd_dac_crs_raw_file = build_oecd_bulk_file_assets(
+CRS_BULK_LABEL = "CRS-Parquet"
+
+
+@dg.observable_source_asset(
+    group_name="oecd_dac_crs",
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
+)
+def oecd_dac_crs_source() -> dg.ObserveResult:
+    """Observed OECD DAC CRS data version.
+
+    The source is observed daily via calls to the OECD API.
+    """
+    return observe_bulk_file(flow_url=CRS_FLOW_URL, label=CRS_BULK_LABEL)
+
+
+oecd_dac_crs_raw_file = build_raw_file_asset(
     group="oecd_dac_crs",
     dataset="dac_crs",
     title="OECD DAC CRS",
-    flow_url=CRS_FLOW_URL,
-    label="CRS-Parquet",
-    download=bulk_download_crs,
-    downloaded_name="CRS.parquet",
-    release_date=lambda _, version: parse_crs_release_date(version),
+    fetch=partial(
+        fetch_bulk_file,
+        flow_url=CRS_FLOW_URL,
+        label=CRS_BULK_LABEL,
+        download=bulk_download_crs,
+        downloaded_name="CRS.parquet",
+        release_date=lambda _, version: parse_crs_release_date(version),
+    ),
 )
 
 

@@ -1,4 +1,8 @@
+from functools import partial
+
+import dagster as dg
 from oda_reader import bulk_download_dac1
+from oda_reader.dac1 import DAC1_BULK_LABEL
 from oda_reader.download.download_tools import DAC1_FLOW_URL
 
 from dfo_pipelines.data_commons.export import (
@@ -13,18 +17,38 @@ from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.oecd_bulk_files import build_oecd_bulk_file_assets
+from dfo_pipelines.orchestration.oecd_bulk_files import (
+    fetch_bulk_file,
+    observe_bulk_file,
+)
+from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
-oecd_dac1_source, oecd_dac1_raw_file = build_oecd_bulk_file_assets(
+
+@dg.observable_source_asset(
+    group_name="oecd_dac1",
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
+)
+def oecd_dac1_source() -> dg.ObserveResult:
+    """Observed OECD DAC1 data version.
+
+    The source is observed daily via calls to the OECD API.
+    """
+    return observe_bulk_file(flow_url=DAC1_FLOW_URL, label=DAC1_BULK_LABEL)
+
+
+oecd_dac1_raw_file = build_raw_file_asset(
     group="oecd_dac1",
     dataset="dac1",
     title="OECD DAC1",
-    flow_url=DAC1_FLOW_URL,
-    label="DAC1 full dataset (dotStat format)",
-    download=bulk_download_dac1,
-    downloaded_name="table1_data.parquet",
-    release_date=lambda url, _: fetch_bulk_file_release_date(url),
+    fetch=partial(
+        fetch_bulk_file,
+        flow_url=DAC1_FLOW_URL,
+        label=DAC1_BULK_LABEL,
+        download=bulk_download_dac1,
+        downloaded_name="table1_data.parquet",
+        release_date=lambda url, _: fetch_bulk_file_release_date(url),
+    ),
 )
 
 
