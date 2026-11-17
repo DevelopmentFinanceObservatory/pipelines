@@ -395,41 +395,6 @@ def test_dac2b_raw_table_loads_parquet(tmp_path: Path) -> None:
     assert check.passed
 
 
-def test_dac2b_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
-    """Test DAC2b raw table check fails when the parquet file has no rows"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = oecd_dac2b_raw_table(
-        duckdb=duckdb, oecd_dac2b_raw_file=str(FIXTURES / "empty.parquet")
-    )
-
-    assert row_count(duckdb, "oecd_dac2b.raw_dac2b") == 0
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "table_not_empty"
-    assert not check.passed
-
-
-def test_dac2b_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
-    """Test DAC2b raw table asset replaces the table rather than appending"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    oecd_dac2b_raw_table(
-        duckdb=duckdb, oecd_dac2b_raw_file=str(FIXTURES / "data.parquet")
-    )
-
-    assert row_count(duckdb, "oecd_dac2b.raw_dac2b") == 25
-
-    oecd_dac2b_raw_table(
-        duckdb=duckdb, oecd_dac2b_raw_file=str(FIXTURES / "data-5.parquet")
-    )
-
-    assert row_count(duckdb, "oecd_dac2b.raw_dac2b") == 5
-
-
 def test_dac2b_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
     """Test the metadata asset loads the extraction metadata with the raw file"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))

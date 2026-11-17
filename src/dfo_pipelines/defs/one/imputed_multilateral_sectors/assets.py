@@ -30,6 +30,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
@@ -38,6 +39,7 @@ from dfo_pipelines.extraction.metadata import (
     load_extraction_metadata,
     write_extraction_metadata,
 )
+from dfo_pipelines.extraction.parquet import load_parquet
 
 CRS_BULK_LABEL = "CRS-Parquet"
 MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
@@ -439,26 +441,15 @@ def one_imputed_multilateral_sectors_raw_table(
     duckdb: DuckDBResource, one_imputed_multilateral_sectors_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw imputed multilateral spending by purpose database table"""
-    schema = "one_imputed_multilateral_sectors"
-    table = "raw_imputed_multilateral_sectors"
     with duckdb.get_connection() as connection:
-        connection.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        connection.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS "
-            "SELECT * FROM read_parquet(?)",
-            [one_imputed_multilateral_sectors_raw_file],
+        rows = load_parquet(
+            connection,
+            path=one_imputed_multilateral_sectors_raw_file,
+            schema="one_imputed_multilateral_sectors",
+            table="raw_imputed_multilateral_sectors",
         )
-        rows = (connection.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][
-            0
-        ]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
+    return raw_table_result(
+        "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors", rows
     )
 
 
@@ -471,21 +462,17 @@ def one_imputed_multilateral_sectors_raw_metadata(
     duckdb: DuckDBResource, one_imputed_multilateral_sectors_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the imputed multilateral spending raw data"""
-    schema = "one_imputed_multilateral_sectors"
-    table = "raw_imputed_multilateral_sectors_metadata"
     with duckdb.get_connection() as connection:
         rows = load_extraction_metadata(
             connection,
             directory=UPath(one_imputed_multilateral_sectors_raw_file).parent,
-            schema=schema,
-            table=table,
+            schema="one_imputed_multilateral_sectors",
+            table="raw_imputed_multilateral_sectors_metadata",
             release_names=("crs", "multisystem"),
         )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
+    return metadata_table_result(
+        "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata",
+        rows,
     )
 
 

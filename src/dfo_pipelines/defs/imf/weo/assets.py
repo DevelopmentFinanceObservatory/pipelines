@@ -23,6 +23,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
@@ -31,6 +32,7 @@ from dfo_pipelines.extraction.metadata import (
     load_extraction_metadata,
     write_extraction_metadata,
 )
+from dfo_pipelines.extraction.parquet import load_parquet
 
 # One observation of one series, with the dataflow's attributes, which include
 # the date the IMF published the release.
@@ -128,24 +130,14 @@ def imf_weo_raw_table(
     duckdb: DuckDBResource, imf_weo_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw IMF WEO database table"""
-    schema = "imf_weo"
-    table = "raw_weo"
-    with duckdb.get_connection() as conn:
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS SELECT * FROM read_parquet(?)",
-            [imf_weo_raw_file],
+    with duckdb.get_connection() as connection:
+        rows = load_parquet(
+            connection,
+            path=imf_weo_raw_file,
+            schema="imf_weo",
+            table="raw_weo",
         )
-        rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
-    )
+    return raw_table_result("imf_weo.raw_weo", rows)
 
 
 @dg.asset(
@@ -157,22 +149,15 @@ def imf_weo_raw_metadata(
     duckdb: DuckDBResource, imf_weo_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the IMF WEO raw data"""
-    schema = "imf_weo"
-    table = "raw_weo_metadata"
     with duckdb.get_connection() as connection:
         rows = load_extraction_metadata(
             connection,
             directory=UPath(imf_weo_raw_file).parent,
-            schema=schema,
-            table=table,
+            schema="imf_weo",
+            table="raw_weo_metadata",
             release_names=("source",),
         )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-    )
+    return metadata_table_result("imf_weo.raw_weo_metadata", rows)
 
 
 # TODO: Use imf-reader's own lookup once it has a public one; this reads its

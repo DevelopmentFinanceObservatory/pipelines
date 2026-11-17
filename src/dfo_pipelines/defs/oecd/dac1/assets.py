@@ -24,6 +24,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     KnowledgeGraphResource,
     UPathFileStoreResource,
@@ -34,6 +35,7 @@ from dfo_pipelines.extraction.metadata import (
     write_extraction_metadata,
 )
 from dfo_pipelines.extraction.oecd import fetch_bulk_file_release_date
+from dfo_pipelines.extraction.parquet import load_parquet
 
 
 def resolve_dac1_bulk_file() -> tuple[str, str]:
@@ -140,34 +142,20 @@ def oecd_dac1_raw_table(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Raw OECD DAC1 database table"""
-    schema = "oecd_dac1"
-    table = "raw_dac1"
-    published = pq.read_schema(oecd_dac1_raw_file).names
-    renames = {
-        "DONOR": "donor_code",
-        "Donor": "donor_name",
-        "PART": "part_code",
-        "Part": "part_name",
-    }
-    aliases = [renames.get(name, name) for name in published]
-    columns = ", ".join('"' + alias.replace('"', '""') + '"' for alias in aliases)
-    with duckdb.get_connection() as conn:
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS "
-            f"SELECT * FROM read_parquet(?) AS source({columns})",
-            [oecd_dac1_raw_file],
+    with duckdb.get_connection() as connection:
+        rows = load_parquet(
+            connection,
+            path=oecd_dac1_raw_file,
+            schema="oecd_dac1",
+            table="raw_dac1",
+            renames={
+                "DONOR": "donor_code",
+                "Donor": "donor_name",
+                "PART": "part_code",
+                "Part": "part_name",
+            },
         )
-        rows = (conn.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][0]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
-    )
+    return raw_table_result("oecd_dac1.raw_dac1", rows)
 
 
 @dg.asset(
@@ -179,22 +167,15 @@ def oecd_dac1_raw_metadata(
     duckdb: DuckDBResource, oecd_dac1_raw_file: str
 ) -> dg.MaterializeResult:
     """Extraction metadata for the OECD DAC1 raw data"""
-    schema = "oecd_dac1"
-    table = "raw_dac1_metadata"
     with duckdb.get_connection() as connection:
         rows = load_extraction_metadata(
             connection,
             directory=UPath(oecd_dac1_raw_file).parent,
-            schema=schema,
-            table=table,
+            schema="oecd_dac1",
+            table="raw_dac1_metadata",
             release_names=("source",),
         )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-    )
+    return metadata_table_result("oecd_dac1.raw_dac1_metadata", rows)
 
 
 OECD_DAC1_EXPORT_SPEC = ExportSpec(

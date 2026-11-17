@@ -18,6 +18,7 @@ from dfo_pipelines.defs.automation import (
 )
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
+from dfo_pipelines.defs.raw_tables import metadata_table_result, raw_table_result
 from dfo_pipelines.defs.resources import (
     ClimateFinanceExportResource,
     KnowledgeGraphResource,
@@ -35,6 +36,7 @@ from dfo_pipelines.extraction.metadata import (
     load_extraction_metadata,
     write_extraction_metadata,
 )
+from dfo_pipelines.extraction.parquet import load_parquet
 
 SCHEMA = "one_climate_finance"
 # The asset and database table each raw table loads into, by raw file stem.
@@ -216,26 +218,15 @@ def one_climate_finance_raw_tables(
 ):
     """Raw climate finance database tables, one per raw file"""
     with duckdb.get_connection() as connection:
-        connection.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
         for stem, key in RAW_TABLE_KEYS.items():
-            table = f"{SCHEMA}.{RAW_TABLE_NAMES[stem]}"
-            connection.execute(
-                f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet(?)",
-                [str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet")],
+            table = RAW_TABLE_NAMES[stem]
+            rows = load_parquet(
+                connection,
+                path=str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet"),
+                schema=SCHEMA,
+                table=table,
             )
-            rows = connection.sql(f"SELECT COUNT(*) FROM {table}").fetchall()[0][0]
-            yield dg.MaterializeResult(
-                asset_key=key,
-                metadata={
-                    "dagster/table_name": dg.MetadataValue.text(table),
-                    "dagster/row_count": dg.MetadataValue.int(rows),
-                },
-                check_results=[
-                    dg.AssetCheckResult(
-                        asset_key=key, check_name="table_not_empty", passed=rows > 0
-                    )
-                ],
-            )
+            yield raw_table_result(f"{SCHEMA}.{table}", rows, asset_key=key)
 
 
 @dg.asset(
@@ -256,12 +247,7 @@ def one_climate_finance_raw_metadata(
             table=table,
             release_names=("source",),
         )
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{SCHEMA}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-    )
+    return metadata_table_result(f"{SCHEMA}.{table}", rows)
 
 
 def _export_spec(

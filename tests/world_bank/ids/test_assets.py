@@ -662,41 +662,6 @@ def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
     )
 
 
-def test_ids_raw_table_check_fails_when_table_empty(tmp_path: Path) -> None:
-    """Test IDS raw table check fails when the parquet file has no rows"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = world_bank_ids_raw_table(
-        duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data-0.parquet")
-    )
-
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 0
-
-    assert isinstance(result, dg.MaterializeResult)
-
-    [check] = result.check_results
-
-    assert check.check_name == "table_not_empty"
-    assert not check.passed
-
-
-def test_ids_raw_table_overwrites_existing_table(tmp_path: Path) -> None:
-    """Test IDS raw table asset replaces the table rather than appending"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    world_bank_ids_raw_table(
-        duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data.parquet")
-    )
-
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == FIXTURE_ROWS
-
-    world_bank_ids_raw_table(
-        duckdb=duckdb, world_bank_ids_raw_file=str(FIXTURES / "data-0.parquet")
-    )
-
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == 0
-
-
 def test_fetch_ids_release_date_reads_the_source_record() -> None:
     """Test the release date is read from the API's lastupdated for IDS"""
 
