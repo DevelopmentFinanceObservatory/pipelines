@@ -15,8 +15,7 @@ def build_dc_ingestion_asset(
     deps: Sequence[dg.AssetsDefinition] = (),
     description_note: str | None = None,
 ) -> dg.AssetsDefinition:
-    """The `<import_name>_dc_ingestion` asset ingesting `<import_name>_dc_export`'s
-    bundle, with `description_note` appended to its description"""
+    """The `<import_name>_dc_ingestion` asset ingesting its export's bundle"""
     description = (
         f"{title} bundle ingested into the Data Commons knowledge graph\n\n"
         "Materialized by hand only: an ingestion rewrites the shared graph and runs\n"

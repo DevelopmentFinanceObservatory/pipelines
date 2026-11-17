@@ -7,6 +7,13 @@ from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 
 ONTOLOGY_INGESTION = dg.AssetKey("dfo_ontology_dc_ingestion")
+SHARED_INGESTION = dg.AssetKey("dfo_shared_dc_ingestion")
+# The ingestions that define what the shared nodes link to, so precede them.
+INGESTIONS_BEFORE_SHARED = {
+    ONTOLOGY_INGESTION,
+    SHARED_INGESTION,
+    dg.AssetKey("dfo_skills_dc_ingestion"),
+}
 
 
 def test_build_dc_ingestion_asset_ingests_the_bundle_the_export_wrote(
@@ -45,6 +52,7 @@ def test_build_dc_ingestion_asset_ingests_the_bundle_the_export_wrote(
         "dagster/uri": dg.TextMetadataValue(destination),
         "import_name": dg.TextMetadataValue("example"),
     }
+    assert example_dc_ingestion.specs_by_key[example_dc_ingestion.key].kinds == {"gcs"}
 
 
 def test_build_dc_ingestion_asset_appends_the_note_to_the_description() -> None:
@@ -64,23 +72,28 @@ def test_build_dc_ingestion_asset_appends_the_note_to_the_description() -> None:
     )
 
 
-def test_every_ingestion_is_manual_and_follows_its_export_and_the_ontology() -> None:
-    """Test each ingestion runs by hand, since it rewrites the shared graph, reads
-    its own pipeline's export, and waits on the ontology's ingestion"""
+def test_every_export_has_an_ingestion_run_by_hand_after_the_shared_nodes() -> None:
+    """Test each export has an ingestion, which runs by hand, since it rewrites the
+    shared graph, reads its own pipeline's export, and waits on the ontology's and
+    the shared nodes' ingestions"""
     graph = defs().resolve_asset_graph()
-    ingestions = [
-        key
-        for key in graph.get_all_asset_keys()
-        if key.path[-1].endswith("_dc_ingestion")
-    ]
+    names = {key.path[-1] for key in graph.get_all_asset_keys()}
+    imports = {
+        name.removesuffix("_dc_export") for name in names if name.endswith("_dc_export")
+    }
 
-    assert ingestions
-    for key in ingestions:
+    assert {name for name in names if name.endswith("_dc_ingestion")} == {
+        f"{import_name}_dc_ingestion" for import_name in imports
+    }
+    for import_name in imports:
+        key = dg.AssetKey(f"{import_name}_dc_ingestion")
         node = graph.get(key)
-        export = dg.AssetKey(key.path[-1].removesuffix("_ingestion") + "_export")
+        export = graph.get(dg.AssetKey(f"{import_name}_dc_export"))
         assert node.automation_condition is None, key
-        assert graph.get(export).is_materializable, key
-        assert graph.get(export).group_name == node.group_name, key
-        assert export in node.parent_keys, key
+        assert export.is_materializable, key
+        assert export.group_name == node.group_name, key
+        assert export.key in node.parent_keys, key
         if key != ONTOLOGY_INGESTION:
             assert ONTOLOGY_INGESTION in node.parent_keys, key
+        if key not in INGESTIONS_BEFORE_SHARED:
+            assert SHARED_INGESTION in node.parent_keys, key
