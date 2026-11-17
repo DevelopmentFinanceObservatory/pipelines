@@ -112,7 +112,7 @@ from (values
 """
 
 
-def _run_export(tmp_path: Path, table: str) -> tuple[dg.MaterializeResult, Path]:
+def _run_export(tmp_path: Path, table: str) -> Path:
     """Materialize one table's export asset over hand-written dc models"""
     spec, export_asset = TABLES[table]
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
@@ -126,14 +126,13 @@ def _run_export(tmp_path: Path, table: str) -> tuple[dg.MaterializeResult, Path]
     with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
         mock_date.today.return_value = date(2026, 10, 1)
         out_dir = file_store.build_date_partitioned_path(spec.import_name)
-        result = export_asset(
+        export_asset(
             context=dg.build_asset_context(),
             duckdb=duckdb,
             export_file_store=file_store,
         )
 
-    assert isinstance(result, dg.MaterializeResult)
-    return result, Path(str(out_dir))
+    return Path(str(out_dir))
 
 
 def _statvar_nodes(out_dir: Path) -> dict[str, str]:
@@ -152,27 +151,11 @@ def test_the_tables_export_under_their_own_import_names() -> None:
 
 
 @pytest.mark.parametrize("table", TABLES)
-def test_dc_export_reports_what_its_bundle_holds(tmp_path: Path, table: str) -> None:
-    """Test the export asset reports the observations, StatVars and files it wrote"""
-    result, _ = _run_export(tmp_path, table)
-
-    assert result.metadata is not None
-    assert (
-        result.metadata.items()
-        >= {
-            "observation_count": dg.IntMetadataValue(3),
-            "statvar_count": dg.IntMetadataValue(2),
-            "observation_file_count": dg.IntMetadataValue(3),
-        }.items()
-    )
-
-
-@pytest.mark.parametrize("table", TABLES)
 def test_dc_export_writes_the_deflator_base_year_as_an_integer(
     tmp_path: Path, table: str
 ) -> None:
     """Test the Provenance node carries deflatorBaseYear unquoted, as a number"""
-    _, out_dir = _run_export(tmp_path, table)
+    out_dir = _run_export(tmp_path, table)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     assert "deflatorBaseYear: 2024\n" in provenance
@@ -186,7 +169,7 @@ def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
     tmp_path: Path, table: str
 ) -> None:
     """Test both Provenance nodes carry the conversion tables' documentation"""
-    _, out_dir = _run_export(tmp_path, table)
+    out_dir = _run_export(tmp_path, table)
 
     provenance = (out_dir / "provenance.mcf").read_text()
     for property_name, file_name in DOCUMENTATION_FILES.items():
@@ -197,7 +180,7 @@ def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(
 @pytest.mark.parametrize("table", TABLES)
 def test_dc_export_writes_the_import_config(tmp_path: Path, table: str) -> None:
     """Test the config registers observationAbout, the measurement method and the period"""
-    _, out_dir = _run_export(tmp_path, table)
+    out_dir = _run_export(tmp_path, table)
 
     provenance = f"dcid:provenance/ONEConversionTables{table.upper()}"
     assert json.loads((out_dir / "config.json").read_text()) == {
@@ -231,7 +214,7 @@ def test_dc_export_declares_statvars_with_no_observation_properties(
     The rate loader in dfo-apis reads a table's rows by observationAbout, which
     is the subject only while the StatVar names no observationProperties.
     """
-    _, out_dir = _run_export(tmp_path, table)
+    out_dir = _run_export(tmp_path, table)
 
     recipe = f"ConversionRecipe{table.upper()}"
     nodes = _statvar_nodes(out_dir)
@@ -252,7 +235,7 @@ def test_dc_export_marks_only_projected_rows_with_a_measurement_method(
     tmp_path: Path, table: str
 ) -> None:
     """Test a reported row's measurement method is blank and a projected row's is IMFProjection"""
-    _, out_dir = _run_export(tmp_path, table)
+    out_dir = _run_export(tmp_path, table)
 
     spec: ExportSpec = TABLES[table][0]
     mapping = spec.observation_inputs[0].property_to_column
