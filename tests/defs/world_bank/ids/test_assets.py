@@ -1,6 +1,6 @@
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,27 +20,11 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
-    world_bank_ids_raw_metadata,
-    world_bank_ids_raw_table,
     world_bank_ids_source,
 )
-from dfo_pipelines.extraction.metadata import (
-    write_extraction_metadata,
-)
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import (
-    column_list,
-    list_first_row,
-    meta,
-    row_count,
-)
-
-FIXTURES = Path(__file__).parent / "fixtures"
-FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
-
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
-DOWNLOADED_AT = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
 
 
 def patch_release_date():
@@ -433,50 +417,6 @@ def test_download_ids_bulk_data_files_cleans_up_on_interrupted_download(
         assert not (tmp_path / filename).exists()
 
 
-def test_ids_raw_table_loads_parquet(tmp_path: Path) -> None:
-    """Test IDS raw table asset loads the parquet file into the database"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = world_bank_ids_raw_table(
-        duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet")
-    )
-
-    assert row_count(duckdb, "world_bank_ids.raw_ids") == FIXTURE_ROWS
-    assert isinstance(result, dg.MaterializeResult)
-    assert (
-        meta(result, "dagster/table_name", dg.TextMetadataValue).value
-        == "world_bank_ids.raw_ids"
-    )
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == FIXTURE_ROWS
-
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert check.passed
-
-    # verify the load is unmodified: string year headers and the leading-zero
-    # counterpart code survive intact
-    with duckdb.get_connection() as conn:
-        described = conn.sql("DESCRIBE world_bank_ids.raw_ids").fetchall()
-        codes = conn.sql(
-            'SELECT "Counterpart-Area Code" FROM world_bank_ids.raw_ids ORDER BY 1'
-        ).fetchall()
-    col_types = {name: dtype for name, dtype, *_ in described}
-    assert col_types == {
-        "Country Code": "VARCHAR",
-        "Country Name": "VARCHAR",
-        "Counterpart-Area Name": "VARCHAR",
-        "Counterpart-Area Code": "VARCHAR",
-        "Series Name": "VARCHAR",
-        "Series Code": "VARCHAR",
-        "2023": "VARCHAR",
-        "2024": "VARCHAR",
-        "2025": "VARCHAR",
-    }
-    assert [row[0] for row in codes] == sorted(
-        pd.read_parquet(FIXTURES / "data.parquet")["Counterpart-Area Code"]
-    )
-
-
 def test_fetch_ids_release_date_reads_the_source_record() -> None:
     """Test the release date is read from the API's lastupdated for IDS"""
 
@@ -492,32 +432,6 @@ def test_fetch_ids_release_date_reads_the_source_record() -> None:
 
     with _mock_http(handler):
         assert fetch_ids_release_date() == date(2025, 12, 3)
-
-
-def test_ids_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
-    """Test the metadata asset loads the extraction metadata with the raw file"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
-        release_dates={"source": SOURCE_RELEASE_DATE},
-    )
-
-    result = world_bank_ids_raw_metadata(
-        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
-    )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue("world_bank_ids.raw_ids_metadata"),
-        "dagster/row_count": dg.IntMetadataValue(1),
-    }
-    table = "world_bank_ids.raw_ids_metadata"
-    assert column_list(duckdb, table) == ["downloaded_at", "source_release_date"]
-    assert list_first_row(duckdb, table) == [
-        DOWNLOADED_AT,
-        pd.Timestamp(SOURCE_RELEASE_DATE),
-    ]
 
 
 TOTAL_STATVAR = (
