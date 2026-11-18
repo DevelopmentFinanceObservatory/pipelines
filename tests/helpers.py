@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Self
 
 import dagster as dg
-import numpy as np
-import pandas as pd
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.definitions import defs
@@ -47,19 +45,6 @@ def list_first_row(duckdb: DuckDBResource, table: str) -> list:
             .values.flatten()
             .tolist()
         )
-
-
-def list_parquet_columns(parquet_file: Path) -> list:
-    """List columns in a parquet file"""
-    return list(pd.read_parquet(parquet_file).columns.values)
-
-
-def list_parquet_first_row(parquet_file: Path) -> list:
-    """List first row in a parquet file"""
-    return [
-        x.item() if hasattr(x, "item") else x
-        for x in pd.read_parquet(parquet_file).iloc[0].replace({np.nan: None})
-    ]
 
 
 def logged_messages(

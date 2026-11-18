@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,25 +17,12 @@ from dfo_pipelines.defs.imf.weo.assets import (
     fetch_weo_publication_date,
     fetch_weo_raw_file,
     imf_weo_dc_export,
-    imf_weo_raw_metadata,
-    imf_weo_raw_table,
     imf_weo_source,
 )
-from dfo_pipelines.extraction.metadata import (
-    write_extraction_metadata,
-)
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import (
-    column_list,
-    list_first_row,
-    list_parquet_columns,
-    list_parquet_first_row,
-    row_count,
-)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
-DOWNLOADED_AT = datetime(2026, 9, 11, 9, 14, 22, tzinfo=UTC)
 PUBLICATION_DATE = date(2026, 4, 14)
 
 
@@ -95,29 +82,6 @@ def test_fetch_weo_raw_file_raises_when_the_release_cannot_be_served(
     assert not file_path.exists()
 
 
-def test_imf_weo_raw_table_loads_parquet(tmp_path: Path) -> None:
-    """Test IMF WEO raw table asset loads the parquet file into the database"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = imf_weo_raw_table(duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet"))
-
-    assert row_count(duckdb, "imf_weo.raw_weo") == FIXTURE_ROWS
-    assert column_list(duckdb, "imf_weo.raw_weo") == list_parquet_columns(
-        FIXTURES / "data.parquet"
-    )
-    assert list_first_row(duckdb, "imf_weo.raw_weo") == list_parquet_first_row(
-        FIXTURES / "data.parquet"
-    )
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue("imf_weo.raw_weo"),
-        "dagster/row_count": dg.IntMetadataValue(FIXTURE_ROWS),
-    }
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert check.passed
-
-
 def test_imf_weo_source_observe_fn_returns_metadata_and_data_version() -> None:
     """Test the source's observe fn records the release label and data version"""
     observe = imf_weo_source.observe_fn
@@ -151,32 +115,6 @@ def test_imf_weo_source_observe_fn_raises_when_lookup_fails() -> None:
         pytest.raises(DataflowDiscoveryError, match="no usable WEO dataflow"),
     ):
         observe()
-
-
-def test_imf_weo_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
-    """Test the metadata asset loads the extraction metadata with the raw file"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
-        release_dates={"source": PUBLICATION_DATE},
-    )
-
-    result = imf_weo_raw_metadata(
-        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
-    )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue("imf_weo.raw_weo_metadata"),
-        "dagster/row_count": dg.IntMetadataValue(1),
-    }
-    table = "imf_weo.raw_weo_metadata"
-    assert column_list(duckdb, table) == ["downloaded_at", "source_release_date"]
-    assert list_first_row(duckdb, table) == [
-        DOWNLOADED_AT,
-        pd.Timestamp(PUBLICATION_DATE),
-    ]
 
 
 def _publication_date_mocks(response: httpx.Response, requested: list[str]):

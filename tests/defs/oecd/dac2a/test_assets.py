@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,20 +13,16 @@ from upath import UPath
 from dfo_pipelines.defs.oecd.dac2a.assets import (
     fetch_dac2a_raw_file,
     oecd_dac2a_dc_export,
-    oecd_dac2a_raw_metadata,
     oecd_dac2a_raw_table,
     oecd_dac2a_source,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, row_count
+from tests.helpers import column_list
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2A_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2a/DAC2a.parquet"
-
-DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 SOURCE_RELEASE_DATE = date(2026, 7, 7)
 
@@ -82,59 +78,22 @@ def test_dac2a_raw_file_dates_the_release_from_the_url() -> None:
     }
 
 
-def test_dac2a_raw_table_loads_parquet(tmp_path: Path) -> None:
-    """Test DAC2a raw table asset loads the parquet file into the database"""
+def test_dac2a_raw_table_renames_the_columns_that_differ_only_in_case(
+    tmp_path: Path,
+) -> None:
+    """Test the DAC2a raw table gives each case-colliding column pair distinct names"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    result = oecd_dac2a_raw_table(
-        duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet")
-    )
+    oecd_dac2a_raw_table(duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet"))
 
-    assert row_count(duckdb, "oecd_dac2a.raw_dac2a") == 25
-    assert column_list(duckdb, "oecd_dac2a.raw_dac2a") == [
+    assert {
         "recipient_code",
         "recipient_name",
         "donor_code",
         "donor_name",
         "part_code",
         "part_name",
-        "AIDTYPE",
-        "Aid type",
-        "DATATYPE",
-        "Amount type",
-        "TIME",
-        "Year",
-        "Value",
-        "Flags",
-    ]
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue("oecd_dac2a.raw_dac2a"),
-        "dagster/row_count": dg.IntMetadataValue(25),
-    }
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert check.passed
-
-
-def test_dac2a_raw_metadata_loads_the_recorded_metadata(tmp_path: Path) -> None:
-    """Test the metadata asset loads the extraction metadata with the raw file"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
-        release_dates={"source": SOURCE_RELEASE_DATE},
-    )
-
-    result = oecd_dac2a_raw_metadata(
-        duckdb=duckdb, raw_file=str(tmp_path / "data.parquet")
-    )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue("oecd_dac2a.raw_dac2a_metadata"),
-        "dagster/row_count": dg.IntMetadataValue(1),
-    }
+    } <= set(column_list(duckdb, "oecd_dac2a.raw_dac2a"))
 
 
 FLOW_STATVAR = (

@@ -15,6 +15,7 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.defs.world_bank.ids.assets import world_bank_ids_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import (
+    DAC_COLUMN_RENAMES,
     fetch_bulk_file,
     fetch_bulk_file_release_date,
     resolve_bulk_file,
@@ -68,14 +69,7 @@ oecd_dac2a_raw_table, oecd_dac2a_raw_metadata = build_raw_table_assets(
     group="oecd_dac2a",
     table="raw_dac2a",
     title="OECD DAC2a",
-    renames={
-        "RECIPIENT": "recipient_code",
-        "Recipient": "recipient_name",
-        "DONOR": "donor_code",
-        "Donor": "donor_name",
-        "PART": "part_code",
-        "Part": "part_name",
-    },
+    renames=DAC_COLUMN_RENAMES,
 )
 
 
