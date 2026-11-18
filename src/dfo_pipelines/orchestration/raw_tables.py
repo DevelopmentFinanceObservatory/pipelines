@@ -49,7 +49,7 @@ def build_raw_table_assets(
     @dg.asset(
         name=f"{group}_raw_table",
         description=f"Raw {title} database table",
-        ins={"landing": landing_input},
+        ins={"landing_file": landing_input},
         group_name=group,
         kinds={"duckdb"},
         automation_condition=EAGER_WHEN_CHECKS_PASS,
@@ -59,26 +59,30 @@ def build_raw_table_assets(
             )
         ],
     )
-    def raw_table(duckdb: DuckDBResource, landing: str) -> dg.MaterializeResult:
+    def raw_table(duckdb: DuckDBResource, landing_file: str) -> dg.MaterializeResult:
         with duckdb.get_connection() as connection:
             rows = load_parquet(
-                connection, path=landing, schema=group, table=table, renames=renames
+                connection,
+                path=landing_file,
+                schema=group,
+                table=table,
+                renames=renames,
             )
         return raw_table_result(f"{group}.{table}", rows)
 
     @dg.asset(
         name=f"{group}_raw_metadata",
         description=f"Extraction metadata for the {title} raw data",
-        ins={"landing": landing_input},
+        ins={"landing_file": landing_input},
         group_name=group,
         kinds={"duckdb"},
         automation_condition=EAGER_WHEN_CHECKS_PASS,
     )
-    def raw_metadata(duckdb: DuckDBResource, landing: str) -> dg.MaterializeResult:
+    def raw_metadata(duckdb: DuckDBResource, landing_file: str) -> dg.MaterializeResult:
         with duckdb.get_connection() as connection:
             rows = load_extraction_metadata(
                 connection,
-                directory=UPath(landing).parent,
+                directory=UPath(landing_file).parent,
                 schema=group,
                 table=f"{table}_metadata",
                 release_names=release_names,

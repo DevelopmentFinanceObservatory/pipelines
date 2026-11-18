@@ -846,7 +846,7 @@ def test_raw_table_loads_the_parquet_fixture(tmp_path: Path) -> None:
 
     result = one_imputed_multilateral_sectors_raw_table(
         duckdb=duckdb,
-        landing=str(FIXTURES / "data.parquet"),
+        landing_file=str(FIXTURES / "data.parquet"),
     )
 
     assert (
@@ -884,7 +884,7 @@ def test_raw_metadata_loads_the_recorded_extraction_metadata(tmp_path: Path) -> 
 
     result = one_imputed_multilateral_sectors_raw_metadata(
         duckdb=duckdb,
-        landing=str(tmp_path / "data.parquet"),
+        landing_file=str(tmp_path / "data.parquet"),
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -930,7 +930,7 @@ def test_raw_metadata_raises_when_the_extraction_recorded_a_single_release_date(
     with pytest.raises(ValueError, match="release date keys do not match"):
         one_imputed_multilateral_sectors_raw_metadata(
             duckdb=duckdb,
-            landing=str(tmp_path / "data.parquet"),
+            landing_file=str(tmp_path / "data.parquet"),
         )
 
 

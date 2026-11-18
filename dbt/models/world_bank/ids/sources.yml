@@ -70,11 +70,11 @@ sources:
         columns:
           - name: downloaded_at
             data_type: timestamp with time zone
-            description: When the landing files were downloaded
+            description: When the bulk files were downloaded
             data_tests:
               - not_null
           - name: source_release_date
             data_type: date
-            description: When the World Bank released the data in the landing files
+            description: When the World Bank published this release
             data_tests:
               - not_null

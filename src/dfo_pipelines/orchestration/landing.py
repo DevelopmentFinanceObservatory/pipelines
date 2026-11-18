@@ -56,7 +56,7 @@ def build_landing_asset(
 
     @dg.asset(
         name=name,
-        description=f"Landing {title} file and metadata",
+        description=f"{title} download and its metadata",
         deps=[dg.AssetKey(f"{group}_source")],
         group_name=group,
         kinds={"file", "parquet"},

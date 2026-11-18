@@ -132,8 +132,8 @@ def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
 def one_climate_finance_landing(
     context: dg.AssetExecutionContext, landing_store: UPathFileStoreResource
 ):
-    """Raw climate finance from the observed climate-finance release, one parquet
-    file per raw table, copied from its export.
+    """Climate finance tables from the observed release, as exported, one parquet
+    file per raw table.
 
     `spending` holds the package's climate finance received, 2010 to 2024, and
     provided, 2013 to 2024, under ONE Data's and the OECD's methods and both

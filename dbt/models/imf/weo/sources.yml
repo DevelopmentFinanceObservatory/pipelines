@@ -80,11 +80,11 @@ sources:
         columns:
           - name: downloaded_at
             data_type: timestamp with time zone
-            description: When the landing file was downloaded
+            description: When the data was downloaded from the source
             data_tests:
               - not_null
           - name: source_release_date
             data_type: date
-            description: When the IMF published the WEO release in the landing file
+            description: When the IMF published this WEO release
             data_tests:
               - not_null

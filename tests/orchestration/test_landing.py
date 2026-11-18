@@ -203,7 +203,7 @@ def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> Non
     assert spec.group_name == "example"
     assert spec.kinds == {"file", "parquet"}
     assert spec.automation_condition == EAGER_WHEN_CHECKS_PASS
-    assert spec.description == "Landing Example file and metadata"
+    assert spec.description == "Example download and its metadata"
     [check_spec] = asset.check_specs
     assert check_spec.name == "file_not_empty"
     assert check_spec.asset_key == key
@@ -221,7 +221,7 @@ def test_build_landing_asset_takes_a_retry_policy() -> None:
 
 
 class _ExampleAutomation(AutomationHarness):
-    """Drives a stub source, the built landing file and a raw table loading it
+    """Drives a stub source, the built landing asset and a raw table loading it
 
     Assign to `version` to make the next observation see a republished source.
     """
@@ -266,8 +266,8 @@ def test_build_landing_asset_is_not_rerun_when_the_source_is_unchanged(
 def test_build_landing_asset_is_rerun_with_its_table_when_the_source_changes(
     tmp_path: Path,
 ) -> None:
-    """Test a changed data version requests the landing file and the table loading it on
-    one tick, and only once. The table loads the path the landing file returned"""
+    """Test a changed data version requests the landing asset and the table loading it on
+    one tick, and only once. The table loads the path the landing asset returned"""
     with _ExampleAutomation(tmp_path) as automation:
         automation.observe()
         automation.materialize(automation.landing, automation.raw_table)

@@ -391,7 +391,7 @@ def export_skills(
     tmp_path: Path,
     ontology_root: Path | None = None,
     *,
-    landing: Path | None = None,
+    landing_directory: Path | None = None,
     skills_repository: SkillsRepositoryResource = SKILLS_REPOSITORY,
 ) -> tuple[dg.MaterializeResult, Path]:
     """Run the export asset against a raw skills and ontology directory
@@ -405,7 +405,7 @@ def export_skills(
         context=dg.build_asset_context(),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
         skills_repository=skills_repository,
-        dfo_skills_landing=str(landing or tmp_path),
+        dfo_skills_landing=str(landing_directory or tmp_path),
         dfo_ontology_landing=str(ontology_root),
     )
     assert isinstance(result, dg.MaterializeResult)
@@ -420,11 +420,13 @@ def test_landing_and_export_carry_a_skill_from_each_root(
 
     raw_result = materialize_landing(tmp_path)
 
-    landing = Path(str(raw_result.value))
-    assert files_under(landing) == landing_files(SKILLS, INTERNAL_SKILLS)
+    landing_directory = Path(str(raw_result.value))
+    assert files_under(landing_directory) == landing_files(SKILLS, INTERNAL_SKILLS)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 2
 
-    export_result, out_dir = export_skills(tmp_path, landing=landing)
+    export_result, out_dir = export_skills(
+        tmp_path, landing_directory=landing_directory
+    )
 
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 2
     nodes = (out_dir / "custom_nodes.mcf").read_text()
@@ -538,7 +540,9 @@ def test_landing_and_export_skip_a_draft_with_only_a_readme(
     raw_result = materialize_landing(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(tmp_path, landing=Path(str(raw_result.value)))
+    export_result, _ = export_skills(
+        tmp_path, landing_directory=Path(str(raw_result.value))
+    )
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -554,7 +558,9 @@ def test_landing_and_export_skip_a_draft_with_a_skill_file(
     raw_result = materialize_landing(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(tmp_path, landing=Path(str(raw_result.value)))
+    export_result, _ = export_skills(
+        tmp_path, landing_directory=Path(str(raw_result.value))
+    )
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -810,7 +816,7 @@ def test_dc_export_rejects_a_skill_file_over_the_size_limit(tmp_path: Path) -> N
     skill_file = skills_root / "example-skill" / "SKILL.md"
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter)))
 
-    export_skills(tmp_path / "at_limit", landing=tmp_path)
+    export_skills(tmp_path / "at_limit", landing_directory=tmp_path)
 
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter) + 1))
 
@@ -854,7 +860,7 @@ def test_dc_export_rejects_more_than_the_reference_limit(tmp_path: Path) -> None
         {f"ref-{i}.md": "content\n" for i in range(MAX_REFERENCES)},
     )
 
-    result, _ = export_skills(tmp_path / "at_limit", landing=tmp_path)
+    result, _ = export_skills(tmp_path / "at_limit", landing_directory=tmp_path)
     assert meta(result, "reference_count", dg.IntMetadataValue).value == MAX_REFERENCES
 
     (skills_root / "example-skill/references/extra.md").write_text("content\n")

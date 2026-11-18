@@ -232,15 +232,15 @@ def test_raw_code_mapping_table_check_fails_when_the_mapping_has_no_rows(
 
 def build_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     """Materialize the export asset against a compiled ontology on disk"""
-    landing = tmp_path / "raw"
-    landing.mkdir()
-    (landing / ONTOLOGY_MCF).write_text(STUB_MCF)
+    landing_directory = tmp_path / "raw"
+    landing_directory.mkdir()
+    (landing_directory / ONTOLOGY_MCF).write_text(STUB_MCF)
     export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
     result = dfo_ontology_dc_export(
         context=dg.build_asset_context(),
         export_file_store=export_file_store,
-        dfo_ontology_landing=str(landing),
+        dfo_ontology_landing=str(landing_directory),
     )
     assert isinstance(result, dg.MaterializeResult)
     return result, Path(str(meta(result, "dagster/uri", dg.TextMetadataValue).value))

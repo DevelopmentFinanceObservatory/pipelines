@@ -38,8 +38,8 @@ def dfo_ontology_landing(
     context: dg.AssetExecutionContext, landing_store: UPathFileStoreResource
 ):
     """Compiled DFO ontology MCF, code mapping and validation report"""
-    landing = landing_store.build_date_partitioned_path("dfo/ontology")
-    landing.mkdir(parents=True, exist_ok=True)
+    landing_directory = landing_store.build_date_partitioned_path("dfo/ontology")
+    landing_directory.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
@@ -65,14 +65,14 @@ def dfo_ontology_landing(
                 f"The DFO ontology compiled without {', '.join(missing)}"
             )
         for path in expected_files:
-            (landing / path.name).write_bytes(path.read_bytes())
+            (landing_directory / path.name).write_bytes(path.read_bytes())
 
-    mcf_path = landing / ONTOLOGY_MCF
+    mcf_path = landing_directory / ONTOLOGY_MCF
     file_size = mcf_path.stat().st_size
-    code_rows = len((landing / CODE_MAPPING_CSV).read_text().splitlines()) - 1
-    context.log.info(f"Wrote the compiled DFO ontology to {landing}")
+    code_rows = len((landing_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
+    context.log.info(f"Wrote the compiled DFO ontology to {landing_directory}")
     return landing_result(
-        landing,
+        landing_directory,
         metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
         check_results=[
             dg.AssetCheckResult(check_name="mcf_not_empty", passed=(file_size > 0)),

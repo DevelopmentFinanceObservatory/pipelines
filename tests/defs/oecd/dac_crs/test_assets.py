@@ -72,7 +72,7 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
 
 
 def test_dac_crs_landing_file_dates_the_release_from_the_version() -> None:
-    """Test the landing file fetches the CRS bulk file and dates the release from its
+    """Test the landing asset fetches the CRS bulk file and dates the release from its
     version token"""
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True

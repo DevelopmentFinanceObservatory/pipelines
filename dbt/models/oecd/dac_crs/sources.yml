@@ -89,11 +89,11 @@ sources:
         columns:
           - name: downloaded_at
             data_type: timestamp with time zone
-            description: When the landing file was downloaded
+            description: When the data was downloaded from the source
             data_tests:
               - not_null
           - name: source_release_date
             data_type: date
-            description: When OECD published the data in the landing file.
+            description: When the OECD published this release
             data_tests:
               - not_null

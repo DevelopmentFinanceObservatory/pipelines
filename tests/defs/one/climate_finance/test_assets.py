@@ -255,7 +255,7 @@ def _landing_directory(tmp: Path, **tables: pa.Table) -> Path:
 
 
 def _load_tables(duckdb: DuckDBResource, directory: Path) -> dg.ExecuteInProcessResult:
-    """Run the raw tables in a run whose landing returned `directory`"""
+    """Run the raw tables in a run whose landing asset returned `directory`"""
 
     @dg.asset(name="one_climate_finance_landing")
     def landing() -> str:

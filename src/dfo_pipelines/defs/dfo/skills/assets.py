@@ -96,7 +96,7 @@ def _is_skill_directory(path: UPath) -> bool:
     return not path.name.startswith("_") and _is_directory(path)
 
 
-def _skill_directories(landing: UPath) -> list[tuple[str, UPath]]:
+def _skill_directories(landing_directory: UPath) -> list[tuple[str, UPath]]:
     """Each skill directory under a landing directory, with the root it sits in
 
     A landing directory mirrors the repository's roots. One without `skills/`, such
@@ -109,10 +109,10 @@ def _skill_directories(landing: UPath) -> list[tuple[str, UPath]]:
     existence or type check that answers False on any error would read as a
     repository without that root or that skill.
     """
-    listed = {path.name for path in landing.iterdir()}
+    listed = {path.name for path in landing_directory.iterdir()}
     if INSTALLABLE_ROOT not in listed:
         raise RuntimeError(
-            f"landing directory {landing} has no {INSTALLABLE_ROOT}/ directory: "
+            f"landing directory {landing_directory} has no {INSTALLABLE_ROOT}/ directory: "
             "materialize dfo_skills_landing again to write one"
         )
     return [
@@ -121,7 +121,7 @@ def _skill_directories(landing: UPath) -> list[tuple[str, UPath]]:
         # The landing directory holds files only, so a root's first directory is
         # listed exactly when the root has files.
         if root.split("/")[0] in listed
-        for path in sorted((landing / root).iterdir())
+        for path in sorted((landing_directory / root).iterdir())
         if _is_skill_directory(path)
     ]
 
@@ -482,7 +482,7 @@ def dfo_skills_landing(
     repository needs git to hold GitHub credentials wherever this runs.
     """
     url = skills_repository.url
-    landing = landing_store.build_date_partitioned_path("dfo_skills/skills")
+    landing_directory = landing_store.build_date_partitioned_path("dfo_skills/skills")
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
@@ -520,20 +520,24 @@ def dfo_skills_landing(
 
         # Cleared after the clone succeeds, so a failed fetch keeps the day's
         # copy and a rerun drops skills deleted upstream.
-        if landing.exists():
-            landing.rmdir(recursive=True)
-        landing.mkdir(parents=True)
+        if landing_directory.exists():
+            landing_directory.rmdir(recursive=True)
+        landing_directory.mkdir(parents=True)
         for path in files:
-            target = landing / path.relative_to(clone_path)
+            target = landing_directory / path.relative_to(clone_path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
 
     skill_count = sum(
-        1 for _, path in _skill_directories(landing) if (path / "SKILL.md").is_file()
+        1
+        for _, path in _skill_directories(landing_directory)
+        if (path / "SKILL.md").is_file()
     )
-    context.log.info(f"Wrote {skill_count} skills from {url} {commit} to {landing}")
+    context.log.info(
+        f"Wrote {skill_count} skills from {url} {commit} to {landing_directory}"
+    )
     return landing_result(
-        landing,
+        landing_directory,
         metadata={
             "version": dg.MetadataValue.text(commit),
             "skill_count": dg.MetadataValue.int(skill_count),
