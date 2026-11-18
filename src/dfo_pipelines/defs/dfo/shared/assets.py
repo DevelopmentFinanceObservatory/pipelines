@@ -5,6 +5,7 @@ from dcp_tools import CustomDataManager
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.warehouse import get_model_rows
@@ -80,13 +81,9 @@ def dfo_shared_dc_export(
         f"Exported {len(license_types)} licence types and {len(properties)}"
         f" properties to {out_dir}"
     )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "license_type_count": dg.MetadataValue.int(len(license_types)),
-            "property_count": dg.MetadataValue.int(len(properties)),
-        },
+    return export_directory_result(
+        out_dir,
+        {"license_type_count": len(license_types), "property_count": len(properties)},
     )
 
 
