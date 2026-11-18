@@ -14,11 +14,11 @@ Raise when the asset cannot be produced, for example when the download fails or 
 
 ### The download fetches what the observation saw
 
-The source asset and the raw file asset must agree on the version and bypass the same caches. Otherwise the pipeline observes a new release and materializes the old one, recorded against the new version.
+The source asset and the landing asset must agree on the version and bypass the same caches. Otherwise the pipeline observes a new release and materializes the old one, recorded against the new version.
 
 ### The raw file stays as published
 
-Rename, cast and fix in the raw table load or in staging, never in the raw file. DuckDB ignores identifier case, so columns whose names differ only in case, such as a code column and its label, collide on load: aliasing them by name binds both aliases to the same column. Alias them by position.
+Rename, cast and fix in the raw table load or in staging, never in the landing file. DuckDB ignores identifier case, so columns whose names differ only in case, such as a code column and its label, collide on load: aliasing them by name binds both aliases to the same column. Alias them by position.
 
 ### Read the upstream's value, do not rebuild it
 

@@ -21,7 +21,7 @@ fingerprinted by the `-vYYYYMMDD` republish token the OECD attaches to each bulk
 in `src/dfo_pipelines/defs/one/imputed_multilateral_sectors/assets.py` reads both tokens, and
 `one_imputed_multilateral_sectors_source` observes them daily so the pipeline reruns when either changes.
 
-`one_imputed_multilateral_sectors_raw_file` calls `imputed_multilateral_by_purpose` with `refresh=True`, so
+`one_imputed_multilateral_sectors_landing` calls `imputed_multilateral_by_purpose` with `refresh=True`, so
 every materialization re-reads both releases rather than serving a cached copy. `resolve_bulk_versions` is
 called again immediately before and immediately after that compute, and `verify_release_provenance` checks
 the compute's own `result.attrs["provenance"]` against the token observed before it, then checks that same
@@ -93,13 +93,13 @@ across this dataset always equals its Members' Total Use core contributions. A n
 fixed-purpose proxy row or an `unallocated` row, is published against DAC recipient code 9998, "Bilateral,
 unallocated/unspecified"; an `unallocated` row's null `purpose_code` is published against CRS purpose code
 998, "Unallocated/unspecified". The `unallocated` share of that year's total core money, reported in
-`one_imputed_multilateral_sectors_raw_file`'s materialization metadata under
+`one_imputed_multilateral_sectors_landing`'s materialization metadata under
 `unallocated_value_share_by_year`, is a coverage figure over the published values.
 
 [`oda-data` pull request #167](https://github.com/ONEcampaign/oda_data_package/pull/167) measures this
 split on CRS release v20260803 and Members' Total Use release v20260710, across 2015-2024: 89.15% of core
 money is imputed, 4.04% proxy, 0.21% stale share, and 6.59% unallocated. This pipeline reports those same
-four shares for each run in `one_imputed_multilateral_sectors_raw_file`'s materialization metadata.
+four shares for each run in `one_imputed_multilateral_sectors_landing`'s materialization metadata.
 
 ## Resolve providers and recipients, and select dimensions
 

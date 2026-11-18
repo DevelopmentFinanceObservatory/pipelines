@@ -18,7 +18,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import fetch_bulk_file, resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
+from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
 
@@ -67,7 +67,7 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac_crs_raw_file(file_path: UPath) -> FetchedRelease:
+def fetch_dac_crs_landing_file(file_path: UPath) -> FetchedRelease:
     """Write the CRS bulk file to `file_path`"""
     return fetch_bulk_file(
         file_path,
@@ -79,11 +79,11 @@ def fetch_dac_crs_raw_file(file_path: UPath) -> FetchedRelease:
     )
 
 
-oecd_dac_crs_raw_file = build_raw_file_asset(
+oecd_dac_crs_landing = build_landing_asset(
     group="oecd_dac_crs",
     dataset="dac_crs",
     title="OECD DAC CRS",
-    fetch=fetch_dac_crs_raw_file,
+    fetch=fetch_dac_crs_landing_file,
 )
 
 

@@ -20,7 +20,7 @@ def defs():
             # One step at a time, since DuckDB allows one read-write process.
             executor=dg.multiprocess_executor.configured({"max_concurrent": 1}),
             resources={
-                "raw_file_store": UPathFileStoreResource(base_path="data/raw"),
+                "landing_store": UPathFileStoreResource(base_path="data/landing"),
                 "export_file_store": UPathFileStoreResource(base_path="data/processed"),
                 "duckdb": DuckDBResource(database=dg.EnvVar("DUCKDB_PATH")),
                 "knowledge_graph": KnowledgeGraphResource(

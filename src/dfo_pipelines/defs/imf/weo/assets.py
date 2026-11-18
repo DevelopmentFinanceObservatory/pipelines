@@ -19,7 +19,7 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
+from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
 
 # One observation of one series, with the dataflow's attributes, which include
@@ -51,7 +51,7 @@ def imf_weo_source() -> dg.ObserveResult:
     )
 
 
-def fetch_weo_raw_file(
+def fetch_weo_landing_file(
     file_path: UPath,
 ) -> FetchedRelease:
     """Write the latest WEO release to `file_path`"""
@@ -69,11 +69,11 @@ def fetch_weo_raw_file(
     )
 
 
-imf_weo_raw_file = build_raw_file_asset(
+imf_weo_landing = build_landing_asset(
     group="imf_weo",
     dataset="weo",
     title="IMF WEO",
-    fetch=fetch_weo_raw_file,
+    fetch=fetch_weo_landing_file,
     retry_policy=dg.RetryPolicy(max_retries=1),
 )
 

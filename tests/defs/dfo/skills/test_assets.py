@@ -18,7 +18,7 @@ from dfo_pipelines.defs.dfo.skills.assets import (
     MAX_PATH_CHARACTERS,
     MAX_REFERENCES,
     dfo_skills_dc_export,
-    dfo_skills_raw_directory,
+    dfo_skills_landing,
     dfo_skills_source,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
@@ -97,12 +97,12 @@ def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return repository
 
 
-def materialize_raw_directory(tmp_path: Path) -> Any:
-    """Run the raw directory asset against a file store under tmp_path"""
+def materialize_landing(tmp_path: Path) -> Any:
+    """Run the landing asset against a file store under tmp_path"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
-    return dfo_skills_raw_directory(
+    return dfo_skills_landing(
         context=dg.build_asset_context(),
-        raw_file_store=file_store,
+        landing_store=file_store,
         skills_repository=SKILLS_REPOSITORY,
     )
 
@@ -116,22 +116,22 @@ def files_under(directory: Path) -> dict[str, str]:
     }
 
 
-def raw_files(
+def landing_files(
     skills: dict[str, str], internal: dict[str, str] | None = None
 ) -> dict[str, str]:
-    """The files a raw directory holds for a repository's two roots"""
+    """The files a landing directory holds for a repository's two roots"""
     return {f"skills/{name}": text for name, text in skills.items()} | {
         f"internal/skills/{name}": text for name, text in (internal or {}).items()
     }
 
 
-def test_raw_directory_copies_the_skills_at_the_head_of_main(
+def test_landing_copies_the_skills_at_the_head_of_main(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the published skills arrive unchanged, traced to their commit"""
-    result = materialize_raw_directory(tmp_path)
+    result = materialize_landing(tmp_path)
 
-    assert files_under(Path(str(result.value))) == raw_files(SKILLS)
+    assert files_under(Path(str(result.value))) == landing_files(SKILLS)
     assert meta(result, "version", dg.TextMetadataValue).value == git(
         upstream, "rev-parse", "HEAD"
     )
@@ -140,22 +140,22 @@ def test_raw_directory_copies_the_skills_at_the_head_of_main(
     assert check.passed
 
 
-@dg.asset(name="dfo_ontology_raw_directory")
-def _stub_ontology_raw_directory() -> str:
+@dg.asset(name="dfo_ontology_landing")
+def _stub_ontology_landing() -> str:
     """A compiled ontology, standing in for the one the ontology pipeline writes"""
     return str(FIXTURES / "ontology")
 
 
-def test_raw_directory_check_fails_when_only_the_template_exists(
+def test_landing_check_fails_when_only_the_template_exists(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the template is not counted as a skill, and blocks the export"""
     commit(upstream, {"_template/SKILL.md": SKILLS["_template/SKILL.md"]})
 
     result = dg.materialize(
-        [dfo_skills_raw_directory, dfo_skills_dc_export, _stub_ontology_raw_directory],
+        [dfo_skills_landing, dfo_skills_dc_export, _stub_ontology_landing],
         resources={
-            "raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+            "landing_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
             "export_file_store": UPathFileStoreResource(
                 base_path=str(tmp_path / "processed")
             ),
@@ -169,34 +169,34 @@ def test_raw_directory_check_fails_when_only_the_template_exists(
     assert not result.asset_materializations_for_node("dfo_skills_dc_export")
 
 
-def test_raw_directory_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
+def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a rerun replaces the day's copy rather than adding to it"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
-    materialize_raw_directory(tmp_path)
+    materialize_landing(tmp_path)
     replaced = {"oda-channels/SKILL.md": "---\nname: oda-channels\n---\n"}
     commit(upstream, replaced)
 
-    result = materialize_raw_directory(tmp_path)
+    result = materialize_landing(tmp_path)
 
-    assert files_under(Path(str(result.value))) == raw_files(replaced)
+    assert files_under(Path(str(result.value))) == landing_files(replaced)
 
 
-def test_raw_directory_keeps_the_previous_copy_when_the_clone_fails(
+def test_landing_keeps_the_previous_copy_when_the_clone_fails(
     tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a failed fetch leaves the day's earlier copy in place"""
-    published = Path(str(materialize_raw_directory(tmp_path).value))
+    published = Path(str(materialize_landing(tmp_path).value))
 
     redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
     with pytest.raises(RuntimeError, match="git clone failed"):
-        materialize_raw_directory(tmp_path)
+        materialize_landing(tmp_path)
 
-    assert files_under(published) == raw_files(SKILLS)
+    assert files_under(published) == landing_files(SKILLS)
 
 
-def test_raw_directory_fails_when_git_stalls(
+def test_landing_fails_when_git_stalls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a remote that never responds fails the run rather than hanging it"""
@@ -208,7 +208,7 @@ def test_raw_directory_fails_when_git_stalls(
             patch("dfo_pipelines.defs.dfo.skills.assets.GIT_TIMEOUT_SECONDS", 1),
             pytest.raises(RuntimeError, match="git clone timed out after 1 seconds"),
         ):
-            materialize_raw_directory(tmp_path)
+            materialize_landing(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -234,11 +234,11 @@ def test_raw_directory_fails_when_git_stalls(
         "file_under_internal_skills",
     ],
 )
-def test_raw_directory_rejects_a_symlink_and_keeps_the_previous_copy(
+def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
 ) -> None:
     """Test a committed symlink fails the fetch rather than copying its target"""
-    published = Path(str(materialize_raw_directory(tmp_path).value))
+    published = Path(str(materialize_landing(tmp_path).value))
     secret = tmp_path / "secret"
     secret.mkdir()
     (secret / "SKILL.md").write_text("not for the graph")
@@ -249,9 +249,9 @@ def test_raw_directory_rejects_a_symlink_and_keeps_the_previous_copy(
     git(upstream, "commit", "-qm", "add a symlink")
 
     with pytest.raises(RuntimeError, match=re.escape(error)):
-        materialize_raw_directory(tmp_path)
+        materialize_landing(tmp_path)
 
-    assert files_under(published) == raw_files(SKILLS)
+    assert files_under(published) == landing_files(SKILLS)
 
 
 class _SkillsAutomation(AutomationHarness):
@@ -265,7 +265,7 @@ class _SkillsAutomation(AutomationHarness):
         super().__init__(
             tmp_path,
             source=dfo_skills_source,
-            raw_assets=[dfo_skills_raw_directory],
+            raw_assets=[dfo_skills_landing],
             resources={"skills_repository": SKILLS_REPOSITORY},
         )
 
@@ -287,39 +287,37 @@ def test_source_is_requested_once_per_daily_cron_tick(
         assert automation.source_tick(at=datetime(2026, 8, 26, 0, 2, tzinfo=UTC)) == 0
 
 
-def test_raw_directory_is_not_rerun_when_main_is_unchanged(
+def test_landing_is_not_rerun_when_main_is_unchanged(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a repeat observation of the same commit requests no rerun"""
     with _SkillsAutomation(tmp_path) as automation:
         automation.observe()
-        automation.materialize(dfo_skills_raw_directory)
+        automation.materialize(dfo_skills_landing)
         # A baseline tick, not evidence: every condition is reset on its initial
         # evaluation, so the first tick requests nothing whatever the source did.
         automation.tick()
 
         automation.observe()
 
-        assert automation.tick() == {"dfo_skills_raw_directory": 0}
+        assert automation.tick() == {"dfo_skills_landing": 0}
 
 
-def test_raw_directory_is_rerun_once_when_main_moves(
-    tmp_path: Path, upstream: Path
-) -> None:
-    """Test a new commit on main requests the raw directory, and only once"""
+def test_landing_is_rerun_once_when_main_moves(tmp_path: Path, upstream: Path) -> None:
+    """Test a new commit on main requests the landing directory, and only once"""
     with _SkillsAutomation(tmp_path) as automation:
         automation.observe()
-        automation.materialize(dfo_skills_raw_directory)
+        automation.materialize(dfo_skills_landing)
         automation.tick()  # baseline, as above
 
         commit(upstream, SKILLS | {"oda-channels/SKILL.md": "---\nname: x\n---\n"})
         automation.observe()
 
-        assert automation.tick() == {"dfo_skills_raw_directory": 1}
+        assert automation.tick() == {"dfo_skills_landing": 1}
 
-        automation.materialize(dfo_skills_raw_directory)
+        automation.materialize(dfo_skills_landing)
 
-        assert automation.tick() == {"dfo_skills_raw_directory": 0}
+        assert automation.tick() == {"dfo_skills_landing": 0}
 
 
 def test_source_observes_the_head_commit_of_the_repository(upstream: Path) -> None:
@@ -348,8 +346,8 @@ def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
         context=dg.build_asset_context(),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path)),
         skills_repository=SKILLS_REPOSITORY,
-        dfo_skills_raw_directory=str(FIXTURES),
-        dfo_ontology_raw_directory=str(FIXTURES / "ontology"),
+        dfo_skills_landing=str(FIXTURES),
+        dfo_ontology_landing=str(FIXTURES / "ontology"),
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -393,12 +391,12 @@ def export_skills(
     tmp_path: Path,
     ontology_root: Path | None = None,
     *,
-    raw_directory: Path | None = None,
+    landing: Path | None = None,
     skills_repository: SkillsRepositoryResource = SKILLS_REPOSITORY,
 ) -> tuple[dg.MaterializeResult, Path]:
     """Run the export asset against a raw skills and ontology directory
 
-    The raw directory defaults to tmp_path, whose `skills/` and
+    The landing directory defaults to tmp_path, whose `skills/` and
     `internal/skills/` are then the roots, and the ontology to an empty one.
     """
     if ontology_root is None:
@@ -407,26 +405,26 @@ def export_skills(
         context=dg.build_asset_context(),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
         skills_repository=skills_repository,
-        dfo_skills_raw_directory=str(raw_directory or tmp_path),
-        dfo_ontology_raw_directory=str(ontology_root),
+        dfo_skills_landing=str(landing or tmp_path),
+        dfo_ontology_landing=str(ontology_root),
     )
     assert isinstance(result, dg.MaterializeResult)
     return result, Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
 
 
-def test_raw_directory_and_export_carry_a_skill_from_each_root(
+def test_landing_and_export_carry_a_skill_from_each_root(
     tmp_path: Path, upstream: Path
 ) -> None:
-    """Test both roots reach the raw directory and each skill links to its own"""
+    """Test both roots reach the landing directory and each skill links to its own"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
 
-    raw_result = materialize_raw_directory(tmp_path)
+    raw_result = materialize_landing(tmp_path)
 
-    raw_directory = Path(str(raw_result.value))
-    assert files_under(raw_directory) == raw_files(SKILLS, INTERNAL_SKILLS)
+    landing = Path(str(raw_result.value))
+    assert files_under(landing) == landing_files(SKILLS, INTERNAL_SKILLS)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 2
 
-    export_result, out_dir = export_skills(tmp_path, raw_directory=raw_directory)
+    export_result, out_dir = export_skills(tmp_path, landing=landing)
 
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 2
     nodes = (out_dir / "custom_nodes.mcf").read_text()
@@ -519,10 +517,10 @@ def test_dc_export_fails_when_a_listed_entry_cannot_be_read(
     assert not (tmp_path / "processed").exists()
 
 
-def test_dc_export_rejects_a_raw_directory_without_a_skills_root(
+def test_dc_export_rejects_a_landing_without_a_skills_root(
     tmp_path: Path,
 ) -> None:
-    """Test a raw directory holding skills at its top level is not read as empty"""
+    """Test a landing directory holding skills at its top level is not read as empty"""
     write_skill(tmp_path, "example-skill")
 
     with pytest.raises(RuntimeError, match="has no skills/ directory"):
@@ -531,22 +529,20 @@ def test_dc_export_rejects_a_raw_directory_without_a_skills_root(
     assert not (tmp_path / "processed").exists()
 
 
-def test_raw_directory_and_export_skip_a_draft_with_only_a_readme(
+def test_landing_and_export_skip_a_draft_with_only_a_readme(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a `_draft/README.md`-only directory is skipped by both, without raising"""
     commit(upstream, SKILLS | {"_draft/README.md": "Notes for a draft skill.\n"})
 
-    raw_result = materialize_raw_directory(tmp_path)
+    raw_result = materialize_landing(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(
-        tmp_path, raw_directory=Path(str(raw_result.value))
-    )
+    export_result, _ = export_skills(tmp_path, landing=Path(str(raw_result.value)))
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
-def test_raw_directory_and_export_skip_a_draft_with_a_skill_file(
+def test_landing_and_export_skip_a_draft_with_a_skill_file(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test a `_draft/SKILL.md` with valid front matter is still skipped by both"""
@@ -555,12 +551,10 @@ def test_raw_directory_and_export_skip_a_draft_with_a_skill_file(
         SKILLS | {"_draft/SKILL.md": "---\nname: draft-skill\n---\n"},
     )
 
-    raw_result = materialize_raw_directory(tmp_path)
+    raw_result = materialize_landing(tmp_path)
     assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
 
-    export_result, _ = export_skills(
-        tmp_path, raw_directory=Path(str(raw_result.value))
-    )
+    export_result, _ = export_skills(tmp_path, landing=Path(str(raw_result.value)))
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -816,7 +810,7 @@ def test_dc_export_rejects_a_skill_file_over_the_size_limit(tmp_path: Path) -> N
     skill_file = skills_root / "example-skill" / "SKILL.md"
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter)))
 
-    export_skills(tmp_path / "at_limit", raw_directory=tmp_path)
+    export_skills(tmp_path / "at_limit", landing=tmp_path)
 
     skill_file.write_text(front_matter + "a" * (MAX_FILE_BYTES - len(front_matter) + 1))
 
@@ -860,7 +854,7 @@ def test_dc_export_rejects_more_than_the_reference_limit(tmp_path: Path) -> None
         {f"ref-{i}.md": "content\n" for i in range(MAX_REFERENCES)},
     )
 
-    result, _ = export_skills(tmp_path / "at_limit", raw_directory=tmp_path)
+    result, _ = export_skills(tmp_path / "at_limit", landing=tmp_path)
     assert meta(result, "reference_count", dg.IntMetadataValue).value == MAX_REFERENCES
 
     (skills_root / "example-skill/references/extra.md").write_text("content\n")

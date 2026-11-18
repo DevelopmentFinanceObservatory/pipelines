@@ -12,7 +12,7 @@ from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
     CRS_BULK_LABEL,
-    fetch_dac_crs_raw_file,
+    fetch_dac_crs_landing_file,
     oecd_dac_crs_dc_export,
     oecd_dac_crs_source,
     parse_crs_release_date,
@@ -71,13 +71,13 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
     }
 
 
-def test_dac_crs_raw_file_dates_the_release_from_the_version() -> None:
-    """Test the raw file fetches the CRS bulk file and dates the release from its
+def test_dac_crs_landing_file_dates_the_release_from_the_version() -> None:
+    """Test the landing file fetches the CRS bulk file and dates the release from its
     version token"""
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
     ) as fetch:
-        fetch_dac_crs_raw_file(UPath("data.parquet"))
+        fetch_dac_crs_landing_file(UPath("data.parquet"))
 
     arguments = dict(fetch.call_args.kwargs)
     assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (

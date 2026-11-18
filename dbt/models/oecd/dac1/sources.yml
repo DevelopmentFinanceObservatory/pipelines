@@ -63,7 +63,7 @@ sources:
         columns:
           - name: downloaded_at
             data_type: timestamp with time zone
-            description: When the raw file was downloaded
+            description: When the landing file was downloaded
             data_tests:
               - not_null
           - name: source_release_date

@@ -64,13 +64,13 @@ def test_metadata_table_result_reports_the_table_and_its_row_count() -> None:
     assert not result.check_results
 
 
-def test_build_raw_table_assets_loads_the_raw_file_into_tables_named_by_the_builder(
+def test_build_raw_table_assets_loads_the_landing_file_into_tables_named_by_the_builder(
     tmp_path: Path,
 ) -> None:
-    """Test the built assets read the raw file asset's output into their own tables"""
+    """Test the built assets read the landing asset's output into their own tables"""
 
     @dg.asset(group_name="example")
-    def example_raw_file() -> str:
+    def example_landing() -> str:
         directory = tmp_path / "raw"
         directory.mkdir()
         path = directory / "data.parquet"
@@ -88,7 +88,7 @@ def test_build_raw_table_assets_loads_the_raw_file_into_tables_named_by_the_buil
     database = tmp_path / "database.duckdb"
 
     result = dg.materialize(
-        [example_raw_file, example_raw_table, example_raw_metadata],
+        [example_landing, example_raw_table, example_raw_metadata],
         resources={"duckdb": DuckDBResource(database=str(database))},
     )
 
