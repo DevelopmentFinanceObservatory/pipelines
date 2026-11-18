@@ -13,6 +13,16 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 
 RELEASE_DATE_TIMEOUT_SECONDS = 30
 
+# DAC parquet column pairs differ only in case, which DuckDB and BigQuery can't hold.
+DAC_COLUMN_RENAMES = {
+    "DONOR": "donor_code",
+    "Donor": "donor_name",
+    "RECIPIENT": "recipient_code",
+    "Recipient": "recipient_name",
+    "PART": "part_code",
+    "Part": "part_name",
+}
+
 
 def resolve_bulk_file(*, flow_url: str, label: str) -> tuple[str, str]:
     """The URL and version token of the OECD bulk file `label` lists at `flow_url`
