@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 
 import dagster as dg
@@ -16,6 +16,20 @@ def _raw_file_directory(
     """Directory the raw file of a download at `downloaded_at` is written to"""
     return raw_file_store.build_date_partitioned_path(
         path, partition_date=downloaded_at.date()
+    )
+
+
+def raw_path_result(
+    path: UPath,
+    *,
+    metadata: Mapping[str, dg.MetadataValue],
+    check_results: Sequence[dg.AssetCheckResult],
+) -> dg.MaterializeResult:
+    """Result of writing a source's raw file or directory to `path`, with its checks"""
+    return dg.MaterializeResult(
+        value=str(path),
+        metadata={"dagster/uri": dg.MetadataValue.text(str(path)), **metadata},
+        check_results=check_results,
     )
 
 
@@ -71,10 +85,9 @@ def build_raw_file_asset(
         )
         file_size = file_path.stat().st_size
         context.log.info(f"Wrote {title} data to {file_path}")
-        return dg.MaterializeResult(
-            value=str(file_path),
+        return raw_path_result(
+            file_path,
             metadata={
-                "dagster/uri": dg.MetadataValue.text(str(file_path)),
                 "file_size": dg.MetadataValue.int(file_size),
                 "dagster/row_count": dg.MetadataValue.int(rows),
                 **source_metadata,

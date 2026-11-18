@@ -9,7 +9,10 @@ from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import raw_path_result
+from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
 
@@ -68,12 +71,9 @@ def dfo_ontology_raw_directory(
     file_size = mcf_path.stat().st_size
     code_rows = len((raw_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
     context.log.info(f"Wrote the compiled DFO ontology to {raw_directory}")
-    return dg.MaterializeResult(
-        value=str(raw_directory),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(raw_directory)),
-            "node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path)),
-        },
+    return raw_path_result(
+        raw_directory,
+        metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
         check_results=[
             dg.AssetCheckResult(check_name="mcf_not_empty", passed=(file_size > 0)),
             dg.AssetCheckResult(check_name="csv_not_empty", passed=(code_rows > 0)),
@@ -110,15 +110,7 @@ def dfo_ontology_raw_code_mapping_table(
         rows = (connection.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][
             0
         ]
-    return dg.MaterializeResult(
-        metadata={
-            "dagster/table_name": dg.MetadataValue.text(f"{schema}.{table}"),
-            "dagster/row_count": dg.MetadataValue.int(rows),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name="table_not_empty", passed=(rows > 0))
-        ],
-    )
+    return raw_table_result(f"{schema}.{table}", rows)
 
 
 @dg.asset(
@@ -159,12 +151,8 @@ def dfo_ontology_dc_export(
         (out_dir / ONTOLOGY_MCF).open("wb"),
     )
     context.log.info(f"Exported the DFO ontology to {out_dir}")
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "node_count": dg.MetadataValue.int(count_mcf_nodes(out_dir / ONTOLOGY_MCF)),
-        },
+    return export_directory_result(
+        out_dir, {"node_count": count_mcf_nodes(out_dir / ONTOLOGY_MCF)}
     )
 
 

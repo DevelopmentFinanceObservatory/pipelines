@@ -1,13 +1,27 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
+from upath import UPath
 
 from dfo_pipelines.data_commons.export import ExportSpec, export_bundle
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+
+
+def export_directory_result(
+    out_dir: UPath, counts: Mapping[str, int]
+) -> dg.MaterializeResult:
+    """Result of writing a bundle to `out_dir`, with each of its `counts`"""
+    return dg.MaterializeResult(
+        value=str(out_dir),
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
+            **{name: dg.MetadataValue.int(count) for name, count in counts.items()},
+        },
+    )
 
 
 def build_dc_export_asset(
@@ -44,17 +58,12 @@ def build_dc_export_asset(
             export_metadata = export_bundle(
                 spec, connection=connection, out_dir=out_dir, log=context.log
             )
-        return dg.MaterializeResult(
-            value=str(out_dir),
-            metadata={
-                "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-                "observation_count": dg.MetadataValue.int(
-                    export_metadata.observation_count
-                ),
-                "statvar_count": dg.MetadataValue.int(export_metadata.statvar_count),
-                "observation_file_count": dg.MetadataValue.int(
-                    export_metadata.observation_file_count
-                ),
+        return export_directory_result(
+            out_dir,
+            {
+                "observation_count": export_metadata.observation_count,
+                "statvar_count": export_metadata.statvar_count,
+                "observation_file_count": export_metadata.observation_file_count,
             },
         )
 

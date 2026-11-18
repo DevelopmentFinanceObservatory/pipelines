@@ -20,7 +20,9 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.raw_files import raw_path_result
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -534,10 +536,9 @@ def dfo_skills_raw_directory(
     context.log.info(
         f"Wrote {skill_count} skills from {url} {commit} to {raw_directory}"
     )
-    return dg.MaterializeResult(
-        value=str(raw_directory),
+    return raw_path_result(
+        raw_directory,
         metadata={
-            "dagster/uri": dg.MetadataValue.text(str(raw_directory)),
             "version": dg.MetadataValue.text(commit),
             "skill_count": dg.MetadataValue.int(skill_count),
         },
@@ -666,13 +667,8 @@ def dfo_skills_dc_export(
     context.log.info(
         f"Exported {len(skills)} skills and {reference_count} references to {out_dir}"
     )
-    return dg.MaterializeResult(
-        value=str(out_dir),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            "skill_count": dg.MetadataValue.int(len(skills)),
-            "reference_count": dg.MetadataValue.int(reference_count),
-        },
+    return export_directory_result(
+        out_dir, {"skill_count": len(skills), "reference_count": reference_count}
     )
 
 
