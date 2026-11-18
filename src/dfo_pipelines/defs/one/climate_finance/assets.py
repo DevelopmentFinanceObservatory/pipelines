@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 import dagster as dg
 from upath import UPath
 
@@ -19,12 +17,13 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.automation import (
     EAGER_WHEN_CHECKS_PASS,
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.landing import commit_landing_directory, landing_result
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
@@ -135,46 +134,53 @@ def one_climate_finance_landing(
         ValueError: If the export's manifest or a table differs from the sha256
             the observation or the manifest recorded.
     """
-    downloaded_at = datetime.now(UTC)
     export, manifest_sha256 = latest_observation(context)
     manifest = read_manifest(export, sha256=manifest_sha256)
-    directory = landing_file_store.build_date_partitioned_path(
-        "one_climate_finance/climate_finance", partition_date=downloaded_at.date()
-    )
-    directory.mkdir(parents=True, exist_ok=True)
 
-    rows = {}
-    file_size = 0
-    for stem in EXPORT_TABLES:
-        source = export / f"{stem}.parquet"
-        data = source.read_bytes()
-        if (actual := sha256_bytes(data)) != (expected := manifest.tables[stem].sha256):
-            raise ValueError(
-                f"{source} has sha256 {actual}, its manifest records {expected}"
-            )
-        (directory / f"{stem}.parquet").write_bytes(data)
-        file_size += len(data)
-        rows[stem] = manifest.tables[stem].rows
+    def write(directory: UPath) -> FetchedRelease:
+        for stem in EXPORT_TABLES:
+            source = export / f"{stem}.parquet"
+            data = source.read_bytes()
+            if (actual := sha256_bytes(data)) != (
+                expected := manifest.tables[stem].sha256
+            ):
+                raise ValueError(
+                    f"{source} has sha256 {actual}, its manifest records {expected}"
+                )
+            (directory / f"{stem}.parquet").write_bytes(data)
+        return FetchedRelease(
+            release_dates={"source": manifest.created_at.date()},
+            metadata={},
+            recorded={"version": manifest.release},
+        )
 
-    release_date = manifest.created_at.date()
-    write_extraction_metadata(
-        directory, downloaded_at=downloaded_at, release_dates={"source": release_date}
+    directory, extraction, _ = commit_landing_directory(
+        context,
+        landing_file_store=landing_file_store,
+        path="one_climate_finance/climate_finance",
+        write=write,
     )
     context.log.info(
-        f"Copied climate finance release {manifest.release} to {directory}"
+        f"Copied climate finance release {extraction.recorded['version']} to {directory}"
     )
-    return dg.MaterializeResult(
-        value=str(directory),
+    rows = {stem: manifest.tables[stem].rows for stem in EXPORT_TABLES}
+    file_size = sum(
+        (directory / f"{stem}.parquet").stat().st_size for stem in EXPORT_TABLES
+    )
+    return landing_result(
+        directory,
         metadata={
-            "dagster/uri": dg.MetadataValue.text(str(directory)),
             "file_size": dg.MetadataValue.int(file_size),
             "dagster/row_count": dg.MetadataValue.int(sum(rows.values())),
             **{
                 f"{stem}_row_count": dg.MetadataValue.int(count)
                 for stem, count in rows.items()
             },
-            "version": dg.MetadataValue.text(manifest.release),
-            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
+            # The returned directory's release, an earlier run's when deduplicated
+            "version": dg.MetadataValue.text(extraction.recorded["version"]),
+            "source_release_date": dg.MetadataValue.text(
+                extraction.release_dates["source"].isoformat()
+            ),
         },
         check_results=[
             dg.AssetCheckResult(check_name=f"{stem}_not_empty", passed=count > 0)

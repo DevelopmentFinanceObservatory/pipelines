@@ -273,7 +273,7 @@ def test_fetch_ids_combines_the_downloads_unmodified(
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        release_dates, metadata = fetch_ids(file_path)
+        release_dates, metadata, _ = fetch_ids(file_path)
 
     download.assert_called_once_with(file_path.parent)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}

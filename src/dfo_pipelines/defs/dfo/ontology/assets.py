@@ -8,10 +8,11 @@ from dcp_tools import CustomDataManager
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
+from dfo_pipelines.extraction.metadata import FetchedRelease, read_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import landing_result
+from dfo_pipelines.orchestration.landing import commit_landing_directory, landing_result
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -38,8 +39,6 @@ def dfo_ontology_landing(
     context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
 ):
     """Compiled DFO ontology MCF, code mapping and validation report"""
-    landing_directory = landing_file_store.build_date_partitioned_path("dfo/ontology")
-    landing_directory.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
@@ -64,8 +63,18 @@ def dfo_ontology_landing(
             raise RuntimeError(
                 f"The DFO ontology compiled without {', '.join(missing)}"
             )
-        for path in expected_files:
-            (landing_directory / path.name).write_bytes(path.read_bytes())
+
+        def write(landing_directory: UPath) -> FetchedRelease:
+            for path in expected_files:
+                (landing_directory / path.name).write_bytes(path.read_bytes())
+            return FetchedRelease(release_dates={}, metadata={})
+
+        landing_directory, _, _ = commit_landing_directory(
+            context,
+            landing_file_store=landing_file_store,
+            path="dfo_ontology/ontology",
+            write=write,
+        )
 
     mcf_path = landing_directory / ONTOLOGY_MCF
     file_size = mcf_path.stat().st_size
@@ -79,6 +88,10 @@ def dfo_ontology_landing(
             dg.AssetCheckResult(check_name="csv_not_empty", passed=(code_rows > 0)),
         ],
     )
+
+
+# Named here, since each reader's input of the same name shadows the asset.
+ONTOLOGY_LANDING_ASSET = dfo_ontology_landing.key.to_user_string()
 
 
 @dg.asset(
@@ -99,7 +112,11 @@ def dfo_ontology_raw_code_mapping_table(
     """Raw DFO ontology code mapping database table"""
     schema = "dfo_ontology"
     table = "raw_code_mapping"
-    code_mapping = str(UPath(dfo_ontology_landing) / CODE_MAPPING_CSV)
+    landing_directory = UPath(dfo_ontology_landing)
+    read_extraction_metadata(
+        landing_directory, release_names=(), landing_asset=ONTOLOGY_LANDING_ASSET
+    )
+    code_mapping = str(landing_directory / CODE_MAPPING_CSV)
     with duckdb.get_connection() as connection:
         connection.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         connection.execute(
@@ -123,6 +140,10 @@ def dfo_ontology_dc_export(
     dfo_ontology_landing: str,
 ) -> dg.MaterializeResult:
     """Data Commons export for the DFO ontology"""
+    landing_directory = UPath(dfo_ontology_landing)
+    read_extraction_metadata(
+        landing_directory, release_names=(), landing_asset=ONTOLOGY_LANDING_ASSET
+    )
     out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
 
     manager = CustomDataManager()
@@ -147,7 +168,7 @@ def dfo_ontology_dc_export(
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
     manager.export_all(str(out_dir), validate_data=True)
     shutil.copyfileobj(
-        (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb"),
+        (landing_directory / ONTOLOGY_MCF).open("rb"),
         (out_dir / ONTOLOGY_MCF).open("wb"),
     )
     context.log.info(f"Exported the DFO ontology to {out_dir}")

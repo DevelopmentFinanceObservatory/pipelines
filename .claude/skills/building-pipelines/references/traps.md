@@ -24,9 +24,13 @@ Rename, cast and fix in the raw table load or in staging, never in the download.
 
 A downstream asset reads its upstream's path from the value the upstream returned, not by rebuilding it from the resource.
 
-### Artifacts are replaced in place
+### A landing directory is written once
 
-Date-partitioned paths are keyed to the day rather than the run. Clear the partition before writing, or a same-day rerun republishes files an earlier run wrote and this one did not. A failure partway leaves the partition incomplete until the next successful run.
+Write a landing directory through `commit_landing_directory`, and refuse to read one without `metadata.json`. A run that failed partway leaves its files without one.
+
+### Exports are replaced in place
+
+Export paths are keyed to the day rather than the run. Clear the partition before writing, or a same-day rerun republishes files an earlier run wrote and this one did not. A failure partway leaves the partition incomplete until the next successful run.
 
 ## dbt
 
