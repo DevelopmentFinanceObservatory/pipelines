@@ -11,7 +11,7 @@ from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import raw_directory_result
+from dfo_pipelines.orchestration.raw_files import raw_path_result
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -71,7 +71,7 @@ def dfo_ontology_raw_directory(
     file_size = mcf_path.stat().st_size
     code_rows = len((raw_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
     context.log.info(f"Wrote the compiled DFO ontology to {raw_directory}")
-    return raw_directory_result(
+    return raw_path_result(
         raw_directory,
         metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
         check_results=[

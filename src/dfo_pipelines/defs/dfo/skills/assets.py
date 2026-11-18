@@ -22,7 +22,7 @@ from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import raw_directory_result
+from dfo_pipelines.orchestration.raw_files import raw_path_result
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -536,7 +536,7 @@ def dfo_skills_raw_directory(
     context.log.info(
         f"Wrote {skill_count} skills from {url} {commit} to {raw_directory}"
     )
-    return raw_directory_result(
+    return raw_path_result(
         raw_directory,
         metadata={
             "version": dg.MetadataValue.text(commit),

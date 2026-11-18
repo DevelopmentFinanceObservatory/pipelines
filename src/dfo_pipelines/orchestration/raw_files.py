@@ -19,16 +19,16 @@ def _raw_file_directory(
     )
 
 
-def raw_directory_result(
-    raw_directory: UPath,
+def raw_path_result(
+    path: UPath,
     *,
     metadata: Mapping[str, dg.MetadataValue],
     check_results: Sequence[dg.AssetCheckResult],
 ) -> dg.MaterializeResult:
-    """Result of writing a source's files to `raw_directory`, with its checks"""
+    """Result of writing a source's raw file or directory to `path`, with its checks"""
     return dg.MaterializeResult(
-        value=str(raw_directory),
-        metadata={"dagster/uri": dg.MetadataValue.text(str(raw_directory)), **metadata},
+        value=str(path),
+        metadata={"dagster/uri": dg.MetadataValue.text(str(path)), **metadata},
         check_results=check_results,
     )
 
@@ -85,10 +85,9 @@ def build_raw_file_asset(
         )
         file_size = file_path.stat().st_size
         context.log.info(f"Wrote {title} data to {file_path}")
-        return dg.MaterializeResult(
-            value=str(file_path),
+        return raw_path_result(
+            file_path,
             metadata={
-                "dagster/uri": dg.MetadataValue.text(str(file_path)),
                 "file_size": dg.MetadataValue.int(file_size),
                 "dagster/row_count": dg.MetadataValue.int(rows),
                 **source_metadata,
