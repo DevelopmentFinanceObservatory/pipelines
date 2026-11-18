@@ -12,9 +12,9 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.climate_finance import (
+    EXPORT_TABLES,
     LATEST_FILE_NAME,
     MANIFEST_FILE_NAME,
-    RAW_TABLES,
     ExportManifest,
     LatestExport,
     sha256_bytes,
@@ -113,7 +113,7 @@ def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
             asset="one_climate_finance_landing",
             blocking=True,
         )
-        for stem in RAW_TABLES
+        for stem in EXPORT_TABLES
     ],
 )
 # The function has no return annotation because Dagster types an asset annotated
@@ -145,7 +145,7 @@ def one_climate_finance_landing(
 
     rows = {}
     file_size = 0
-    for stem in RAW_TABLES:
+    for stem in EXPORT_TABLES:
         source = export / f"{stem}.parquet"
         data = source.read_bytes()
         if (actual := sha256_bytes(data)) != (expected := manifest.tables[stem].sha256):
@@ -192,7 +192,7 @@ one_climate_finance_raw_tables = build_raw_table_assets(
             file_stem=stem,
             table=f"raw_climate_finance_{stem}",
         )
-        for stem in RAW_TABLES
+        for stem in EXPORT_TABLES
     ],
     metadata_table="raw_climate_finance_metadata",
 )

@@ -1,7 +1,7 @@
-"""Export the climate finance pipeline's raw tables from a climate-finance release.
+"""Export the tables the climate finance pipeline loads from a climate-finance release.
 
 The climate-finance package is private, so the pipeline cannot install it. This
-script runs where it is installed, opens a release, extracts the three raw tables
+script runs where it is installed, opens a release, extracts the three tables
 the pipeline reads, and writes them with a manifest to an export root, local or
 `gs://`, in the layout `dfo_pipelines.extraction.climate_finance` describes. The
 pipeline's source asset observes the root's `latest.json`.
@@ -184,7 +184,7 @@ def btr_totals(release: cf.Release) -> pl.DataFrame:
     return release.table("btr_totals").collect()
 
 
-# Each raw table's extract by the stem of its parquet file, in `RAW_TABLES` order.
+# Each export table's extract by the stem of its parquet file, in `EXPORT_TABLES` order.
 EXTRACTS: dict[str, Callable[[cf.Release], pl.DataFrame]] = {
     "spending": spending,
     "crdf_commitments": crdf_commitments,
@@ -322,7 +322,7 @@ def is_published(manifest_bytes: bytes, *, release: str, to: UPath) -> bool:
 def write_export(
     release: cf.Release, *, directory: UPath, pack_sha256: str | None
 ) -> tuple[ExportManifest, bytes]:
-    """Write the raw tables of `release` and then their manifest to `directory`,
+    """Write the tables of `release` and then their manifest to `directory`,
     and return the manifest with the bytes written."""
     directory.mkdir(parents=True, exist_ok=True)
     tables = {}
@@ -382,7 +382,7 @@ def read_export(
 def export_release(
     release: cf.Release, *, to: UPath, pack_sha256: str | None = None
 ) -> ExportManifest:
-    """Write the raw tables of `release` and their manifest to `to/<release>/`,
+    """Write the tables of `release` and their manifest to `to/<release>/`,
     then point `to/latest.json` at them.
 
     Where `to/<release>/` already holds a manifest, as after an export cut short
