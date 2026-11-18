@@ -293,7 +293,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
     )
 
 
-def fetch_imputed_multilateral_sectors_landing_file(
+def fetch_imputed_multilateral_sectors(
     file_path: UPath,
 ) -> FetchedRelease:
     """Compute the imputation between two release observations and write it
@@ -365,7 +365,7 @@ one_imputed_multilateral_sectors_landing = build_landing_asset(
     group="one_imputed_multilateral_sectors",
     dataset="imputed_multilateral_sectors",
     title="imputed multilateral spending by purpose",
-    fetch=fetch_imputed_multilateral_sectors_landing_file,
+    fetch=fetch_imputed_multilateral_sectors,
 )
 
 

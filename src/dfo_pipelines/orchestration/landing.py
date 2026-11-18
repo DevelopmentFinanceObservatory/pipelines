@@ -13,7 +13,7 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 def _landing_directory(
     landing_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
 ) -> UPath:
-    """Directory the landing file of a download at `downloaded_at` is written to"""
+    """Directory a download at `downloaded_at` is written to"""
     return landing_store.build_date_partitioned_path(
         path, partition_date=downloaded_at.date()
     )
@@ -25,7 +25,7 @@ def landing_result(
     metadata: Mapping[str, dg.MetadataValue],
     check_results: Sequence[dg.AssetCheckResult],
 ) -> dg.MaterializeResult:
-    """Result of writing a source's landing file or directory to `path`, with its checks"""
+    """Result of writing a source's download to `path`, with its checks"""
     return dg.MaterializeResult(
         value=str(path),
         metadata={"dagster/uri": dg.MetadataValue.text(str(path)), **metadata},
@@ -45,7 +45,7 @@ def build_landing_asset(
 
     Args:
         group: Group of the source, naming the asset and its `<group>_source` dep.
-        dataset: Directory under the group the landing file is written to.
+        dataset: Directory under the group the download is written to.
         title: Name of the source in the description and logs, such as "OECD DAC1".
         fetch: Writes the download to the path it is given, putting any working
             files in that path's directory and nowhere else. Each of its release

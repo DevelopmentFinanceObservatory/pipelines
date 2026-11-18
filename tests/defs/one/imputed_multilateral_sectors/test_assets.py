@@ -19,7 +19,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
     MULTISYSTEM_BULK_LABEL,
     build_quality_metadata,
-    fetch_imputed_multilateral_sectors_landing_file,
+    fetch_imputed_multilateral_sectors,
     one_imputed_multilateral_sectors_dc_export,
     one_imputed_multilateral_sectors_raw_metadata,
     one_imputed_multilateral_sectors_raw_table,
@@ -663,7 +663,7 @@ def _matching_bulk_and_frame(rows: list[dict], *, provenance: dict | None):
     return bulk_patch, compute_patch
 
 
-def test_landing_file_raises_when_imputed_multilateral_by_purpose_returns_mixed_currencies(
+def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_purpose_returns_mixed_currencies(
     tmp_path: Path,
 ) -> None:
     """Test a currency other than USD in the returned frame stops the asset
@@ -685,12 +685,10 @@ def test_landing_file_raises_when_imputed_multilateral_by_purpose_returns_mixed_
         compute_patch,
         pytest.raises(ValueError, match="unexpected currencies"),
     ):
-        fetch_imputed_multilateral_sectors_landing_file(
-            UPath(tmp_path / "data.parquet")
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
 
 
-def test_landing_file_raises_when_imputed_multilateral_by_purpose_returns_non_current_prices(
+def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_purpose_returns_non_current_prices(
     tmp_path: Path,
 ) -> None:
     """Test constant-price rows in the returned frame stop the asset
@@ -712,12 +710,10 @@ def test_landing_file_raises_when_imputed_multilateral_by_purpose_returns_non_cu
         compute_patch,
         pytest.raises(ValueError, match="unexpected prices"),
     ):
-        fetch_imputed_multilateral_sectors_landing_file(
-            UPath(tmp_path / "data.parquet")
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
 
 
-def test_landing_file_calls_the_compute_with_refresh_and_flow_types(
+def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_flow_types(
     tmp_path: Path,
 ) -> None:
     """Test the compute is forced fresh and the ODA+OOF share basis is explicit
@@ -732,16 +728,14 @@ def test_landing_file_calls_the_compute_with_refresh_and_flow_types(
     )
 
     with bulk_patch, compute_patch as imputed_multilateral_by_purpose:
-        fetch_imputed_multilateral_sectors_landing_file(
-            UPath(tmp_path / "data.parquet")
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
 
     imputed_multilateral_by_purpose.assert_called_once_with(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True
     )
 
 
-def test_landing_file_writes_the_parquet_and_returns_the_release_for_a_conforming_frame(
+def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_release_for_a_conforming_frame(
     tmp_path: Path,
 ) -> None:
     """Test a conforming frame passes the guards and is written out in full
@@ -762,7 +756,7 @@ def test_landing_file_writes_the_parquet_and_returns_the_release_for_a_conformin
     )
 
     with bulk_patch, compute_patch:
-        fetched = fetch_imputed_multilateral_sectors_landing_file(UPath(file_path))
+        fetched = fetch_imputed_multilateral_sectors(UPath(file_path))
 
     written = pd.read_parquet(file_path)
     # Parquet round trip preserves the nullable Int64 columns and float/str
@@ -786,12 +780,14 @@ def _refused_and_nothing_written(tmp_path: Path, *, bulk_patch, compute_patch) -
     file_path = tmp_path / "data.parquet"
 
     with bulk_patch, compute_patch, pytest.raises(ValueError):
-        fetch_imputed_multilateral_sectors_landing_file(UPath(file_path))
+        fetch_imputed_multilateral_sectors(UPath(file_path))
 
     assert not file_path.exists()
 
 
-def test_landing_file_writes_nothing_when_provenance_is_missing(tmp_path: Path) -> None:
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_provenance_is_missing(
+    tmp_path: Path,
+) -> None:
     """Test a result with no provenance attrs refuses before writing anything"""
     bulk_patch, compute_patch = _matching_bulk_and_frame(
         CONFORMING_ROWS, provenance=None
@@ -801,7 +797,9 @@ def test_landing_file_writes_nothing_when_provenance_is_missing(tmp_path: Path) 
     )
 
 
-def test_landing_file_writes_nothing_when_a_release_is_none(tmp_path: Path) -> None:
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_is_none(
+    tmp_path: Path,
+) -> None:
     """Test an unread CRS leg refuses before writing anything"""
     provenance = {**VALID_PROVENANCE, "crs_release": None}
     bulk_patch, compute_patch = _matching_bulk_and_frame(
@@ -812,7 +810,9 @@ def test_landing_file_writes_nothing_when_a_release_is_none(tmp_path: Path) -> N
     )
 
 
-def test_landing_file_writes_nothing_when_a_release_is_supplied(tmp_path: Path) -> None:
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_is_supplied(
+    tmp_path: Path,
+) -> None:
     """Test a caller-supplied Members' Total Use leg refuses before writing anything"""
     provenance = {**VALID_PROVENANCE, "multisystem_release": "supplied"}
     bulk_patch, compute_patch = _matching_bulk_and_frame(
@@ -823,7 +823,7 @@ def test_landing_file_writes_nothing_when_a_release_is_supplied(tmp_path: Path) 
     )
 
 
-def test_landing_file_writes_nothing_when_the_crs_token_mismatches(
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_crs_token_mismatches(
     tmp_path: Path,
 ) -> None:
     """Test a CRS provenance token that disagrees with the observed one refuses"""
@@ -934,7 +934,7 @@ def test_raw_metadata_raises_when_the_extraction_recorded_a_single_release_date(
         )
 
 
-def test_landing_file_writes_nothing_when_the_multisystem_token_mismatches(
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_multisystem_token_mismatches(
     tmp_path: Path,
 ) -> None:
     """Test a Members' Total Use provenance token that disagrees with the observed one refuses"""
@@ -953,7 +953,7 @@ def test_landing_file_writes_nothing_when_the_multisystem_token_mismatches(
     )
 
 
-def test_landing_file_writes_nothing_when_a_release_moves_mid_compute(
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moves_mid_compute(
     tmp_path: Path,
 ) -> None:
     """Test a republish observed between the pre- and post-compute checks refuses
@@ -979,12 +979,12 @@ def test_landing_file_writes_nothing_when_a_release_moves_mid_compute(
         compute_patch,
         pytest.raises(ValueError, match="CRS release moved"),
     ):
-        fetch_imputed_multilateral_sectors_landing_file(UPath(file_path))
+        fetch_imputed_multilateral_sectors(UPath(file_path))
 
     assert not file_path.exists()
 
 
-def test_landing_file_writes_nothing_when_a_release_token_carries_no_date(
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_token_carries_no_date(
     tmp_path: Path,
 ) -> None:
     """Test a non-date release token refuses before any file is written

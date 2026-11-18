@@ -11,7 +11,7 @@ from oda_reader.download.download_tools import DAC2B_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac2b.assets import (
-    fetch_dac2b_landing_file,
+    fetch_dac2b,
     oecd_dac2b_dc_export,
     oecd_dac2b_raw_table,
     oecd_dac2b_source,
@@ -50,7 +50,7 @@ def test_dac2b_source_observes_the_dac2b_bulk_file() -> None:
     }
 
 
-def test_dac2b_landing_file_dates_the_release_from_the_url() -> None:
+def test_fetch_dac2b_dates_the_release_from_the_url() -> None:
     """Test the landing asset fetches the DAC2b bulk file and dates the release from its URL"""
     with (
         patch(
@@ -61,7 +61,7 @@ def test_dac2b_landing_file_dates_the_release_from_the_url() -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac2b_landing_file(UPath("data.parquet"))
+        fetch_dac2b(UPath("data.parquet"))
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC2B_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE

@@ -134,7 +134,7 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids_landing_file(
+def fetch_ids(
     file_path: UPath,
 ) -> FetchedRelease:
     """Write the combined IDS bulk files to `file_path`
@@ -155,7 +155,7 @@ world_bank_ids_landing = build_landing_asset(
     group="world_bank_ids",
     dataset="ids",
     title="World Bank IDS",
-    fetch=fetch_ids_landing_file,
+    fetch=fetch_ids,
 )
 
 

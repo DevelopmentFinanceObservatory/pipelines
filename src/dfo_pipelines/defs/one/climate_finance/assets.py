@@ -37,7 +37,7 @@ from dfo_pipelines.orchestration.resources import (
 from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
 
 SCHEMA = "one_climate_finance"
-# The asset and database table each raw table loads into, by landing file stem.
+# The asset and database table each raw table loads into, by file stem.
 RAW_TABLE_KEYS = {
     stem: dg.AssetKey(f"one_climate_finance_raw_{stem}") for stem in RAW_TABLES
 }
@@ -214,7 +214,7 @@ def one_climate_finance_landing(
 def one_climate_finance_raw_tables(
     duckdb: DuckDBResource, one_climate_finance_landing: str
 ):
-    """Raw climate finance database tables, one per landing file"""
+    """Raw climate finance database tables, one per file in the landing directory"""
     with duckdb.get_connection() as connection:
         for stem, key in RAW_TABLE_KEYS.items():
             table = RAW_TABLE_NAMES[stem]

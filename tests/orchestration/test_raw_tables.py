@@ -64,7 +64,7 @@ def test_metadata_table_result_reports_the_table_and_its_row_count() -> None:
     assert not result.check_results
 
 
-def test_build_raw_table_assets_loads_the_landing_file_into_tables_named_by_the_builder(
+def test_build_raw_table_assets_loads_the_download_into_tables_named_by_the_builder(
     tmp_path: Path,
 ) -> None:
     """Test the built assets read the landing asset's output into their own tables"""

@@ -233,7 +233,7 @@ def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
         _materialize(dg.DagsterInstance.ephemeral(), tmp_path)
 
 
-# Each landing file stem and the table it loads into.
+# Each file stem and the table it loads into.
 RAW_TABLES = {
     "spending": "one_climate_finance.raw_climate_finance_spending",
     "crdf_commitments": "one_climate_finance.raw_climate_finance_crdf_commitments",
@@ -268,8 +268,8 @@ def _load_tables(duckdb: DuckDBResource, directory: Path) -> dg.ExecuteInProcess
     )
 
 
-def test_raw_tables_replace_each_table_with_its_landing_file(tmp_path: Path) -> None:
-    """Test each landing file loads, as written, into its own table, replacing what an
+def test_raw_tables_replace_each_table_with_its_file(tmp_path: Path) -> None:
+    """Test each file in the landing directory loads, as written, into its own table, replacing what an
     earlier load left there"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     exported = {

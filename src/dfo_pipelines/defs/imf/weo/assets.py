@@ -51,7 +51,7 @@ def imf_weo_source() -> dg.ObserveResult:
     )
 
 
-def fetch_weo_landing_file(
+def fetch_weo(
     file_path: UPath,
 ) -> FetchedRelease:
     """Write the latest WEO release to `file_path`"""
@@ -73,7 +73,7 @@ imf_weo_landing = build_landing_asset(
     group="imf_weo",
     dataset="weo",
     title="IMF WEO",
-    fetch=fetch_weo_landing_file,
+    fetch=fetch_weo,
     retry_policy=dg.RetryPolicy(max_retries=1),
 )
 

@@ -47,7 +47,7 @@ def oecd_dac2b_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac2b_landing_file(file_path: UPath) -> FetchedRelease:
+def fetch_dac2b(file_path: UPath) -> FetchedRelease:
     """Write the DAC2b bulk file to `file_path`"""
     return fetch_bulk_file(
         file_path,
@@ -63,7 +63,7 @@ oecd_dac2b_landing = build_landing_asset(
     group="oecd_dac2b",
     dataset="dac2b",
     title="OECD DAC2b",
-    fetch=fetch_dac2b_landing_file,
+    fetch=fetch_dac2b,
 )
 
 

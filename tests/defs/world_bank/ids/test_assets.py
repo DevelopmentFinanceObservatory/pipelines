@@ -15,8 +15,8 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     BULK_XLSX_URLS,
     IDS_SOURCE_API_URL,
     download_ids_bulk_data_files,
+    fetch_ids,
     fetch_ids_bulk_file_metadata,
-    fetch_ids_landing_file,
     fetch_ids_release_date,
     get_ids_bulk_download_version,
     world_bank_ids_dc_export,
@@ -244,7 +244,7 @@ def test_world_bank_ids_source_observe_fn_raises_on_connection_error() -> None:
         observe()
 
 
-def test_fetch_ids_landing_file_combines_the_downloads_unmodified(
+def test_fetch_ids_combines_the_downloads_unmodified(
     tmp_path: Path,
 ) -> None:
     """Test the hook writes the six downloads as one text parquet file and returns
@@ -273,7 +273,7 @@ def test_fetch_ids_landing_file_combines_the_downloads_unmodified(
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        release_dates, metadata = fetch_ids_landing_file(file_path)
+        release_dates, metadata = fetch_ids(file_path)
 
     download.assert_called_once_with(file_path.parent)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
@@ -302,7 +302,7 @@ def test_fetch_ids_landing_file_combines_the_downloads_unmodified(
 
 
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
-def test_fetch_ids_landing_file_cleans_up_when_combine_fails(
+def test_fetch_ids_cleans_up_when_combine_fails(
     tmp_path: Path, read_to_fail_on: int
 ) -> None:
     """Test downloads and output are cleaned up when combining fails
@@ -337,7 +337,7 @@ def test_fetch_ids_landing_file_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        fetch_ids_landing_file(file_path)
+        fetch_ids(file_path)
 
     assert list(file_path.parent.iterdir()) == []
 
