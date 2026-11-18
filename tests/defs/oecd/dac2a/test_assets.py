@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,11 +13,11 @@ from upath import UPath
 from dfo_pipelines.defs.oecd.dac2a.assets import (
     fetch_dac2a,
     oecd_dac2a_dc_export,
-    oecd_dac2a_raw_table,
+    oecd_dac2a_raw_tables,
     oecd_dac2a_source,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list
+from tests.helpers import column_list, load_raw_tables, write_landing_directory
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -25,6 +25,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 DAC2A_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2a/DAC2a.parquet"
 
 SOURCE_RELEASE_DATE = date(2026, 7, 7)
+
+DOWNLOADED_AT = datetime(2026, 8, 3, 12, tzinfo=UTC)
 
 
 def test_dac2a_source_observes_the_dac2a_bulk_file() -> None:
@@ -84,7 +86,16 @@ def test_dac2a_raw_table_renames_the_columns_that_differ_only_in_case(
     """Test the DAC2a raw table gives each case-colliding column pair distinct names"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    oecd_dac2a_raw_table(duckdb=duckdb, landing_file=str(FIXTURES / "data.parquet"))
+    load_raw_tables(
+        oecd_dac2a_raw_tables,
+        duckdb=duckdb,
+        directory=write_landing_directory(
+            tmp_path / "raw",
+            files={"dac2a": FIXTURES / "data.parquet"},
+            downloaded_at=DOWNLOADED_AT,
+            release_dates={"source": SOURCE_RELEASE_DATE},
+        ),
+    )
 
     assert {
         "recipient_code",

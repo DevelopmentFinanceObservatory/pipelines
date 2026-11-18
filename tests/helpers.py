@@ -1,13 +1,17 @@
+import shutil
+from collections.abc import Mapping
 from contextlib import ExitStack
-from datetime import datetime
+from datetime import date, datetime
 from functools import cache
 from pathlib import Path
 from typing import Self
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
+from upath import UPath
 
 from dfo_pipelines.definitions import defs
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
@@ -22,6 +26,39 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     value = result.metadata[key]
     assert isinstance(value, kind)
     return value
+
+
+def write_landing_directory(
+    directory: Path,
+    *,
+    files: Mapping[str, Path],
+    downloaded_at: datetime,
+    release_dates: Mapping[str, date],
+) -> Path:
+    """A landing directory holding a copy of each of `files` under its stem, with the
+    extraction metadata"""
+    directory.mkdir(parents=True)
+    for stem, source in files.items():
+        shutil.copy(source, directory / f"{stem}.parquet")
+    write_extraction_metadata(
+        UPath(directory), downloaded_at=downloaded_at, release_dates=release_dates
+    )
+    return directory
+
+
+def load_raw_tables(
+    assets: dg.AssetsDefinition, *, duckdb: DuckDBResource, directory: Path
+) -> dg.ExecuteInProcessResult:
+    """Run the raw tables in a run whose landing asset returned `directory`"""
+    [landing_key] = assets.keys_by_input_name.values()
+
+    @dg.asset(key=landing_key)
+    def landing() -> str:
+        return str(directory)
+
+    return dg.materialize(
+        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=False
+    )
 
 
 def row_count(duckdb: DuckDBResource, table: str) -> int:
@@ -174,6 +211,7 @@ class AutomationHarness:
         )
         self._last_tick = result
         return {
-            asset.key.to_user_string(): result.get_num_requested(asset.key)
+            key.to_user_string(): result.get_num_requested(key)
             for asset in self._raw_assets
+            for key in asset.keys
         }

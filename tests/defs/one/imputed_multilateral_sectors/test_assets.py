@@ -21,16 +21,20 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     build_quality_metadata,
     fetch_imputed_multilateral_sectors,
     one_imputed_multilateral_sectors_dc_export,
-    one_imputed_multilateral_sectors_raw_metadata,
-    one_imputed_multilateral_sectors_raw_table,
+    one_imputed_multilateral_sectors_raw_tables,
     one_imputed_multilateral_sectors_source,
     parse_release_date,
     resolve_bulk_versions,
     verify_release_provenance,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, list_first_row, row_count
+from tests.helpers import (
+    column_list,
+    list_first_row,
+    load_raw_tables,
+    row_count,
+    write_landing_directory,
+)
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -839,69 +843,51 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_crs_token_mi
     )
 
 
-def test_raw_table_loads_the_parquet_fixture(tmp_path: Path) -> None:
-    """Test the raw table asset loads the extracted parquet into DuckDB"""
+RAW_TABLE = "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors"
+RAW_METADATA_TABLE = f"{RAW_TABLE}_metadata"
+
+
+def _load_raw_tables(
+    tmp_path: Path, *, release_dates: dict[str, date]
+) -> tuple[DuckDBResource, dg.ExecuteInProcessResult]:
+    """Load a landing directory holding the fixture, recording `release_dates`"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    expected_rows = len(pd.read_parquet(FIXTURES / "data.parquet"))
-
-    result = one_imputed_multilateral_sectors_raw_table(
-        duckdb=duckdb,
-        landing_file=str(FIXTURES / "data.parquet"),
+    directory = write_landing_directory(
+        tmp_path / "raw",
+        files={"imputed_multilateral_sectors": FIXTURES / "data.parquet"},
+        downloaded_at=DOWNLOADED_AT,
+        release_dates=release_dates,
+    )
+    return duckdb, load_raw_tables(
+        one_imputed_multilateral_sectors_raw_tables, duckdb=duckdb, directory=directory
     )
 
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-        )
-        == expected_rows
-    )
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue(
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors"
-        ),
-        "dagster/row_count": dg.IntMetadataValue(expected_rows),
-    }
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert check.passed
 
-
-def test_raw_metadata_loads_the_recorded_extraction_metadata(tmp_path: Path) -> None:
-    """Test the metadata asset loads both sources' release dates under their own columns
+def test_raw_tables_load_the_parquet_fixture_and_both_release_dates(
+    tmp_path: Path,
+) -> None:
+    """Test the raw table holds the extracted parquet, and the metadata table both
+    sources' release dates under their own columns
 
     The two dates fall in different years so a query that mixed the two up
     (or collapsed them to one column) would be caught by the value
     assertions, not just the column list.
     """
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
+    duckdb, result = _load_raw_tables(
+        tmp_path,
         release_dates={"crs": date(2026, 8, 1), "multisystem": date(2025, 7, 15)},
     )
 
-    result = one_imputed_multilateral_sectors_raw_metadata(
-        duckdb=duckdb,
-        landing_file=str(tmp_path / "data.parquet"),
+    assert result.success
+    assert row_count(duckdb, RAW_TABLE) == len(
+        pd.read_parquet(FIXTURES / "data.parquet")
     )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue(
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata"
-        ),
-        "dagster/row_count": dg.IntMetadataValue(1),
-    }
-
-    table = "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata"
-    assert column_list(duckdb, table) == [
+    assert column_list(duckdb, RAW_METADATA_TABLE) == [
         "downloaded_at",
         "crs_release_date",
         "multisystem_release_date",
     ]
-    assert list_first_row(duckdb, table) == [
+    assert list_first_row(duckdb, RAW_METADATA_TABLE) == [
         DOWNLOADED_AT,
         pd.Timestamp(2026, 8, 1),
         pd.Timestamp(2025, 7, 15),
@@ -917,21 +903,14 @@ def test_raw_metadata_raises_when_the_extraction_recorded_a_single_release_date(
     `multisystem_release_date` columns; a record shaped like dac_crs's single
     `source_release_date` is missing both and must not load silently.
     """
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    (UPath(tmp_path) / "metadata.json").write_text(
-        json.dumps(
-            {
-                "downloaded_at": DOWNLOADED_AT.isoformat(),
-                "source_release_date": date(2026, 8, 1).isoformat(),
-            }
-        )
-    )
+    _, result = _load_raw_tables(tmp_path, release_dates={"source": date(2026, 8, 1)})
 
-    with pytest.raises(ValueError, match="release date keys do not match"):
-        one_imputed_multilateral_sectors_raw_metadata(
-            duckdb=duckdb,
-            landing_file=str(tmp_path / "data.parquet"),
-        )
+    [failure] = result.get_step_failure_events()
+    error = failure.step_failure_data.error
+    assert error is not None
+    assert error.cause is not None
+    assert error.cause.cls_name == "ValueError"
+    assert "release date keys do not match" in error.cause.message
 
 
 def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_multisystem_token_mismatches(

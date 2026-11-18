@@ -21,7 +21,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import build_landing_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTable, build_raw_table_assets
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -159,10 +159,17 @@ world_bank_ids_landing = build_landing_asset(
 )
 
 
-world_bank_ids_raw_table, world_bank_ids_raw_metadata = build_raw_table_assets(
+world_bank_ids_raw_tables = build_raw_table_assets(
     group="world_bank_ids",
-    table="raw_ids",
     title="World Bank IDS",
+    tables=[
+        RawTable(
+            asset="world_bank_ids_raw_table",
+            file="ids",
+            table="raw_ids",
+        )
+    ],
+    metadata_table="raw_ids_metadata",
 )
 
 

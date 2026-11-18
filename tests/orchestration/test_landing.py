@@ -14,7 +14,7 @@ from upath import UPath
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME, FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.landing import build_landing_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTable, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import AutomationHarness, logged_messages
 
@@ -84,18 +84,18 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
     result = materialize_directly(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
-    file_path = directory / "data.parquet"
+    file_path = directory / "things.parquet"
     assert sorted(path.name for path in directory.iterdir()) == [
-        "data.parquet",
         METADATA_FILE_NAME,
+        "things.parquet",
     ]
     assert json.loads((directory / METADATA_FILE_NAME).read_text()) == {
         "downloaded_at": "2026-08-03T23:47:05+00:00",
         "source_release_date": "2026-07-07",
     }
-    assert result.value == str(file_path)
+    assert result.value == str(directory)
     assert result.metadata == {
-        "dagster/uri": dg.TextMetadataValue(str(file_path)),
+        "dagster/uri": dg.TextMetadataValue(str(directory)),
         "file_size": dg.IntMetadataValue(file_path.stat().st_size),
         "dagster/row_count": dg.IntMetadataValue(3),
         "version": dg.TextMetadataValue("v20260801"),
@@ -188,8 +188,8 @@ def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
             [build_example(fetch_rows(1))], {"landing_file_store": file_store}
         )
 
-    file_path = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
-    assert f"Wrote Example data to {file_path / 'data.parquet'}" in messages
+    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    assert f"Wrote Example data to {directory / 'things.parquet'}" in messages
 
 
 def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> None:
@@ -221,7 +221,7 @@ def test_build_landing_asset_takes_a_retry_policy() -> None:
 
 
 class _ExampleAutomation(AutomationHarness):
-    """Drives a stub source, the built landing asset and a raw table loading it
+    """Drives a stub source, the built landing asset and the raw tables loading it
 
     Assign to `version` to make the next observation see a republished source.
     """
@@ -234,13 +234,18 @@ class _ExampleAutomation(AutomationHarness):
             return dg.ObserveResult(data_version=dg.DataVersion(self.version))
 
         self.landing = build_example(fetch_rows(1))
-        self.raw_table, _ = build_raw_table_assets(
-            group="example", table="raw_things", title="Example"
+        self.raw_tables = build_raw_table_assets(
+            group="example",
+            title="Example",
+            tables=[
+                RawTable(asset="example_raw_table", file="things", table="raw_things")
+            ],
+            metadata_table="raw_things_metadata",
         )
         super().__init__(
             tmp_path,
             source=example_source,
-            raw_assets=[self.landing, self.raw_table],
+            raw_assets=[self.landing, self.raw_tables],
         )
 
     def _start_mocks(self) -> None:
@@ -253,24 +258,29 @@ def test_build_landing_asset_is_not_rerun_when_the_source_is_unchanged(
     """Test a repeat observation at an unchanged data version requests no rerun"""
     with _ExampleAutomation(tmp_path) as automation:
         automation.observe()
-        automation.materialize(automation.landing, automation.raw_table)
+        automation.materialize(automation.landing, automation.raw_tables)
         # A baseline tick, not evidence. Every condition is reset on its initial
         # evaluation, so the first tick requests nothing whatever the source did.
         automation.tick()
 
         automation.observe()
 
-        assert automation.tick() == {"example_landing": 0, "example_raw_table": 0}
+        assert automation.tick() == {
+            "example_landing": 0,
+            "example_raw_table": 0,
+            "example_raw_metadata": 0,
+        }
 
 
-def test_build_landing_asset_is_rerun_with_its_table_when_the_source_changes(
+def test_build_landing_asset_is_rerun_with_its_raw_tables_when_the_source_changes(
     tmp_path: Path,
 ) -> None:
-    """Test a changed data version requests the landing asset and the table loading it on
-    one tick, and only once. The table loads the path the landing asset returned"""
+    """Test a changed data version requests the landing asset and the tables loading
+    it on one tick, and only once. The tables load the directory the landing
+    asset returned"""
     with _ExampleAutomation(tmp_path) as automation:
         automation.observe()
-        automation.materialize(automation.landing, automation.raw_table)
+        automation.materialize(automation.landing, automation.raw_tables)
         automation.tick()  # baseline, as above
 
         automation.version = "v20260901"
@@ -278,8 +288,16 @@ def test_build_landing_asset_is_rerun_with_its_table_when_the_source_changes(
 
         # eager() counts a dependency that will be requested as updated, so the
         # chain is launched in one run.
-        assert automation.tick() == {"example_landing": 1, "example_raw_table": 1}
+        assert automation.tick() == {
+            "example_landing": 1,
+            "example_raw_table": 1,
+            "example_raw_metadata": 1,
+        }
 
-        automation.materialize(automation.landing, automation.raw_table)
+        automation.materialize(automation.landing, automation.raw_tables)
 
-        assert automation.tick() == {"example_landing": 0, "example_raw_table": 0}
+        assert automation.tick() == {
+            "example_landing": 0,
+            "example_raw_table": 0,
+            "example_raw_metadata": 0,
+        }

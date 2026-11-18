@@ -23,7 +23,7 @@ from dfo_pipelines.extraction.oecd import (
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import build_landing_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTable, build_raw_table_assets
 
 
 @dg.observable_source_asset(
@@ -65,11 +65,18 @@ oecd_dac1_landing = build_landing_asset(
 )
 
 
-oecd_dac1_raw_table, oecd_dac1_raw_metadata = build_raw_table_assets(
+oecd_dac1_raw_tables = build_raw_table_assets(
     group="oecd_dac1",
-    table="raw_dac1",
     title="OECD DAC1",
-    renames=DAC_COLUMN_RENAMES,
+    tables=[
+        RawTable(
+            asset="oecd_dac1_raw_table",
+            file="dac1",
+            table="raw_dac1",
+            renames=DAC_COLUMN_RENAMES,
+        )
+    ],
+    metadata_table="raw_dac1_metadata",
 )
 
 
