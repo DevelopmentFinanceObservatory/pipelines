@@ -1,11 +1,10 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
 import pandas as pd
-import pyarrow.parquet as pq
 import pytest
 from dagster_duckdb import DuckDBResource
 from oda_data.clean_data.schema import ODASchema
@@ -22,24 +21,16 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     build_quality_metadata,
     fetch_imputed_multilateral_sectors,
     one_imputed_multilateral_sectors_dc_export,
-    one_imputed_multilateral_sectors_raw_tables,
     one_imputed_multilateral_sectors_source,
     parse_release_date,
     resolve_bulk_versions,
     verify_release_provenance,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import (
-    column_list,
-    list_first_row,
-    load_raw_tables,
-    write_landing_directory,
-)
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
 
-FIXTURES = Path(__file__).parent / "fixtures"
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "imputed_multilateral_sectors"
 
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
@@ -612,9 +603,6 @@ def test_source_data_version_moves_when_the_oda_data_version_alone_changes() -> 
     assert baseline.data_version != changed.data_version
 
 
-DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
-
-
 CONFORMING_ROWS = [
     _row(
         year=2022,
@@ -841,49 +829,6 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_crs_token_mi
     _refused_and_nothing_written(
         tmp_path, bulk_patch=bulk_patch, compute_patch=compute_patch
     )
-
-
-RAW_METADATA_TABLE = (
-    "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata"
-)
-
-
-def test_raw_tables_record_both_release_dates(
-    tmp_path: Path,
-) -> None:
-    """Test the metadata table records both sources' release dates under their own
-    columns
-
-    The two dates fall in different years so a query that mixed the two up
-    (or collapsed them to one column) would be caught by the value
-    assertions, not just the column list.
-    """
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    result = load_raw_tables(
-        one_imputed_multilateral_sectors_raw_tables,
-        duckdb=duckdb,
-        directory=write_landing_directory(
-            tmp_path / "raw",
-            tables={
-                "imputed_multilateral_sectors": pq.read_table(FIXTURES / "data.parquet")
-            },
-            downloaded_at=DOWNLOADED_AT,
-            release_dates={"crs": date(2026, 8, 1), "multisystem": date(2025, 7, 15)},
-        ),
-    )
-
-    assert result.success
-    assert column_list(duckdb, RAW_METADATA_TABLE) == [
-        "downloaded_at",
-        "crs_release_date",
-        "multisystem_release_date",
-    ]
-    assert list_first_row(duckdb, RAW_METADATA_TABLE) == [
-        DOWNLOADED_AT,
-        pd.Timestamp(2026, 8, 1),
-        pd.Timestamp(2025, 7, 15),
-    ]
 
 
 def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_multisystem_token_mismatches(

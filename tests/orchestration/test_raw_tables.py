@@ -1,11 +1,16 @@
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from pathlib import Path
+from types import MappingProxyType
 
 import dagster as dg
 import duckdb
 import pyarrow as pa
+import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
+from upath import UPath
 
+from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.raw_tables import (
     RawTableSpec,
@@ -13,7 +18,6 @@ from dfo_pipelines.orchestration.raw_tables import (
     metadata_table_result,
     raw_table_result,
 )
-from tests.helpers import load_raw_tables, write_landing_directory
 
 
 def test_raw_table_result_reports_the_table_and_its_row_count() -> None:
@@ -73,6 +77,43 @@ def build_example() -> dg.AssetsDefinition:
         tables=TABLES,
         metadata_table="raw_example_metadata",
         release_names=("crs", "multisystem"),
+    )
+
+
+def write_landing_directory(
+    directory: Path,
+    *,
+    tables: Mapping[str, pa.Table],
+    downloaded_at: datetime = datetime(2026, 8, 3, 12, tzinfo=UTC),
+    release_dates: Mapping[str, date] = MappingProxyType({"source": date(2026, 7, 7)}),
+) -> Path:
+    """A landing directory holding each of `tables` as a parquet file under its stem,
+    with the extraction metadata"""
+    directory.mkdir(parents=True)
+    for stem, table in tables.items():
+        pq.write_table(table, directory / f"{stem}.parquet")
+    write_extraction_metadata(
+        UPath(directory), downloaded_at=downloaded_at, release_dates=release_dates
+    )
+    return directory
+
+
+def load_raw_tables(
+    assets: dg.AssetsDefinition,
+    *,
+    duckdb: DuckDBResource,
+    directory: Path,
+    raise_on_error: bool = True,
+) -> dg.ExecuteInProcessResult:
+    """Run the raw tables in a run whose landing asset returned `directory`"""
+    [landing_key] = assets.keys_by_input_name.values()
+
+    @dg.asset(key=landing_key)
+    def landing() -> str:
+        return str(directory)
+
+    return dg.materialize(
+        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=raise_on_error
     )
 
 

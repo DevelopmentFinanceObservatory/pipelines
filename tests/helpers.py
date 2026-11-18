@@ -1,19 +1,13 @@
-from collections.abc import Mapping
 from contextlib import ExitStack
-from datetime import UTC, date, datetime
+from datetime import datetime
 from functools import cache
 from pathlib import Path
-from types import MappingProxyType
 from typing import Self
 
 import dagster as dg
-import pyarrow as pa
-import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
-from upath import UPath
 
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
@@ -30,43 +24,6 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     return value
 
 
-def write_landing_directory(
-    directory: Path,
-    *,
-    tables: Mapping[str, pa.Table],
-    downloaded_at: datetime = datetime(2026, 8, 3, 12, tzinfo=UTC),
-    release_dates: Mapping[str, date] = MappingProxyType({"source": date(2026, 7, 7)}),
-) -> Path:
-    """A landing directory holding each of `tables` as a parquet file under its stem,
-    with the extraction metadata"""
-    directory.mkdir(parents=True)
-    for stem, table in tables.items():
-        pq.write_table(table, directory / f"{stem}.parquet")
-    write_extraction_metadata(
-        UPath(directory), downloaded_at=downloaded_at, release_dates=release_dates
-    )
-    return directory
-
-
-def load_raw_tables(
-    assets: dg.AssetsDefinition,
-    *,
-    duckdb: DuckDBResource,
-    directory: Path,
-    raise_on_error: bool = True,
-) -> dg.ExecuteInProcessResult:
-    """Run the raw tables in a run whose landing asset returned `directory`"""
-    [landing_key] = assets.keys_by_input_name.values()
-
-    @dg.asset(key=landing_key)
-    def landing() -> str:
-        return str(directory)
-
-    return dg.materialize(
-        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=raise_on_error
-    )
-
-
 def row_count(duckdb: DuckDBResource, table: str) -> int:
     """Number of rows in a database table"""
     with duckdb.get_connection() as connection:
@@ -77,17 +34,6 @@ def column_list(duckdb: DuckDBResource, table: str) -> list:
     """List columns in a database table"""
     with duckdb.get_connection() as connection:
         return connection.sql(f"select * from {table}").columns
-
-
-def list_first_row(duckdb: DuckDBResource, table: str) -> list:
-    """List first row in a database table"""
-    with duckdb.get_connection() as connection:
-        return (
-            connection.sql(f"select * from {table} limit 1")
-            .df()
-            .values.flatten()
-            .tolist()
-        )
 
 
 def logged_messages(
