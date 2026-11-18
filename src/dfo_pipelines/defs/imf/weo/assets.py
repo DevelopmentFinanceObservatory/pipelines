@@ -20,7 +20,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import build_landing_asset
-from dfo_pipelines.orchestration.raw_tables import RawTable, build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 # One observation of one series, with the dataflow's attributes, which include
 # the date the IMF published the release.
@@ -82,9 +82,9 @@ imf_weo_raw_tables = build_raw_table_assets(
     group="imf_weo",
     title="IMF WEO",
     tables=[
-        RawTable(
+        RawTableSpec(
             asset="imf_weo_raw_table",
-            file="weo",
+            file_stem="weo",
             table="raw_weo",
         )
     ],

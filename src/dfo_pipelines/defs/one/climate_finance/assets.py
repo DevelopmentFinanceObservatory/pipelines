@@ -25,7 +25,7 @@ from dfo_pipelines.orchestration.automation import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_tables import RawTable, build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
     UPathFileStoreResource,
@@ -187,9 +187,9 @@ one_climate_finance_raw_tables = build_raw_table_assets(
     group=SCHEMA,
     title="climate finance",
     tables=[
-        RawTable(
+        RawTableSpec(
             asset=f"one_climate_finance_raw_{stem}",
-            file=stem,
+            file_stem=stem,
             table=f"raw_climate_finance_{stem}",
         )
         for stem in RAW_TABLES

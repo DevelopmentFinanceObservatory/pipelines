@@ -4,12 +4,11 @@ from pathlib import Path
 import dagster as dg
 import duckdb
 import pyarrow as pa
-import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.raw_tables import (
-    RawTable,
+    RawTableSpec,
     build_raw_table_assets,
     metadata_table_result,
     raw_table_result,
@@ -43,17 +42,6 @@ def test_raw_table_result_check_fails_with_no_rows() -> None:
     assert not check.passed
 
 
-def test_raw_table_result_carries_the_asset_key_on_the_result_and_check() -> None:
-    """Test a given asset key reaches both the result and its check"""
-    key = dg.AssetKey("some_raw_table")
-
-    result = raw_table_result("raw.table", 1, asset_key=key)
-
-    assert result.asset_key == key
-    [check] = result.check_results
-    assert check.asset_key == key
-
-
 def test_metadata_table_result_reports_the_table_and_its_row_count() -> None:
     """Test the metadata names the table and counts its rows, with no check"""
     result = metadata_table_result("raw.table_metadata", 1)
@@ -65,22 +53,13 @@ def test_metadata_table_result_reports_the_table_and_its_row_count() -> None:
     assert not result.check_results
 
 
-def test_metadata_table_result_carries_the_asset_key() -> None:
-    """Test a given asset key reaches the result"""
-    key = dg.AssetKey("some_raw_metadata")
-
-    assert (
-        metadata_table_result("raw.table_metadata", 1, asset_key=key).asset_key == key
-    )
-
-
 DOWNLOADED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 TABLES = [
-    RawTable(asset="example_raw_things", file="things", table="raw_things"),
-    RawTable(
+    RawTableSpec(asset="example_raw_things", file_stem="things", table="raw_things"),
+    RawTableSpec(
         asset="example_raw_others",
-        file="others",
+        file_stem="others",
         table="raw_others",
         renames={"Code": "code"},
     ),
@@ -99,15 +78,11 @@ def build_example() -> dg.AssetsDefinition:
 
 def write_landing_directory_of_rows(directory: Path, rows: dict[str, int]) -> None:
     """Write a parquet file of `rows[stem]` rows for each stem, and the metadata"""
-    sources = directory.parent / f"{directory.name}_sources"
-    sources.mkdir()
-    for stem, count in rows.items():
-        pq.write_table(
-            pa.table({"Code": list(range(count))}), sources / f"{stem}.parquet"
-        )
     write_landing_directory(
         directory,
-        files={stem: sources / f"{stem}.parquet" for stem in rows},
+        tables={
+            stem: pa.table({"Code": list(range(count))}) for stem, count in rows.items()
+        },
         downloaded_at=DOWNLOADED_AT,
         release_dates={"crs": date(2025, 12, 1), "multisystem": date(2025, 11, 1)},
     )
@@ -116,13 +91,11 @@ def write_landing_directory_of_rows(directory: Path, rows: dict[str, int]) -> No
 def test_build_raw_table_assets_loads_each_file_and_the_metadata(
     tmp_path: Path,
 ) -> None:
-    """Test each file loads, renamed, into its table, replacing an earlier load, and
-    the metadata records each release, with the table name and rows on each asset"""
+    """Test each file loads, renamed, into its table, and the metadata records each
+    release, with the table name and rows on each asset"""
     database = tmp_path / "database.duckdb"
     duckdb_resource = DuckDBResource(database=str(database))
     assets = build_example()
-    write_landing_directory_of_rows(tmp_path / "earlier", {"things": 5, "others": 5})
-    load_raw_tables(assets, duckdb=duckdb_resource, directory=tmp_path / "earlier")
     write_landing_directory_of_rows(tmp_path / "raw", {"things": 3, "others": 2})
 
     result = load_raw_tables(assets, duckdb=duckdb_resource, directory=tmp_path / "raw")
@@ -167,6 +140,7 @@ def test_build_raw_table_assets_check_fails_only_on_the_empty_table(
         build_example(),
         duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
         directory=tmp_path / "raw",
+        raise_on_error=False,
     )
 
     assert not result.success
@@ -183,13 +157,13 @@ def test_build_raw_table_assets_failed_table_load_records_no_metadata(
 ) -> None:
     """Test a table whose file is missing fails the run with no materialization of
     the metadata asset"""
-    write_landing_directory_of_rows(tmp_path / "raw", {"things": 3, "others": 2})
-    (tmp_path / "raw" / "others.parquet").unlink()
+    write_landing_directory_of_rows(tmp_path / "raw", {"things": 3})
 
     result = load_raw_tables(
         build_example(),
         duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
         directory=tmp_path / "raw",
+        raise_on_error=False,
     )
 
     assert not result.success
@@ -199,6 +173,33 @@ def test_build_raw_table_assets_failed_table_load_records_no_metadata(
             "example_raw_tables"
         )
     }
+
+
+def test_build_raw_table_assets_mismatched_release_names_load_no_table(
+    tmp_path: Path,
+) -> None:
+    """Test metadata recording other releases than the assets expect fails the run
+    before any table loads"""
+    duckdb_resource = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    write_landing_directory(
+        tmp_path / "raw",
+        tables={"things": pa.table({"Code": [1]}), "others": pa.table({"Code": [1]})},
+        release_dates={"source": date(2025, 12, 1)},
+    )
+
+    result = load_raw_tables(
+        build_example(),
+        duckdb=duckdb_resource,
+        directory=tmp_path / "raw",
+        raise_on_error=False,
+    )
+
+    assert not result.success
+    assert not result.asset_materializations_for_node("example_raw_tables")
+    # The failed run leaves its read-write connection open in this process, so a
+    # read-only one would clash with it.
+    with duckdb_resource.get_connection() as connection:
+        assert not connection.sql("select * from information_schema.tables").fetchall()
 
 
 def test_build_raw_table_assets_defines_the_assets_downstream_of_the_directory() -> (

@@ -42,18 +42,18 @@ def _table_metadata(table_name: str, rows: int) -> dict[str, dg.MetadataValue]:
 
 
 @dataclass(frozen=True, kw_only=True)
-class RawTable:
+class RawTableSpec:
     """A file in a source's landing directory and the database table it loads into
 
     Attributes:
         asset: Name of the table's asset.
-        file: Stem of the parquet file in the landing directory.
+        file_stem: Stem of the parquet file in the landing directory.
         table: Name of the database table, in the source group's schema.
         renames: New name of each column renamed on loading, by its name in the file.
     """
 
     asset: str
-    file: str
+    file_stem: str
     table: str
     renames: Mapping[str, str] | None = None
 
@@ -62,7 +62,7 @@ def build_raw_table_assets(
     *,
     group: str,
     title: str,
-    tables: Sequence[RawTable],
+    tables: Sequence[RawTableSpec],
     metadata_table: str,
     release_names: Collection[str] = ("source",),
 ) -> dg.AssetsDefinition:
@@ -87,7 +87,7 @@ def build_raw_table_assets(
             *(
                 dg.AssetSpec(
                     raw_table.asset,
-                    description=f"Raw {title} table loaded from {raw_table.file}.parquet",
+                    description=f"Raw {title} table loaded from {raw_table.file_stem}.parquet",
                     group_name=group,
                     kinds={"duckdb"},
                     automation_condition=EAGER_WHEN_CHECKS_PASS,
@@ -119,7 +119,7 @@ def build_raw_table_assets(
             for raw_table in tables:
                 rows = load_parquet(
                     connection,
-                    path=str(directory / f"{raw_table.file}.parquet"),
+                    path=str(directory / f"{raw_table.file_stem}.parquet"),
                     schema=group,
                     table=raw_table.table,
                     renames=raw_table.renames,

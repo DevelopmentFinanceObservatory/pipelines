@@ -17,9 +17,7 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import (
-    read_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import read_extraction_metadata
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
     UPathFileStoreResource,
@@ -148,7 +146,7 @@ def test_source_refuses_an_export_it_cannot_read(
 
 
 def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> None:
-    """Test the landing directory copies every table, as exported, with its checks, row
+    """Test the landing asset copies every table, as exported, with its checks, row
     counts and the release's name and creation date"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
@@ -197,7 +195,7 @@ def test_landing_check_fails_on_a_table_with_no_rows(
 def test_landing_refuses_an_export_replaced_after_the_observation(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing directory refuses a manifest other than the one observed"""
+    """Test the landing asset refuses a manifest other than the one observed"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     empty = _empty_table(export / NAME / "btr_totals.parquet")
@@ -210,7 +208,7 @@ def test_landing_refuses_an_export_replaced_after_the_observation(
 def test_landing_refuses_a_table_its_manifest_does_not_record(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing directory refuses a table whose sha256 differs from the manifest's"""
+    """Test the landing asset refuses a table whose sha256 differs from the manifest's"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     shutil.copy(
@@ -222,6 +220,6 @@ def test_landing_refuses_a_table_its_manifest_does_not_record(
 
 
 def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
-    """Test the landing directory fails when the source was never observed"""
+    """Test the landing asset fails when the source was never observed"""
     with pytest.raises(ValueError, match="has no observation"):
         _materialize(dg.DagsterInstance.ephemeral(), tmp_path)

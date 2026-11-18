@@ -1,9 +1,10 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
+import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_dac1
 from oda_reader.dac1 import DAC1_BULK_LABEL
@@ -25,8 +26,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 DAC1_TEST_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
 
 SOURCE_RELEASE_DATE = date(2026, 7, 7)
-
-DOWNLOADED_AT = datetime(2026, 8, 3, 12, tzinfo=UTC)
 
 
 def test_dac1_source_observes_the_dac1_bulk_file() -> None:
@@ -91,9 +90,7 @@ def test_dac1_raw_table_renames_the_columns_that_differ_only_in_case(
         duckdb=duckdb,
         directory=write_landing_directory(
             tmp_path / "raw",
-            files={"dac1": FIXTURES / "data.parquet"},
-            downloaded_at=DOWNLOADED_AT,
-            release_dates={"source": SOURCE_RELEASE_DATE},
+            tables={"dac1": pq.read_table(FIXTURES / "data.parquet")},
         ),
     )
 

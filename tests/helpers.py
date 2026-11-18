@@ -1,12 +1,14 @@
-import shutil
 from collections.abc import Mapping
 from contextlib import ExitStack
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from functools import cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Self
 
 import dagster as dg
+import pyarrow as pa
+import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
@@ -31,15 +33,15 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
 def write_landing_directory(
     directory: Path,
     *,
-    files: Mapping[str, Path],
-    downloaded_at: datetime,
-    release_dates: Mapping[str, date],
+    tables: Mapping[str, pa.Table],
+    downloaded_at: datetime = datetime(2026, 8, 3, 12, tzinfo=UTC),
+    release_dates: Mapping[str, date] = MappingProxyType({"source": date(2026, 7, 7)}),
 ) -> Path:
-    """A landing directory holding a copy of each of `files` under its stem, with the
-    extraction metadata"""
+    """A landing directory holding each of `tables` as a parquet file under its stem,
+    with the extraction metadata"""
     directory.mkdir(parents=True)
-    for stem, source in files.items():
-        shutil.copy(source, directory / f"{stem}.parquet")
+    for stem, table in tables.items():
+        pq.write_table(table, directory / f"{stem}.parquet")
     write_extraction_metadata(
         UPath(directory), downloaded_at=downloaded_at, release_dates=release_dates
     )
@@ -47,7 +49,11 @@ def write_landing_directory(
 
 
 def load_raw_tables(
-    assets: dg.AssetsDefinition, *, duckdb: DuckDBResource, directory: Path
+    assets: dg.AssetsDefinition,
+    *,
+    duckdb: DuckDBResource,
+    directory: Path,
+    raise_on_error: bool = True,
 ) -> dg.ExecuteInProcessResult:
     """Run the raw tables in a run whose landing asset returned `directory`"""
     [landing_key] = assets.keys_by_input_name.values()
@@ -57,7 +63,7 @@ def load_raw_tables(
         return str(directory)
 
     return dg.materialize(
-        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=False
+        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=raise_on_error
     )
 
 
