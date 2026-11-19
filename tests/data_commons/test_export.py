@@ -2,12 +2,14 @@ import dataclasses
 import json
 import logging
 import shutil
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
+import httpx
 import pytest
 from duckdb import DuckDBPyConnection
 from upath import UPath
@@ -19,6 +21,10 @@ from dfo_pipelines.data_commons.export import (
     ExportSpec,
     ObservationInput,
     export_bundle,
+)
+from dfo_pipelines.data_commons.graph_check import (
+    CHECK_PATH,
+    GRAPH_API_URL_VARIABLE,
 )
 
 LOG = logging.getLogger(__name__)
@@ -153,6 +159,12 @@ from (values
 """
 
 
+@pytest.fixture(autouse=True)
+def no_graph_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the export's graph check from reaching a deployment the shell names"""
+    monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
+
+
 def connect(tmp_path: Path) -> DuckDBPyConnection:
     """A database holding the models the export reads, as a small fixture bundle"""
     connection = duckdb.connect(str(tmp_path / "database.duckdb"))
@@ -194,8 +206,79 @@ def test_export_bundle_writes_a_bundle(tmp_path: Path) -> None:
         "provenance.mcf",
     ]
     assert metadata == ExportMetadata(
-        observation_count=3, statvar_count=2, observation_file_count=2
+        observation_count=3,
+        statvar_count=2,
+        observation_file_count=2,
+        check_findings=None,
     )
+
+
+def stub_graph_api(
+    monkeypatch: pytest.MonkeyPatch, answer: Callable[[httpx.Request], httpx.Response]
+) -> None:
+    """Point the export's graph check at a stub answering through `answer`"""
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.export.open_client",
+        lambda base_url: httpx.Client(
+            base_url=base_url, transport=httpx.MockTransport(answer)
+        ),
+    )
+
+
+def test_export_bundle_logs_and_counts_the_graph_checks_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test each finding the Graph API makes over the StatVars is logged as a
+    warning and counted, and the bundle is written all the same"""
+    checked: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == CHECK_PATH
+        checked.extend(row["dcid"] for row in json.loads(request.content)["rows"])
+        finding = {
+            "row": 1,
+            "field": "constraint_properties",
+            "property": "constraintProperty2",
+            "subject": "value",
+            "value": "ConstraintValue2",
+            "served": None,
+            "code": "node_not_held",
+            "severity": "error",
+        }
+        return httpx.Response(
+            200, json={"generation": "g1", "rows_checked": 2, "findings": [finding]}
+        )
+
+    stub_graph_api(monkeypatch, answer)
+
+    with caplog.at_level(logging.WARNING, logger=LOG.name):
+        metadata, out_dir = run_export(tmp_path)
+
+    assert checked == ["Variable1", "Variable2"]
+    assert metadata.check_findings == 1
+    [warning] = [
+        r for r in caplog.records if r.name == LOG.name and r.levelno == logging.WARNING
+    ]
+    assert "Variable2" in warning.message and "node_not_held" in warning.message
+    assert (out_dir / "custom_nodes.mcf").exists()
+
+
+def test_export_bundle_skips_the_graph_check_when_the_graph_api_is_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test an unreachable Graph API leaves the export to finish, its findings
+    uncounted"""
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    stub_graph_api(monkeypatch, refuse)
+
+    metadata, out_dir = run_export(tmp_path)
+
+    assert metadata.check_findings is None
+    assert (out_dir / "config.json").exists()
 
 
 def test_export_bundle_clears_the_output_directory(tmp_path: Path) -> None:
@@ -304,7 +387,10 @@ def test_export_bundle_writes_each_observation_input_to_its_own_files(
         f"{ONE_CONSTRAINT_STATVAR},2001,Entity4,4\n"
     )
     assert metadata == ExportMetadata(
-        observation_count=5, statvar_count=2, observation_file_count=4
+        observation_count=5,
+        statvar_count=2,
+        observation_file_count=4,
+        check_findings=None,
     )
 
 
