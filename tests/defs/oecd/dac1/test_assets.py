@@ -13,13 +13,9 @@ from upath import UPath
 from dfo_pipelines.defs.oecd.dac1.assets import (
     fetch_dac1,
     oecd_dac1_dc_export,
-    oecd_dac1_raw_table,
     oecd_dac1_source,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list
-
-FIXTURES = Path(__file__).parent / "fixtures"
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC1_TEST_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
@@ -76,22 +72,6 @@ def test_fetch_dac1_dates_the_release_from_the_url() -> None:
         "download": bulk_download_dac1,
         "downloaded_name": "table1_data.parquet",
     }
-
-
-def test_dac1_raw_table_renames_the_columns_that_differ_only_in_case(
-    tmp_path: Path,
-) -> None:
-    """Test the DAC1 raw table gives each case-colliding column pair distinct names"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    oecd_dac1_raw_table(duckdb=duckdb, landing_file=str(FIXTURES / "data.parquet"))
-
-    assert {
-        "donor_code",
-        "donor_name",
-        "part_code",
-        "part_name",
-    } <= set(column_list(duckdb, "oecd_dac1.raw_dac1"))
 
 
 FLOW_STATVAR = "dcid:Amount_FinancialFlow_Net_Disbursement_DAC1AidType8864_Nominal"

@@ -1,7 +1,7 @@
 """The layout of a climate finance export, which the export script writes and the
 climate finance pipeline reads.
 
-An export root holds one directory per release, named for it, with the raw tables
+An export root holds one directory per release, named for it, with the tables
 as `<table>.parquet` and `manifest.json` (`ExportManifest`), and `latest.json`
 (`LatestExport`), which names the newest release and its manifest's sha256. The
 script writes `latest.json` last, so a reader that checks the manifest against it
@@ -13,8 +13,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-# The raw tables of an export, by the stem of their parquet file.
-RAW_TABLES = ("spending", "crdf_commitments", "btr_totals")
+# The tables of an export, by the stem of their parquet file.
+EXPORT_TABLES = ("spending", "crdf_commitments", "btr_totals")
 LATEST_FILE_NAME = "latest.json"
 MANIFEST_FILE_NAME = "manifest.json"
 
@@ -24,7 +24,7 @@ class _Frozen(BaseModel):
 
 
 class ExportedTable(_Frozen):
-    """One raw table of an export: the sha256 of its parquet file and its rows."""
+    """One table of an export: the sha256 of its parquet file and its rows."""
 
     sha256: str
     rows: int
@@ -45,7 +45,7 @@ class ExportManifest(_Frozen):
         package_source_sha256: The sha256 of that package's source files, equal to
             the digest the release records of the code that built it.
         exported_at: When the export was written.
-        tables: Each raw table by the stem of its parquet file.
+        tables: Each table by the stem of its parquet file.
     """
 
     release: str

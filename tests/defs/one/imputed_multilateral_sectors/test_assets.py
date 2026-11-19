@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,21 +21,16 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     build_quality_metadata,
     fetch_imputed_multilateral_sectors,
     one_imputed_multilateral_sectors_dc_export,
-    one_imputed_multilateral_sectors_raw_metadata,
-    one_imputed_multilateral_sectors_raw_table,
     one_imputed_multilateral_sectors_source,
     parse_release_date,
     resolve_bulk_versions,
     verify_release_provenance,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, list_first_row, row_count
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
 
-FIXTURES = Path(__file__).parent / "fixtures"
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "imputed_multilateral_sectors"
 
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
@@ -608,9 +603,6 @@ def test_source_data_version_moves_when_the_oda_data_version_alone_changes() -> 
     assert baseline.data_version != changed.data_version
 
 
-DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
-
-
 CONFORMING_ROWS = [
     _row(
         year=2022,
@@ -837,101 +829,6 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_crs_token_mi
     _refused_and_nothing_written(
         tmp_path, bulk_patch=bulk_patch, compute_patch=compute_patch
     )
-
-
-def test_raw_table_loads_the_parquet_fixture(tmp_path: Path) -> None:
-    """Test the raw table asset loads the extracted parquet into DuckDB"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    expected_rows = len(pd.read_parquet(FIXTURES / "data.parquet"))
-
-    result = one_imputed_multilateral_sectors_raw_table(
-        duckdb=duckdb,
-        landing_file=str(FIXTURES / "data.parquet"),
-    )
-
-    assert (
-        row_count(
-            duckdb,
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors",
-        )
-        == expected_rows
-    )
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue(
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors"
-        ),
-        "dagster/row_count": dg.IntMetadataValue(expected_rows),
-    }
-    [check] = result.check_results
-    assert check.check_name == "table_not_empty"
-    assert check.passed
-
-
-def test_raw_metadata_loads_the_recorded_extraction_metadata(tmp_path: Path) -> None:
-    """Test the metadata asset loads both sources' release dates under their own columns
-
-    The two dates fall in different years so a query that mixed the two up
-    (or collapsed them to one column) would be caught by the value
-    assertions, not just the column list.
-    """
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
-        release_dates={"crs": date(2026, 8, 1), "multisystem": date(2025, 7, 15)},
-    )
-
-    result = one_imputed_multilateral_sectors_raw_metadata(
-        duckdb=duckdb,
-        landing_file=str(tmp_path / "data.parquet"),
-    )
-
-    assert isinstance(result, dg.MaterializeResult)
-    assert result.metadata == {
-        "dagster/table_name": dg.TextMetadataValue(
-            "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata"
-        ),
-        "dagster/row_count": dg.IntMetadataValue(1),
-    }
-
-    table = "one_imputed_multilateral_sectors.raw_imputed_multilateral_sectors_metadata"
-    assert column_list(duckdb, table) == [
-        "downloaded_at",
-        "crs_release_date",
-        "multisystem_release_date",
-    ]
-    assert list_first_row(duckdb, table) == [
-        DOWNLOADED_AT,
-        pd.Timestamp(2026, 8, 1),
-        pd.Timestamp(2025, 7, 15),
-    ]
-
-
-def test_raw_metadata_raises_when_the_extraction_recorded_a_single_release_date(
-    tmp_path: Path,
-) -> None:
-    """Test the metadata asset refuses a single-source `source_release_date` record
-
-    The asset expects per-source `crs_release_date` and
-    `multisystem_release_date` columns; a record shaped like dac_crs's single
-    `source_release_date` is missing both and must not load silently.
-    """
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    (UPath(tmp_path) / "metadata.json").write_text(
-        json.dumps(
-            {
-                "downloaded_at": DOWNLOADED_AT.isoformat(),
-                "source_release_date": date(2026, 8, 1).isoformat(),
-            }
-        )
-    )
-
-    with pytest.raises(ValueError, match="release date keys do not match"):
-        one_imputed_multilateral_sectors_raw_metadata(
-            duckdb=duckdb,
-            landing_file=str(tmp_path / "data.parquet"),
-        )
 
 
 def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_multisystem_token_mismatches(

@@ -13,13 +13,9 @@ from upath import UPath
 from dfo_pipelines.defs.oecd.dac2b.assets import (
     fetch_dac2b,
     oecd_dac2b_dc_export,
-    oecd_dac2b_raw_table,
     oecd_dac2b_source,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list
-
-FIXTURES = Path(__file__).parent / "fixtures"
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2B_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2b/DAC2b.parquet"
@@ -74,24 +70,6 @@ def test_fetch_dac2b_dates_the_release_from_the_url() -> None:
         "download": bulk_download_dac2b,
         "downloaded_name": "table2b_data.parquet",
     }
-
-
-def test_dac2b_raw_table_renames_the_columns_that_differ_only_in_case(
-    tmp_path: Path,
-) -> None:
-    """Test the DAC2b raw table gives each case-colliding column pair distinct names"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-
-    oecd_dac2b_raw_table(duckdb=duckdb, landing_file=str(FIXTURES / "data.parquet"))
-
-    assert {
-        "recipient_code",
-        "recipient_name",
-        "donor_code",
-        "donor_name",
-        "part_code",
-        "part_name",
-    } <= set(column_list(duckdb, "oecd_dac2b.raw_dac2b"))
 
 
 GRANT_STATVAR = (

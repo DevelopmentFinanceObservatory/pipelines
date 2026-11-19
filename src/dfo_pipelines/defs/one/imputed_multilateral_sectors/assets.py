@@ -24,7 +24,7 @@ from dfo_pipelines.extraction.oecd import resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import build_landing_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 CRS_BULK_LABEL = "CRS-Parquet"
 MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
@@ -369,13 +369,17 @@ one_imputed_multilateral_sectors_landing = build_landing_asset(
 )
 
 
-(
-    one_imputed_multilateral_sectors_raw_table,
-    one_imputed_multilateral_sectors_raw_metadata,
-) = build_raw_table_assets(
+one_imputed_multilateral_sectors_raw_tables = build_raw_table_assets(
     group="one_imputed_multilateral_sectors",
-    table="raw_imputed_multilateral_sectors",
     title="imputed multilateral spending by purpose",
+    tables=[
+        RawTableSpec(
+            asset="one_imputed_multilateral_sectors_raw_table",
+            file_stem="imputed_multilateral_sectors",
+            table="raw_imputed_multilateral_sectors",
+        )
+    ],
+    metadata_table="raw_imputed_multilateral_sectors_metadata",
     release_names=("crs", "multisystem"),
 )
 

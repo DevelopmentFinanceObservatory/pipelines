@@ -3,6 +3,7 @@ from functools import partial
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import duckdb
 import httpx
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -10,10 +11,12 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.extraction.oecd import (
+    DAC_COLUMN_RENAMES,
     fetch_bulk_file,
     fetch_bulk_file_release_date,
     resolve_bulk_file,
 )
+from dfo_pipelines.warehouse import load_parquet
 
 # Stand-in for a resolved bulk-download URL: never fetched, the GET is mocked.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
@@ -172,3 +175,35 @@ def test_fetch_bulk_file_does_not_download_when_the_release_cannot_be_dated(
         fetch(UPath(tmp_path / "data.parquet"))
 
     download.assert_not_called()
+
+
+OECD_TESTS = Path(__file__).parents[1] / "defs" / "oecd"
+DONOR_AND_PART_COLUMNS = {"donor_code", "donor_name", "part_code", "part_name"}
+RECIPIENT_COLUMNS = {"recipient_code", "recipient_name"}
+
+
+@pytest.mark.parametrize(
+    ("dataset", "renamed"),
+    [
+        ("dac1", DONOR_AND_PART_COLUMNS),
+        ("dac2a", DONOR_AND_PART_COLUMNS | RECIPIENT_COLUMNS),
+        ("dac2b", DONOR_AND_PART_COLUMNS | RECIPIENT_COLUMNS),
+    ],
+)
+def test_dac_column_renames_give_case_colliding_columns_distinct_names(
+    dataset: str, renamed: set[str]
+) -> None:
+    """Test each case-colliding column pair of a published DAC file loads under
+    distinct names"""
+    path = OECD_TESTS / dataset / "fixtures" / "data.parquet"
+    connection = duckdb.connect()
+
+    load_parquet(
+        connection,
+        path=str(path),
+        schema="oecd",
+        table=dataset,
+        renames=DAC_COLUMN_RENAMES,
+    )
+
+    assert renamed <= set(connection.sql(f"select * from oecd.{dataset}").columns)
