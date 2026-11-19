@@ -103,5 +103,10 @@ def load_extraction_metadata(
 
 
 def get_model_rows(connection: DuckDBPyConnection, model: str) -> list[dict[str, Any]]:
-    """Retrieves every row of a model as a dict, keyed on column name"""
-    return connection.sql(f"select * from {model}").to_arrow_table().to_pylist()
+    """Retrieves every row of a model as a dict, keyed on column name, in the order
+    of their values"""
+    return (
+        connection.sql(f"select * from {model} order by all")
+        .to_arrow_table()
+        .to_pylist()
+    )
