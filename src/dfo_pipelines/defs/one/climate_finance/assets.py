@@ -130,7 +130,7 @@ def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
 # `-> MaterializeResult` as returning Nothing, and the directory this returns is
 # the raw tables' input.
 def one_climate_finance_landing(
-    context: dg.AssetExecutionContext, landing_store: UPathFileStoreResource
+    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
 ):
     """Climate finance tables from the observed release, as exported, one parquet
     file per raw table.
@@ -148,7 +148,7 @@ def one_climate_finance_landing(
     downloaded_at = datetime.now(UTC)
     export, manifest_sha256 = latest_observation(context)
     manifest = read_manifest(export, sha256=manifest_sha256)
-    directory = landing_store.build_date_partitioned_path(
+    directory = landing_file_store.build_date_partitioned_path(
         "one_climate_finance/climate_finance", partition_date=downloaded_at.date()
     )
     directory.mkdir(parents=True, exist_ok=True)

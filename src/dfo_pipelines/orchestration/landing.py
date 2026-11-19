@@ -11,10 +11,10 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
 def _landing_directory(
-    landing_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
+    landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
 ) -> UPath:
     """Directory a download at `downloaded_at` is written to"""
-    return landing_store.build_date_partitioned_path(
+    return landing_file_store.build_date_partitioned_path(
         path, partition_date=downloaded_at.date()
     )
 
@@ -69,11 +69,11 @@ def build_landing_asset(
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
     def landing(
-        context: dg.AssetExecutionContext, landing_store: UPathFileStoreResource
+        context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
     ):
         downloaded_at = datetime.now(UTC)
         directory = _landing_directory(
-            landing_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
+            landing_file_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
         )
         directory.mkdir(parents=True, exist_ok=True)
         file_path = directory / "data.parquet"

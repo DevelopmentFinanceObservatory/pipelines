@@ -35,10 +35,10 @@ COMPILE_REPORT = "report.txt"
     ],
 )
 def dfo_ontology_landing(
-    context: dg.AssetExecutionContext, landing_store: UPathFileStoreResource
+    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
 ):
     """Compiled DFO ontology MCF, code mapping and validation report"""
-    landing_directory = landing_store.build_date_partitioned_path("dfo/ontology")
+    landing_directory = landing_file_store.build_date_partitioned_path("dfo/ontology")
     landing_directory.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as staging_dir:

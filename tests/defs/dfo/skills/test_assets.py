@@ -99,10 +99,10 @@ def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def materialize_landing(tmp_path: Path) -> Any:
     """Run the landing asset against a file store under tmp_path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     return dfo_skills_landing(
         context=dg.build_asset_context(),
-        landing_store=file_store,
+        landing_file_store=file_store,
         skills_repository=SKILLS_REPOSITORY,
     )
 
@@ -155,7 +155,9 @@ def test_landing_check_fails_when_only_the_template_exists(
     result = dg.materialize(
         [dfo_skills_landing, dfo_skills_dc_export, _stub_ontology_landing],
         resources={
-            "landing_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+            "landing_file_store": UPathFileStoreResource(
+                base_path=str(tmp_path / "landing")
+            ),
             "export_file_store": UPathFileStoreResource(
                 base_path=str(tmp_path / "processed")
             ),

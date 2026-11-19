@@ -94,7 +94,7 @@ def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
 def _materialize(instance: dg.DagsterInstance, tmp: Path) -> dg.MaterializeResult:
     result = one_climate_finance_landing(
         context=dg.build_asset_context(instance=instance),
-        landing_store=UPathFileStoreResource(base_path=str(tmp / "raw")),
+        landing_file_store=UPathFileStoreResource(base_path=str(tmp / "landing")),
     )
     assert isinstance(result, dg.MaterializeResult)
     return result

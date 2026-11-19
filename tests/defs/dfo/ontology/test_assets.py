@@ -101,9 +101,9 @@ def compiler() -> Iterator[Any]:
 
 def materialize_landing(tmp_path: Path) -> Any:
     """Run the landing asset against a file store under tmp_path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     return dfo_ontology_landing(
-        context=dg.build_asset_context(), landing_store=file_store
+        context=dg.build_asset_context(), landing_file_store=file_store
     )
 
 
@@ -232,7 +232,7 @@ def test_raw_code_mapping_table_check_fails_when_the_mapping_has_no_rows(
 
 def build_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
     """Materialize the export asset against a compiled ontology on disk"""
-    landing_directory = tmp_path / "raw"
+    landing_directory = tmp_path / "landing"
     landing_directory.mkdir()
     (landing_directory / ONTOLOGY_MCF).write_text(STUB_MCF)
     export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
@@ -287,7 +287,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
     tmp_path: Path, compiler: Any
 ) -> None:
     """Test the directory the compiler writes is what both consumers read"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
@@ -298,7 +298,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
             dfo_ontology_dc_export,
         ],
         resources={
-            "landing_store": file_store,
+            "landing_file_store": file_store,
             "export_file_store": export_file_store,
             "duckdb": duckdb,
         },

@@ -65,9 +65,9 @@ def materialize_directly(
     asset: dg.AssetsDefinition, tmp_path: Path
 ) -> dg.MaterializeResult:
     """Run the asset's body against a file store under `tmp_path`"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     with patch_download_clock():
-        result = asset(context=dg.build_asset_context(), landing_store=file_store)
+        result = asset(context=dg.build_asset_context(), landing_file_store=file_store)
     assert isinstance(result, dg.MaterializeResult)
     return result
 
@@ -83,7 +83,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
 
     result = materialize_directly(asset, tmp_path)
 
-    directory = tmp_path / "raw" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     file_path = directory / "data.parquet"
     assert sorted(path.name for path in directory.iterdir()) == [
         "data.parquet",
@@ -121,7 +121,7 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
 
     result = materialize_directly(asset, tmp_path)
 
-    directory = tmp_path / "raw" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
     assert recorded == {
         "downloaded_at": "2026-08-03T23:47:05+00:00",
@@ -161,7 +161,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
     with pytest.raises(RuntimeError, match="download refused"):
         materialize_directly(build_example(fail), tmp_path)
 
-    assert not list((tmp_path / "raw").rglob(METADATA_FILE_NAME))
+    assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
@@ -176,19 +176,19 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
     with pytest.raises(pa.ArrowInvalid):
         materialize_directly(build_example(truncate), tmp_path)
 
-    assert not list((tmp_path / "raw").rglob(METADATA_FILE_NAME))
+    assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
 def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
     """Test the run log names the source and the file written"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "raw"))
+    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
 
     with patch_download_clock():
         messages = logged_messages(
-            [build_example(fetch_rows(1))], {"landing_store": file_store}
+            [build_example(fetch_rows(1))], {"landing_file_store": file_store}
         )
 
-    file_path = tmp_path / "raw" / "example" / "things" / "2026" / "08" / "03"
+    file_path = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     assert f"Wrote Example data to {file_path / 'data.parquet'}" in messages
 
 

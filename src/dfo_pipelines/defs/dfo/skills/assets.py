@@ -472,7 +472,7 @@ def dfo_skills_source(skills_repository: SkillsRepositoryResource) -> dg.Observe
 )
 def dfo_skills_landing(
     context: dg.AssetExecutionContext,
-    landing_store: UPathFileStoreResource,
+    landing_file_store: UPathFileStoreResource,
     skills_repository: SkillsRepositoryResource,
 ):
     """DFO agent skills, as published on the skills repository's branch
@@ -482,7 +482,9 @@ def dfo_skills_landing(
     repository needs git to hold GitHub credentials wherever this runs.
     """
     url = skills_repository.url
-    landing_directory = landing_store.build_date_partitioned_path("dfo_skills/skills")
+    landing_directory = landing_file_store.build_date_partitioned_path(
+        "dfo_skills/skills"
+    )
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
