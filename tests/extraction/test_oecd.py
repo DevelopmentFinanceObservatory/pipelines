@@ -120,7 +120,7 @@ def build_fetch(*, download: Mock, release_date: Mock):
 
 
 def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> None:
-    """Test the downloaded file becomes the raw file unchanged, dated by the
+    """Test the download is written to the path unchanged, dated by the
     release-date lookup, with the version the download was resolved at"""
     download = Mock(side_effect=write_download)
     release_date = Mock(return_value=RELEASE_DATE)

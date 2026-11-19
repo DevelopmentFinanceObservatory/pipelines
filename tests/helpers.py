@@ -84,7 +84,9 @@ class AutomationHarness:
         self._raw_assets = raw_assets
         self._instance = dg.DagsterInstance.ephemeral()
         self._resources = {
-            "raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+            "landing_file_store": UPathFileStoreResource(
+                base_path=str(tmp_path / "landing")
+            ),
             "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
             **(resources or {}),
         }

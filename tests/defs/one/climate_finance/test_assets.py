@@ -11,7 +11,7 @@ from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.defs.one.climate_finance.assets import (
-    one_climate_finance_raw_file,
+    one_climate_finance_landing,
     one_climate_finance_raw_metadata,
     one_climate_finance_raw_tables,
     one_climate_finance_source,
@@ -92,9 +92,9 @@ def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
 
 
 def _materialize(instance: dg.DagsterInstance, tmp: Path) -> dg.MaterializeResult:
-    result = one_climate_finance_raw_file(
+    result = one_climate_finance_landing(
         context=dg.build_asset_context(instance=instance),
-        raw_file_store=UPathFileStoreResource(base_path=str(tmp / "raw")),
+        landing_file_store=UPathFileStoreResource(base_path=str(tmp / "landing")),
     )
     assert isinstance(result, dg.MaterializeResult)
     return result
@@ -153,8 +153,8 @@ def test_source_refuses_an_export_it_cannot_read(
         _observe(export)
 
 
-def test_raw_file_copies_the_observed_export(export: Path, tmp_path: Path) -> None:
-    """Test the raw file copies every table, as exported, with its checks, row
+def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> None:
+    """Test the landing directory copies every table, as exported, with its checks, row
     counts and the release's name and creation date"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
@@ -185,7 +185,7 @@ def test_raw_file_copies_the_observed_export(export: Path, tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("stem", STEMS)
-def test_raw_file_check_fails_on_a_table_with_no_rows(
+def test_landing_check_fails_on_a_table_with_no_rows(
     export: Path, tmp_path: Path, stem: str
 ) -> None:
     """Test each table's blocking check fails when its export has no rows"""
@@ -200,10 +200,10 @@ def test_raw_file_check_fails_on_a_table_with_no_rows(
     assert failed == {f"{stem}_not_empty"}
 
 
-def test_raw_file_refuses_an_export_replaced_after_the_observation(
+def test_landing_refuses_an_export_replaced_after_the_observation(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the raw file refuses a manifest other than the one observed"""
+    """Test the landing directory refuses a manifest other than the one observed"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     empty = _empty_table(export / NAME / "btr_totals.parquet")
@@ -213,10 +213,10 @@ def test_raw_file_refuses_an_export_replaced_after_the_observation(
         _materialize(instance, tmp_path)
 
 
-def test_raw_file_refuses_a_table_its_manifest_does_not_record(
+def test_landing_refuses_a_table_its_manifest_does_not_record(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the raw file refuses a table whose sha256 differs from the manifest's"""
+    """Test the landing directory refuses a table whose sha256 differs from the manifest's"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     shutil.copy(
@@ -227,13 +227,13 @@ def test_raw_file_refuses_a_table_its_manifest_does_not_record(
         _materialize(instance, tmp_path)
 
 
-def test_raw_file_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
-    """Test the raw file fails when the source was never observed"""
+def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
+    """Test the landing directory fails when the source was never observed"""
     with pytest.raises(ValueError, match="has no observation"):
         _materialize(dg.DagsterInstance.ephemeral(), tmp_path)
 
 
-# Each raw file stem and the table it loads into.
+# Each file stem and the table it loads into.
 RAW_TABLES = {
     "spending": "one_climate_finance.raw_climate_finance_spending",
     "crdf_commitments": "one_climate_finance.raw_climate_finance_crdf_commitments",
@@ -241,10 +241,10 @@ RAW_TABLES = {
 }
 
 
-def _raw_directory(tmp: Path, **tables: pa.Table) -> Path:
-    """A raw file directory holding the test export's tables, with `tables` in
+def _landing_directory(tmp: Path, **tables: pa.Table) -> Path:
+    """A landing directory holding the test export's tables, with `tables` in
     place of those stems"""
-    directory = tmp / "raw_file"
+    directory = tmp / "landing"
     directory.mkdir(parents=True)
     for stem in RAW_TABLES:
         exported = EXPORT / NAME / f"{stem}.parquet"
@@ -255,30 +255,30 @@ def _raw_directory(tmp: Path, **tables: pa.Table) -> Path:
 
 
 def _load_tables(duckdb: DuckDBResource, directory: Path) -> dg.ExecuteInProcessResult:
-    """Run the raw tables in a run whose raw file returned `directory`"""
+    """Run the raw tables in a run whose landing asset returned `directory`"""
 
-    @dg.asset(name="one_climate_finance_raw_file")
-    def raw_file() -> str:
+    @dg.asset(name="one_climate_finance_landing")
+    def landing() -> str:
         return str(directory)
 
     return dg.materialize(
-        [raw_file, one_climate_finance_raw_tables],
+        [landing, one_climate_finance_raw_tables],
         resources={"duckdb": duckdb},
         raise_on_error=False,
     )
 
 
-def test_raw_tables_replace_each_table_with_its_raw_file(tmp_path: Path) -> None:
-    """Test each raw file loads, as written, into its own table, replacing what an
+def test_raw_tables_replace_each_table_with_its_file(tmp_path: Path) -> None:
+    """Test each file in the landing directory loads, as written, into its own table, replacing what an
     earlier load left there"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     exported = {
         stem: pq.read_table(EXPORT / NAME / f"{stem}.parquet") for stem in RAW_TABLES
     }
     earlier = {stem: table.slice(0, 2) for stem, table in exported.items()}
-    _load_tables(duckdb, _raw_directory(tmp_path / "earlier", **earlier))
+    _load_tables(duckdb, _landing_directory(tmp_path / "earlier", **earlier))
 
-    result = _load_tables(duckdb, _raw_directory(tmp_path))
+    result = _load_tables(duckdb, _landing_directory(tmp_path))
 
     assert result.success
     with duckdb.get_connection() as connection:
@@ -307,7 +307,7 @@ def test_raw_tables_check_fails_on_an_empty_file(tmp_path: Path, stem: str) -> N
     empty = pq.read_table(EXPORT / NAME / f"{stem}.parquet").slice(0, 0)
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    result = _load_tables(duckdb, _raw_directory(tmp_path, **{stem: empty}))
+    result = _load_tables(duckdb, _landing_directory(tmp_path, **{stem: empty}))
 
     failed = {
         check.asset_key
@@ -320,7 +320,7 @@ def test_raw_tables_check_fails_on_an_empty_file(tmp_path: Path, stem: str) -> N
 
 def test_raw_metadata_loads_the_release_date(tmp_path: Path) -> None:
     """Test the metadata table holds the download time and the release's date"""
-    directory = UPath(_raw_directory(tmp_path))
+    directory = UPath(_landing_directory(tmp_path))
     downloaded_at = datetime(2026, 11, 10, 12, tzinfo=UTC)
     write_extraction_metadata(
         directory,
@@ -330,7 +330,7 @@ def test_raw_metadata_loads_the_release_date(tmp_path: Path) -> None:
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
     result = one_climate_finance_raw_metadata(
-        duckdb=duckdb, one_climate_finance_raw_file=str(directory)
+        duckdb=duckdb, one_climate_finance_landing=str(directory)
     )
 
     assert isinstance(result, dg.MaterializeResult)

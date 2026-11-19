@@ -14,8 +14,8 @@ from upath import UPath
 
 from dfo_pipelines.defs.imf.weo.assets import (
     PUBLICATION_DATE_URL,
+    fetch_weo,
     fetch_weo_publication_date,
-    fetch_weo_raw_file,
     imf_weo_dc_export,
     imf_weo_source,
 )
@@ -31,7 +31,7 @@ def return_dataframe(parquet: Path) -> pd.DataFrame:
     return pd.read_parquet(parquet)
 
 
-def test_fetch_weo_raw_file_pins_the_download_to_the_resolved_release(
+def test_fetch_weo_pins_the_download_to_the_resolved_release(
     tmp_path: Path,
 ) -> None:
     """Test the download names its release, so imf_reader cannot roll back to an older one"""
@@ -51,7 +51,7 @@ def test_fetch_weo_raw_file_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo_raw_file(file_path)
+        release_dates, metadata = fetch_weo(file_path)
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
@@ -60,7 +60,7 @@ def test_fetch_weo_raw_file_pins_the_download_to_the_resolved_release(
     assert metadata == {"version": "April 2026"}
 
 
-def test_fetch_weo_raw_file_raises_when_the_release_cannot_be_served(
+def test_fetch_weo_raises_when_the_release_cannot_be_served(
     tmp_path: Path,
 ) -> None:
     """Test an unservable release surfaces rather than rolling back to an older one"""
@@ -77,7 +77,7 @@ def test_fetch_weo_raw_file_raises_when_the_release_cannot_be_served(
         ),
         pytest.raises(NoDataError, match="no data for April;2026"),
     ):
-        fetch_weo_raw_file(file_path)
+        fetch_weo(file_path)
 
     assert not file_path.exists()
 

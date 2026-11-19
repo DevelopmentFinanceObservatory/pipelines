@@ -77,7 +77,7 @@ def fetch_bulk_file(
     """Download the bulk file `label` lists at `flow_url` to `file_path`
 
     Args:
-        file_path: Path the raw file asset writes `data.parquet` to.
+        file_path: Path the landing asset writes `data.parquet` to.
         flow_url: The OECD dataflow URL listing the bulk file.
         label: The bulk file's label in the dataflow's annotations.
         download: oda_reader's bulk download function for the file.

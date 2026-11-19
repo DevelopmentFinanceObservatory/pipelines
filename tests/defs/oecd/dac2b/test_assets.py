@@ -11,7 +11,7 @@ from oda_reader.download.download_tools import DAC2B_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac2b.assets import (
-    fetch_dac2b_raw_file,
+    fetch_dac2b,
     oecd_dac2b_dc_export,
     oecd_dac2b_raw_table,
     oecd_dac2b_source,
@@ -50,8 +50,8 @@ def test_dac2b_source_observes_the_dac2b_bulk_file() -> None:
     }
 
 
-def test_dac2b_raw_file_dates_the_release_from_the_url() -> None:
-    """Test the raw file fetches the DAC2b bulk file and dates the release from its URL"""
+def test_fetch_dac2b_dates_the_release_from_the_url() -> None:
+    """Test the landing asset fetches the DAC2b bulk file and dates the release from its URL"""
     with (
         patch(
             "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file", autospec=True
@@ -61,7 +61,7 @@ def test_dac2b_raw_file_dates_the_release_from_the_url() -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac2b_raw_file(UPath("data.parquet"))
+        fetch_dac2b(UPath("data.parquet"))
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC2B_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE
@@ -82,7 +82,7 @@ def test_dac2b_raw_table_renames_the_columns_that_differ_only_in_case(
     """Test the DAC2b raw table gives each case-colliding column pair distinct names"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
 
-    oecd_dac2b_raw_table(duckdb=duckdb, raw_file=str(FIXTURES / "data.parquet"))
+    oecd_dac2b_raw_table(duckdb=duckdb, landing_file=str(FIXTURES / "data.parquet"))
 
     assert {
         "recipient_code",
