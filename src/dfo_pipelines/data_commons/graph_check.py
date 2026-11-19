@@ -38,7 +38,7 @@ CHECK_PATH = "/api/graph/schema/check"
 # The most rows one request carries, the route's `CHECK_MAX_ROWS`.
 CHECK_MAX_ROWS = 2_000
 
-# The route gives each check a 30 s deadline; this leaves room for the hops before it.
+# The route gives each check a 30 s deadline. This leaves room for the hops before it.
 REQUEST_TIMEOUT_SECONDS = 40.0
 
 # The most time a check spends waiting out 503 and 429 answers, summed over its
@@ -85,7 +85,7 @@ class GraphFinding:
         statvar: The StatVar's dcid, without the `dcid:` prefix.
         field: The row member the finding is about, e.g. `stat_type` or
             `constraint_properties`.
-        property: The constraint or observation property the finding is about;
+        property: The constraint or observation property the finding is about, or
             None for the other members.
         value: What the row sent in the judged cell.
         code: The route's finding code, e.g. `node_not_held`.
@@ -217,7 +217,7 @@ def _retry_after_seconds(response: httpx.Response) -> float | None:
         when = parsedate_to_datetime(header)
     except (TypeError, ValueError):
         return None
-    # An HTTP date is in GMT; a `-0000` zone parses as a naive datetime.
+    # An HTTP date is in GMT, and a `-0000` zone parses as a naive datetime.
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
     return max(0.0, (when - datetime.now(UTC)).total_seconds())
@@ -254,8 +254,8 @@ class _Session:
     waited: float = 0.0
 
     def post(self, rows: Sequence[Mapping[str, Any]]) -> object:
-        """The route's answer to `rows`, after waiting out 503 and 429 answers: the
-        parsed body of a 200, or the refusal of a 400 naming one row"""
+        """The route's answer to `rows` after waiting out 503 and 429 answers, which
+        is the parsed body of a 200 or the refusal of a 400 naming one row"""
         while True:
             try:
                 response = self.client.post(CHECK_PATH, json={"rows": list(rows)})
@@ -322,7 +322,7 @@ def _read_answer(body: object, *, sent: int) -> tuple[int, list[dict[str, Any]]]
             raise GraphCheckError(
                 f"a finding lacks one of {', '.join(FINDING_MEMBERS)}: {finding!r}"
             )
-        # Parsed JSON: an object's keys are strings.
+        # Parsed JSON objects have string keys.
         finding = cast(dict[str, Any], finding)
         row = finding["row"]
         if not isinstance(row, int) or isinstance(row, bool) or not 0 <= row < checked:
@@ -352,7 +352,7 @@ def check_rows(
     session = _Session(client=client, sleep=sleep)
     findings: list[tuple[int, dict[str, Any]]] = []
     refused: list[tuple[int, _Refusal]] = []
-    # The indices of the rows not refused; those before `start` are checked.
+    # The indices of the rows not refused. Those before `start` are checked.
     pending = list(range(len(rows)))
     start = 0
     while start < len(pending):
@@ -379,8 +379,8 @@ def check_statvars(
     client: httpx.Client,
     sleep: Callable[[float], None] = time.sleep,
 ) -> GraphCheck:
-    """What the Graph API makes of a StatVar model's rows, less the findings that
-    a StatVar the rows define is absent.
+    """What the Graph API makes of a StatVar model's rows, less the absent-node
+    findings on StatVars the rows define.
 
     Args:
         statvars: The StatVar model's rows, keyed on column name.

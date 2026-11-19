@@ -208,7 +208,8 @@ class ExportMetadata:
         statvar_count: Count of StatVars declared in the MCF.
         observation_file_count: Count of files the observations were partitioned into.
         check_findings: Count of findings and refused rows the Graph API's schema
-            check made over the StatVars, or None when the check was skipped.
+            check made over the StatVars, or None when the check was skipped or could
+            not finish.
     """
 
     observation_count: int
@@ -237,11 +238,11 @@ def _check_statvars(
     spec: ExportSpec, *, connection: DuckDBPyConnection, log: logging.Logger
 ) -> int | None:
     """Count of the Graph API's findings and refused rows over the spec's StatVars,
-    logged as warnings, or None when the check is skipped because the Graph API is
-    unset or cannot finish the check"""
+    logged as warnings, or None when the check is skipped because
+    `DFO_GRAPH_API_URL` is unset or cannot finish"""
     base_url = graph_api_url()
     if base_url is None:
-        log.info(f"Skipping the graph check: {GRAPH_API_URL_VARIABLE} is unset")
+        log.info(f"Skipping the graph check because {GRAPH_API_URL_VARIABLE} is unset")
         return None
     # The check never fails the export, whatever goes wrong in it.
     try:
@@ -380,8 +381,8 @@ def export_bundle(
     log.info("Writing MCF files")
     manager.export_all(str(out_dir), validate_data=True)
 
-    # Warn-only: the check reads the served graph, which lacks the nodes a
-    # pipeline adds until its ontology, shared and own bundles are ingested.
+    # The check only warns, because the served graph lacks the nodes a pipeline
+    # adds until its ontology, shared and own bundles are ingested.
     check_findings = _check_statvars(spec, connection=connection, log=log)
 
     log.info("Writing observations")
