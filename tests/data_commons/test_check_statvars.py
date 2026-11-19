@@ -6,11 +6,13 @@ from typing import Any
 
 import duckdb
 import httpx
+import pyarrow
 import pytest
 
 from dfo_pipelines.data_commons.graph_check import (
     DEFAULT_GRAPH_API_URL,
     GRAPH_API_URL_VARIABLE,
+    REFUSED_ROW_LIMIT,
 )
 from scripts import check_statvars
 
@@ -157,3 +159,44 @@ def test_main_exits_unchecked_when_the_model_is_missing(
     monkeypatch.setenv("DUCKDB_PATH", str(path))
 
     assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+
+
+def test_main_exits_unchecked_when_the_rows_cannot_be_converted(
+    database: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a pyarrow error reading the model exits unchecked, as a DuckDB one does"""
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+
+    def unsupported(connection: object, model: str) -> list[dict[str, Any]]:
+        raise pyarrow.ArrowInvalid("unsupported type")
+
+    monkeypatch.setattr(check_statvars, "get_model_rows", unsupported)
+
+    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+
+
+def test_main_prints_the_refused_rows_it_gathered_before_the_limit(
+    database: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test the command prints the rows refused before the check gave up on the
+    refused-row limit, and exits unchecked"""
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.graph_check.open_client",
+        lambda base_url: httpx.Client(
+            base_url=base_url, transport=httpx.MockTransport(refused)
+        ),
+    )
+    monkeypatch.setattr(
+        check_statvars,
+        "get_model_rows",
+        lambda connection, model: [
+            {"dcid": f"dcid:Variable{index}", "stat_type": "dcid:measuredValue"}
+            for index in range(REFUSED_ROW_LIMIT + 5)
+        ],
+    )
+
+    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+    assert len(capsys.readouterr().out.splitlines()) == REFUSED_ROW_LIMIT + 1

@@ -6,12 +6,13 @@ names, and prints each finding. Run it after `dbt build`:
 
     uv run --env-file .env python scripts/check_statvars.py oecd_dac2a
 
-It exits 0 when the check finds no error, 1 when it finds an error or the Graph API
-refuses a row, and 2 when the check could not run: `DUCKDB_PATH` is unset, the
-model cannot be read, the Graph API is unreachable, kept answering 503 or 429 past
-the wait limit, refused more rows than the check's limit, or answered something
-the check cannot read, or the check raised an error it does not expect. The check
-has no time limit. Warnings are printed and leave the exit code alone.
+It exits 0 when the check finds no error, 1 when it finds an error or a row is
+refused, by the Graph API or before sending, and 2 when the check could not run:
+`DUCKDB_PATH` is unset, the model cannot be read, the Graph API is unreachable, kept
+answering 503 or 429 past the wait limit, refused more rows than the check's limit,
+or answered something the check cannot read, or the check raised an error it does
+not expect. When it stops for refused rows it prints those it gathered first. The
+check has no time limit. Warnings are printed and leave the exit code alone.
 """
 
 import argparse
@@ -19,6 +20,7 @@ import os
 import sys
 
 import duckdb
+import pyarrow
 
 from dfo_pipelines.data_commons.graph_check import (
     GraphCheckError,
@@ -48,12 +50,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with duckdb.connect(database, read_only=True) as connection:
             statvars = get_model_rows(connection, spec.statvar_model)
-    except duckdb.Error as error:
+    except (duckdb.Error, pyarrow.ArrowException) as error:
         print(f"Could not read {spec.statvar_model}: {error}", file=sys.stderr)
         return EXIT_UNCHECKED
     try:
         check = check_spec(spec, statvars, base_url=base_url)
     except GraphCheckError as error:
+        for refused in error.refused:
+            print(refused)
         print(f"The check did not finish: {error}", file=sys.stderr)
         return EXIT_UNCHECKED
     # An unexpected error leaves the StatVars unchecked, which exit 1 would hide.

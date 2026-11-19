@@ -2,6 +2,7 @@ import dataclasses
 import json
 import logging
 import shutil
+import threading
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -340,31 +341,17 @@ def refuse(request: httpx.Request) -> httpx.Response:
             id="refusal naming no row",
         ),
         pytest.param(lambda request: httpx.Response(200, text="<html>"), id="not JSON"),
-        pytest.param(None, id="past the time limit"),
     ],
 )
 def test_export_bundle_warns_when_the_graph_check_cannot_finish(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
-    answer: Callable[[httpx.Request], httpx.Response] | None,
+    answer: Callable[[httpx.Request], httpx.Response],
 ) -> None:
-    """Test a check that cannot finish, or runs past the export's time limit, logs
-    a warning with its cause and leaves the export to finish, its findings
-    uncounted"""
-    if answer is None:
-        monkeypatch.setattr(
-            "dfo_pipelines.data_commons.export.GRAPH_CHECK_TIME_LIMIT_SECONDS", 0.0
-        )
-    stub_graph_api(
-        monkeypatch,
-        answer
-        or (
-            lambda request: httpx.Response(
-                200, json={"rows_checked": 2, "findings": []}
-            )
-        ),
-    )
+    """Test a check that cannot finish logs a warning with its cause and leaves the
+    export to finish, its findings uncounted"""
+    stub_graph_api(monkeypatch, answer)
 
     with caplog.at_level(logging.WARNING, logger=LOG.name):
         metadata, out_dir = run_export(tmp_path)
@@ -372,6 +359,36 @@ def test_export_bundle_warns_when_the_graph_check_cannot_finish(
     assert metadata.check_findings is None
     [warning] = warnings_logged(caplog)
     assert warning.exc_info is not None
+    assert (out_dir / "config.json").exists()
+
+
+def test_export_bundle_stops_waiting_for_a_graph_check_past_the_time_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test an export finishes at the limit while a request is still unanswered,
+    logging a warning and leaving its findings uncounted"""
+    release = threading.Event()
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.export.GRAPH_CHECK_TIME_LIMIT_SECONDS", 0.05
+    )
+
+    def stalled(request: httpx.Request) -> httpx.Response:
+        # Bounded, so a fault that waits for the worker ends the test.
+        release.wait(timeout=10)
+        return httpx.Response(200, json={"rows_checked": 2, "findings": []})
+
+    stub_graph_api(monkeypatch, stalled)
+
+    try:
+        with caplog.at_level(logging.WARNING, logger=LOG.name):
+            metadata, out_dir = run_export(tmp_path)
+    finally:
+        release.set()
+
+    assert metadata.check_findings is None
+    assert len(warnings_logged(caplog)) == 1
     assert (out_dir / "config.json").exists()
 
 

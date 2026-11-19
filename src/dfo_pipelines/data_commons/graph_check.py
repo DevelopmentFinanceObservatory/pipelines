@@ -16,8 +16,9 @@ denominator, would read as missing, so a `node_not_held`, `node_untyped` or
 StatVar model's `dcid` column is dropped. The denominator is the one field where a
 StatVar is a valid value, so the same finding on any other field is kept.
 
-A row with a number JSON cannot carry, NaN or an infinity, is refused without being
-sent, since the route refuses any number that is not finite.
+A row with a number JSON cannot carry, NaN or an infinity, is refused before sending,
+since the route refuses any number that is not finite. Every refused row names its
+index among the model's rows.
 """
 
 import math
@@ -95,7 +96,7 @@ SHAPE_COLUMNS = (
     "measurement_denominator",
 )
 
-# A namespace prefix, such as `dcid:`, `dcs:` or `schema:`.
+# A leading namespace token, such as `dcid:`, `dcs:` or `schema:`.
 NAMESPACE_PREFIX = re.compile(r"^[A-Za-z]\w*:")
 
 
@@ -104,7 +105,15 @@ class GraphCheckError(Exception):
     unreachable, kept answering 503 or 429 past `RETRY_WAIT_LIMIT_SECONDS` or 502
     and 504 past `GATEWAY_RETRIES`, refused the request as a whole or more than
     `REFUSED_ROW_LIMIT` rows, answered something the check cannot read, or the
-    check ran past its time limit."""
+    check ran past its time limit.
+
+    Attributes:
+        refused: The rows refused before the check gave up, in row order.
+    """
+
+    def __init__(self, message: str, *, refused: Sequence["RefusedRow"] = ()) -> None:
+        super().__init__(message)
+        self.refused = list(refused)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -112,7 +121,7 @@ class GraphFinding:
     """One fault the Graph API found in one StatVar.
 
     Attributes:
-        statvar: The StatVar's dcid, without the `dcid:` prefix.
+        statvar: The StatVar's dcid, without its namespace prefix.
         field: The row member the finding is about, e.g. `stat_type` or
             `constraint_properties`.
         property: The constraint or observation property the finding is about, or
@@ -138,23 +147,25 @@ class GraphFinding:
 
 @dataclass(frozen=True, kw_only=True)
 class RefusedRow:
-    """One StatVar the Graph API refused to check, because its row does not fit the
-    route's request model.
+    """One StatVar the check did not judge, because its row does not fit the route's
+    request model: the route refused it, or the check refused it before sending.
 
     Attributes:
-        statvar: The StatVar's dcid, without the `dcid:` prefix.
-        pointer: Where in the request the refusal points, e.g.
-            `/rows/0/constraint_properties`. A row refused without being sent
-            names its index among the model's rows.
-        detail: What the refusal says is wrong.
+        statvar: The StatVar's dcid, without its namespace prefix.
+        pointer: Where the refusal points, e.g. `/rows/0/constraint_properties`,
+            with the row's index among the model's rows.
+        detail: What is wrong.
+        before_sending: Whether the check refused the row without sending it.
     """
 
     statvar: str | None
     pointer: str
     detail: str
+    before_sending: bool = False
 
     def __str__(self) -> str:
-        return f"{self.statvar}: refused at {self.pointer}: {self.detail}"
+        how = "refused before sending" if self.before_sending else "refused"
+        return f"{self.statvar}: {how} at {self.pointer}: {self.detail}"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -199,13 +210,13 @@ def open_client(
 
 
 def _reference(text: str) -> str:
-    """A node reference with its namespace prefix dropped, as the dbt macro
-    `strip_dcid_namespace` drops it"""
+    """A node reference with its leading namespace token dropped: one `[A-Za-z]\\w*:`,
+    such as `dcid:` or `dcs:`"""
     return NAMESPACE_PREFIX.sub("", text.strip()).strip()
 
 
 def _node(value: Any) -> str | int | float | bool | None:
-    """A cell as the route reads it: a string's leading `dcid:` dropped, and a value
+    """A cell as the route reads it: a string's leading namespace token dropped, and a value
     JSON has no type for, such as a DuckDB decimal, sent as its text"""
     if isinstance(value, str):
         return _reference(value)
@@ -262,10 +273,11 @@ def _retry_after_seconds(response: httpx.Response) -> float | None:
 
 @dataclass(frozen=True)
 class _Refusal:
-    """A 400 whose pointer names row `row` of the request"""
+    """A 400 whose pointer names row `row` of the request, and `member` under it,
+    which is empty for the row itself"""
 
     row: int
-    pointer: str
+    member: str
     detail: str
 
 
@@ -281,7 +293,9 @@ def _refusal(response: httpx.Response) -> _Refusal | None:
     if named is None:
         return None
     detail = body.get("detail") or body.get("title") or "the Graph API refused the row"
-    return _Refusal(row=int(named[1]), pointer=body["pointer"], detail=str(detail))
+    return _Refusal(
+        row=int(named[1]), member=body["pointer"][named.end(1) :], detail=str(detail)
+    )
 
 
 @dataclass
@@ -326,8 +340,18 @@ class _Session:
             timeout = min(REQUEST_TIMEOUT_SECONDS, self._remaining())
             try:
                 response = self.client.post(
-                    CHECK_PATH, json={"rows": list(rows)}, timeout=timeout
+                    CHECK_PATH,
+                    json={"rows": list(rows)},
+                    timeout=httpx.Timeout(timeout),
                 )
+            except httpx.TimeoutException as error:
+                if timeout < REQUEST_TIMEOUT_SECONDS:
+                    raise GraphCheckError(
+                        "the graph check ran past its time limit"
+                    ) from error
+                raise GraphCheckError(
+                    f"the Graph API is unreachable: {error!r}"
+                ) from error
             except (httpx.HTTPError, httpx.InvalidURL) as error:
                 raise GraphCheckError(
                     f"the Graph API is unreachable: {error!r}"
@@ -434,11 +458,11 @@ def check_rows(
     sleep: Callable[[float], None] = time.sleep,
     time_limit: float | None = None,
     clock: Callable[[], float] = time.monotonic,
-) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, _Refusal]]]:
-    """Every finding the route makes over `rows`, and every row it refuses, each
-    with the index of its row.
+) -> tuple[list[tuple[int, dict[str, Any]]], list[RefusedRow]]:
+    """Every finding the route makes over `rows` with the index of its row, and every
+    row refused, in row order.
 
-    A row holding a number that is not finite is refused without being sent. Each
+    A row holding a number that is not finite is refused before sending. Each
     request carries up to `CHECK_MAX_ROWS` of the rows neither checked nor refused,
     in order, and the next starts after the rows its answer checked. A 400 naming
     one row of a request drops that row from the next.
@@ -455,7 +479,8 @@ def check_rows(
         GraphCheckError: If the Graph API cannot be reached, answers other than 200
             or a 400 naming one row once the 503 and 429 answers are waited out,
             refuses more than `REFUSED_ROW_LIMIT` rows, or answers something
-            `_read_answer` cannot read, or the check runs past `time_limit`.
+            `_read_answer` cannot read, or the check runs past `time_limit`. The
+            error carries the rows refused so far.
     """
     session = _Session(
         client=client,
@@ -464,19 +489,27 @@ def check_rows(
         deadline=None if time_limit is None else clock() + time_limit,
     )
     findings: list[tuple[int, dict[str, Any]]] = []
-    refused: list[tuple[int, _Refusal]] = []
+    refused: list[RefusedRow] = []
+    # The rows the route refused, which count toward `REFUSED_ROW_LIMIT`.
+    route_refusals = 0
     # The indices of the rows not refused. Those before `start` are checked.
     pending: list[int] = []
     for index, row in enumerate(rows):
         if (member := _not_finite(row)) is None:
             pending.append(index)
             continue
-        refusal = _Refusal(
-            row=index,
-            pointer=f"/rows/{index}{member}",
-            detail="the number is not finite, which JSON cannot carry",
+        refused.append(
+            RefusedRow(
+                statvar=row["dcid"],
+                pointer=f"/rows/{index}{member}",
+                detail="the number is not finite, which JSON cannot carry",
+                before_sending=True,
+            )
         )
-        refused.append((index, refusal))
+
+    def in_row_order() -> list[RefusedRow]:
+        return sorted(refused, key=lambda item: _row_index(item.pointer))
+
     start = 0
     while start < len(pending):
         sent = pending[start : start + CHECK_MAX_ROWS]
@@ -484,20 +517,36 @@ def check_rows(
         if isinstance(answer, _Refusal):
             if answer.row >= len(sent):
                 raise GraphCheckError(
-                    f"the Graph API refused row {answer.row} of {len(sent)} sent"
+                    f"the Graph API refused row {answer.row} of {len(sent)} sent",
+                    refused=in_row_order(),
                 )
-            refused.append((sent[answer.row], answer))
-            if len(refused) > REFUSED_ROW_LIMIT:
+            index = sent[answer.row]
+            refused.append(
+                RefusedRow(
+                    statvar=rows[index]["dcid"],
+                    pointer=f"/rows/{index}{answer.member}",
+                    detail=answer.detail,
+                )
+            )
+            route_refusals += 1
+            if route_refusals > REFUSED_ROW_LIMIT:
                 raise GraphCheckError(
-                    f"the Graph API refused more than {REFUSED_ROW_LIMIT} rows"
+                    f"the Graph API refused more than {REFUSED_ROW_LIMIT} rows",
+                    refused=in_row_order(),
                 )
             del pending[start + answer.row]
             continue
         checked, answer_findings = _read_answer(answer, sent=len(sent))
         findings.extend((sent[finding["row"]], finding) for finding in answer_findings)
         start += checked
-    refused.sort(key=lambda item: item[0])
-    return findings, refused
+    return findings, in_row_order()
+
+
+def _row_index(pointer: str) -> int:
+    """The model row index a `/rows/<i>` pointer names"""
+    named = ROW_POINTER.match(pointer)
+    assert named is not None
+    return int(named[1])
 
 
 def check_statvars(
@@ -547,14 +596,7 @@ def check_statvars(
                 and finding["value"] in defined
             )
         ],
-        refused=[
-            RefusedRow(
-                statvar=rows[index]["dcid"],
-                pointer=refusal.pointer,
-                detail=refusal.detail,
-            )
-            for index, refusal in refused
-        ],
+        refused=refused,
     )
 
 

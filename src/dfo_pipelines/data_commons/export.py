@@ -17,6 +17,8 @@ recipe, so every export states its recipe, or that it has none, on its spec.
 import hashlib
 import logging
 import tempfile
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -31,6 +33,7 @@ from duckdb import DuckDBPyConnection
 from upath import UPath
 
 from dfo_pipelines.data_commons.graph_check import (
+    GraphCheck,
     check_spec,
     finding_groups,
     graph_api_url,
@@ -39,8 +42,8 @@ from dfo_pipelines.data_commons.graph_check import (
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.warehouse import get_model_rows
 
-# The most time the export's graph check may spend, in seconds. The public Graph
-# API checks a model of about a thousand StatVars in under a second.
+# The most time the export's graph check may spend, in seconds, from the start of the
+# model read. The public Graph API checks a model of about a thousand StatVars in under a second.
 GRAPH_CHECK_TIME_LIMIT_SECONDS = 300.0
 
 # The observations are written one file per distinct value of this column. Every
@@ -240,30 +243,58 @@ def _check_statvars(
     spec: ExportSpec, *, connection: DuckDBPyConnection, log: logging.Logger
 ) -> int | None:
     """Count of the Graph API's findings and refused rows over the spec's StatVars,
-    logged as warnings, or None when the check cannot finish"""
+    logged as warnings, or None when the check cannot finish.
+
+    The check runs in a daemon worker thread that the export waits for until
+    `GRAPH_CHECK_TIME_LIMIT_SECONDS` after the model read began, so the limit holds
+    however a request stalls. A worker still running at the limit is abandoned.
+    """
     base_url = graph_api_url()
-    # The check never fails the export, whatever goes wrong in it.
-    try:
-        check = check_spec(
-            spec,
-            get_model_rows(connection, spec.statvar_model),
-            base_url=base_url,
-            time_limit=GRAPH_CHECK_TIME_LIMIT_SECONDS,
+    started = time.monotonic()
+    outcome: list[GraphCheck | Exception] = []
+
+    def work() -> None:
+        # The check never fails the export, whatever goes wrong in it.
+        try:
+            # A cursor, since the export goes on using `connection` if the worker
+            # outlives the limit.
+            rows = get_model_rows(connection.cursor(), spec.statvar_model)
+            outcome.append(
+                check_spec(
+                    spec,
+                    rows,
+                    base_url=base_url,
+                    time_limit=GRAPH_CHECK_TIME_LIMIT_SECONDS
+                    - (time.monotonic() - started),
+                )
+            )
+        except Exception as error:
+            outcome.append(error)
+
+    worker = threading.Thread(target=work, name="graph-check", daemon=True)
+    worker.start()
+    worker.join(timeout=GRAPH_CHECK_TIME_LIMIT_SECONDS)
+    if not outcome:
+        log.warning(
+            "The graph check did not finish: it ran past its time limit of"
+            f" {GRAPH_CHECK_TIME_LIMIT_SECONDS:.0f} s"
         )
-        lines = [
-            *finding_groups(check.findings),
-            *(str(refused) for refused in check.refused),
-        ]
-    except Exception:
-        log.warning("The graph check did not finish", exc_info=True)
         return None
+    [result] = outcome
+    if isinstance(result, Exception):
+        log.warning("The graph check did not finish", exc_info=result)
+        return None
+    lines = [
+        *finding_groups(result.findings),
+        *(str(refused) for refused in result.refused),
+    ]
     for line in lines:
         log.warning(f"Graph check: {line}")
     log.info(
-        f"The graph check found {plural(len(check.findings), 'finding')}"
-        f" and refused {plural(len(check.refused), 'row')}"
+        f"The graph check found {plural(len(result.findings), 'finding')}"
+        f" and refused {plural(len(result.refused), 'row')}"
     )
-    return check.count
+    return result.count
 
 
 def _file_pattern(stem: str) -> str:

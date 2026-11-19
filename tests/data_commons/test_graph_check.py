@@ -76,12 +76,14 @@ class Route:
         self.answer_seconds = answer_seconds
         self.requests: list[list[dict[str, Any]]] = []
         self.waits: list[float] = []
+        self.timeouts: list[dict[str, float | None]] = []
         self.now = 0.0
 
     def _answer(self, request: httpx.Request) -> httpx.Response:
         assert request.url.path == CHECK_PATH
         rows = json.loads(request.content)["rows"]
         self.requests.append(rows)
+        self.timeouts.append(request.extensions["timeout"])
         self.now += self.answer_seconds
         return self.handler(rows)
 
@@ -267,6 +269,37 @@ def test_check_statvars_gives_up_past_the_time_limit(
     assert route.now <= 40.0
 
 
+def test_check_statvars_caps_each_request_timeout_at_the_time_left() -> None:
+    """Test every timeout of a request, connect, read, write and pool, is the time
+    left when that is under the request timeout"""
+    route = Route(lambda rows: answer(1), answer_seconds=20.0)
+
+    with pytest.raises(GraphCheckError):
+        route.check(
+            [statvar(f"Variable{index}") for index in range(3)], time_limit=30.0
+        )
+
+    assert route.timeouts == [
+        dict.fromkeys(("connect", "read", "write", "pool"), 30.0),
+        dict.fromkeys(("connect", "read", "write", "pool"), 10.0),
+    ]
+
+
+def test_check_statvars_reports_a_request_timed_out_by_the_limit_as_the_limit() -> None:
+    """Test a request that times out within the time left is a time limit failure,
+    while one that times out with the full request timeout is unreachable"""
+
+    def times_out(rows: list[dict[str, Any]]) -> httpx.Response:
+        raise httpx.ReadTimeout("slow")
+
+    capped = Route(times_out, answer_seconds=29.9)
+    with pytest.raises(GraphCheckError, match="time limit"):
+        capped.check([statvar("Variable1")], time_limit=30.0)
+    uncapped = Route(times_out)
+    with pytest.raises(GraphCheckError, match="unreachable"):
+        uncapped.check([statvar("Variable1")], time_limit=3_000.0)
+
+
 @pytest.mark.parametrize(
     ("retry_after", "waits"),
     [
@@ -413,10 +446,38 @@ def test_check_statvars_gives_up_after_the_refused_row_limit() -> None:
         lambda rows: httpx.Response(400, json={"detail": "bad", "pointer": "/rows/0"})
     )
 
-    with pytest.raises(GraphCheckError):
+    with pytest.raises(GraphCheckError) as error:
         route.check([statvar(f"Variable{index}") for index in range(1_000)])
 
     assert len(route.requests) == REFUSED_ROW_LIMIT + 1
+    assert len(error.value.refused) == REFUSED_ROW_LIMIT + 1
+
+
+def test_check_statvars_counts_only_route_refusals_toward_the_refused_row_limit() -> (
+    None
+):
+    """Test rows refused before sending leave the limit to the route's refusals, and
+    every refused row names its index among the model's rows"""
+    refusals = iter(
+        [httpx.Response(400, json={"detail": "bad", "pointer": "/rows/1/stat_type"})]
+    )
+    route = Route(lambda rows: next(refusals, None) or answer(len(rows)))
+    nan = float("nan")
+    statvars = [
+        *(statvar(f"Nan{index}", aid_type=nan) for index in range(REFUSED_ROW_LIMIT)),
+        statvar("Variable1"),
+        statvar("Variable2"),
+    ]
+
+    check = route.check(statvars)
+
+    assert len(check.refused) == REFUSED_ROW_LIMIT + 1
+    assert [(r.statvar, r.pointer) for r in check.refused][-1] == (
+        "Variable2",
+        f"/rows/{REFUSED_ROW_LIMIT + 1}/stat_type",
+    )
+    assert sum(r.before_sending for r in check.refused) == REFUSED_ROW_LIMIT
+    assert "refused before sending" in str(check.refused[0])
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf")], ids=["nan", "inf"])
@@ -455,6 +516,12 @@ def test_check_statvars_drops_absent_node_findings_on_statvars_the_rows_define()
             finding(0, field="measured_property", property=None, value="Variable2"),
             finding(0, value="Variable2"),
             finding(
+                0,
+                field="measurement_denominator",
+                property=None,
+                value="Missing1",
+            ),
+            finding(
                 1,
                 field="measurement_denominator",
                 property=None,
@@ -477,6 +544,7 @@ def test_check_statvars_drops_absent_node_findings_on_statvars_the_rows_define()
         ("Variable1", "population_type", "node_not_held", "Variable2"),
         ("Variable1", "measured_property", "node_not_held", "Variable2"),
         ("Variable1", "constraint_properties", "node_not_held", "Variable2"),
+        ("Variable1", "measurement_denominator", "node_not_held", "Missing1"),
         ("Variable2", "measurement_denominator", "definition_differs", "Variable1"),
         ("Variable2", "constraint_properties", "node_not_held", "AidType9"),
     ]
