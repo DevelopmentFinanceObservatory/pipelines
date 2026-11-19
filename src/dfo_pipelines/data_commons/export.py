@@ -39,6 +39,10 @@ from dfo_pipelines.data_commons.graph_check import (
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.warehouse import get_model_rows
 
+# The most time the export's graph check may spend, in seconds. The public Graph
+# API checks a model of about a thousand StatVars in under a second.
+GRAPH_CHECK_TIME_LIMIT_SECONDS = 300.0
+
 # The observations are written one file per distinct value of this column. Every
 # pipeline's observation model carries the observation date in `date`, so the split
 # is a convention of the Data Commons layer rather than a pipeline's choice.
@@ -207,8 +211,7 @@ class ExportMetadata:
         statvar_count: Count of StatVars declared in the MCF.
         observation_file_count: Count of files the observations were partitioned into.
         check_findings: Count of findings and refused rows the Graph API's schema
-            check made over the StatVars, or None when the check was skipped or could
-            not finish.
+            check made over the StatVars, or None when the check could not finish.
     """
 
     observation_count: int
@@ -242,15 +245,20 @@ def _check_statvars(
     # The check never fails the export, whatever goes wrong in it.
     try:
         check = check_spec(
-            spec, get_model_rows(connection, spec.statvar_model), base_url=base_url
+            spec,
+            get_model_rows(connection, spec.statvar_model),
+            base_url=base_url,
+            time_limit=GRAPH_CHECK_TIME_LIMIT_SECONDS,
         )
+        lines = [
+            *finding_groups(check.findings),
+            *(str(refused) for refused in check.refused),
+        ]
     except Exception:
         log.warning("The graph check did not finish", exc_info=True)
         return None
-    for line in finding_groups(check.findings):
+    for line in lines:
         log.warning(f"Graph check: {line}")
-    for refused in check.refused:
-        log.warning(f"Graph check: {refused}")
     log.info(
         f"The graph check found {plural(len(check.findings), 'finding')}"
         f" and refused {plural(len(check.refused), 'row')}"
@@ -284,7 +292,8 @@ def export_bundle(
     Once the MCF validates, the StatVars are checked against the schema the Graph API
     serves, the public one unless `DFO_GRAPH_API_URL` names another, and the findings
     are logged as warnings, one line per distinct finding. The check never fails the
-    export, and an unreachable Graph API logs a warning.
+    export: an unreachable Graph API, or a check running past
+    `GRAPH_CHECK_TIME_LIMIT_SECONDS`, logs a warning.
 
     Args:
         spec: Models to read, and how their columns map onto Data Commons

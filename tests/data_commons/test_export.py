@@ -27,6 +27,9 @@ from dfo_pipelines.data_commons.graph_check import (
     CHECK_PATH,
     DEFAULT_GRAPH_API_URL,
     GRAPH_API_URL_VARIABLE,
+    GraphFinding,
+    RefusedRow,
+    finding_groups,
 )
 
 LOG = logging.getLogger(__name__)
@@ -269,8 +272,19 @@ def test_export_bundle_logs_and_counts_the_graph_checks_findings(
 
     assert checked == ["Variable1", "Variable2"]
     assert metadata.check_findings == 2
+    [line] = finding_groups(
+        GraphFinding(
+            statvar=statvar,
+            field="constraint_properties",
+            property="constraintProperty2",
+            value="ConstraintValue2",
+            code="node_not_held",
+            severity="error",
+        )
+        for statvar in ("Variable1", "Variable2")
+    )
     [warning] = warnings_logged(caplog)
-    assert "Variable1" in warning.message and "Variable2" in warning.message
+    assert warning.message.endswith(line)
     assert (out_dir / "custom_nodes.mcf").exists()
 
 
@@ -304,8 +318,13 @@ def test_export_bundle_counts_a_row_the_graph_api_refuses(
 
     assert sent == [["Variable1", "Variable2"], ["Variable2"]]
     assert metadata.check_findings == 1
+    refused = RefusedRow(
+        statvar="Variable1",
+        pointer="/rows/0/constraint_properties",
+        detail="constraint value is not finite",
+    )
     [warning] = warnings_logged(caplog)
-    assert "Variable1" in warning.message
+    assert warning.message.endswith(str(refused))
 
 
 def refuse(request: httpx.Request) -> httpx.Response:
@@ -321,17 +340,31 @@ def refuse(request: httpx.Request) -> httpx.Response:
             id="refusal naming no row",
         ),
         pytest.param(lambda request: httpx.Response(200, text="<html>"), id="not JSON"),
+        pytest.param(None, id="past the time limit"),
     ],
 )
 def test_export_bundle_warns_when_the_graph_check_cannot_finish(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
-    answer: Callable[[httpx.Request], httpx.Response],
+    answer: Callable[[httpx.Request], httpx.Response] | None,
 ) -> None:
-    """Test a check that cannot finish logs a warning with its cause and leaves the
-    export to finish, its findings uncounted"""
-    stub_graph_api(monkeypatch, answer)
+    """Test a check that cannot finish, or runs past the export's time limit, logs
+    a warning with its cause and leaves the export to finish, its findings
+    uncounted"""
+    if answer is None:
+        monkeypatch.setattr(
+            "dfo_pipelines.data_commons.export.GRAPH_CHECK_TIME_LIMIT_SECONDS", 0.0
+        )
+    stub_graph_api(
+        monkeypatch,
+        answer
+        or (
+            lambda request: httpx.Response(
+                200, json={"rows_checked": 2, "findings": []}
+            )
+        ),
+    )
 
     with caplog.at_level(logging.WARNING, logger=LOG.name):
         metadata, out_dir = run_export(tmp_path)

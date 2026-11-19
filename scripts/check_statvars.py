@@ -7,10 +7,11 @@ names, and prints each finding. Run it after `dbt build`:
     uv run --env-file .env python scripts/check_statvars.py oecd_dac2a
 
 It exits 0 when the check finds no error, 1 when it finds an error or the Graph API
-refuses a row, and 2 when the check could not run: `DUCKDB_PATH` is
-unset, the model cannot be read, the Graph API is
-unreachable, kept answering 503 or 429 past the wait limit, or answered something
-the check cannot read. Warnings are printed and leave the exit code alone.
+refuses a row, and 2 when the check could not run: `DUCKDB_PATH` is unset, the
+model cannot be read, the Graph API is unreachable, kept answering 503 or 429 past
+the wait limit, refused more rows than the check's limit, or answered something
+the check cannot read, or the check raised an error it does not expect. The check
+has no time limit. Warnings are printed and leave the exit code alone.
 """
 
 import argparse
@@ -54,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
         check = check_spec(spec, statvars, base_url=base_url)
     except GraphCheckError as error:
         print(f"The check did not finish: {error}", file=sys.stderr)
+        return EXIT_UNCHECKED
+    # An unexpected error leaves the StatVars unchecked, which exit 1 would hide.
+    except Exception as error:
+        print(f"The check failed: {error!r}", file=sys.stderr)
         return EXIT_UNCHECKED
 
     for finding in check.findings:

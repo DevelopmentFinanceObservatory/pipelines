@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from dfo_pipelines.data_commons.graph_check import GRAPH_API_URL_VARIABLE
+from dfo_pipelines.data_commons.graph_check import GRAPH_API_URL_VARIABLE, open_client
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 
 
@@ -16,8 +16,8 @@ def no_graph_api(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         "dfo_pipelines.data_commons.graph_check.open_client",
-        lambda base_url: httpx.Client(
-            base_url=base_url, transport=httpx.MockTransport(unreachable)
+        lambda base_url: open_client(
+            base_url, transport=httpx.MockTransport(unreachable)
         ),
     )
 

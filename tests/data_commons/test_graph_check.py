@@ -10,11 +10,14 @@ import pytest
 from dfo_pipelines.data_commons.graph_check import (
     CHECK_MAX_ROWS,
     CHECK_PATH,
+    REFUSED_ROW_LIMIT,
+    REQUEST_TIMEOUT_SECONDS,
     RETRY_WAIT_LIMIT_SECONDS,
     GraphCheck,
     GraphCheckError,
     check_spec,
     check_statvars,
+    open_client,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 
@@ -65,20 +68,30 @@ def answer(rows_checked: int, *findings: dict[str, Any]) -> httpx.Response:
 
 class Route:
     """A stub of the check route answering each request through `handler`, and
-    recording the rows each request sent"""
+    recording the rows each request sent, on a clock that each answer moves on by
+    `answer_seconds` and each wait by the seconds waited"""
 
-    def __init__(self, handler: Handler) -> None:
+    def __init__(self, handler: Handler, *, answer_seconds: float = 0.0) -> None:
         self.handler = handler
+        self.answer_seconds = answer_seconds
         self.requests: list[list[dict[str, Any]]] = []
         self.waits: list[float] = []
+        self.now = 0.0
 
     def _answer(self, request: httpx.Request) -> httpx.Response:
         assert request.url.path == CHECK_PATH
         rows = json.loads(request.content)["rows"]
         self.requests.append(rows)
+        self.now += self.answer_seconds
         return self.handler(rows)
 
-    def check(self, statvars: list[dict[str, Any]]) -> GraphCheck:
+    def _sleep(self, seconds: float) -> None:
+        self.waits.append(seconds)
+        self.now += seconds
+
+    def check(
+        self, statvars: list[dict[str, Any]], *, time_limit: float | None = None
+    ) -> GraphCheck:
         client = httpx.Client(
             base_url=BASE_URL, transport=httpx.MockTransport(self._answer)
         )
@@ -86,16 +99,26 @@ class Route:
             statvars,
             column_to_property=COLUMN_TO_PROPERTY,
             client=client,
-            sleep=self.waits.append,
+            sleep=self._sleep,
+            time_limit=time_limit,
+            clock=lambda: self.now,
         )
 
 
 def test_check_statvars_sends_each_row_in_the_routes_shape() -> None:
-    """Test a row's `dcid:` prefixes are dropped, its constraint values are read
+    """Test a row's namespace prefixes are dropped, its constraint values are read
     from the columns the spec maps, and its observation properties are listed"""
     route = Route(lambda rows: answer(len(rows)))
 
-    route.check([statvar("Variable1", measurement_denominator="dcid:Count_Person")])
+    route.check(
+        [
+            statvar(
+                "Variable1",
+                measurement_denominator="dcs:Count_Person",
+                aid_type="schema:AidType1",
+            )
+        ]
+    )
 
     assert route.requests == [
         [
@@ -193,6 +216,58 @@ def test_check_statvars_gives_up_past_the_wait_limit() -> None:
 
 
 @pytest.mark.parametrize(
+    ("statuses", "succeeds"),
+    [
+        pytest.param([502, 504], True, id="502 and 504 retried"),
+        pytest.param([502, 502, 502, 502], False, id="past the gateway retries"),
+    ],
+)
+def test_check_statvars_retries_a_gateway_error_a_few_times(
+    statuses: list[int], succeeds: bool
+) -> None:
+    """Test a 502 or 504 without `Retry-After` is waited out a few times, each wait
+    counting toward the wait limit, before it fails the check"""
+    answers = iter([*(httpx.Response(status) for status in statuses), answer(1)])
+    route = Route(lambda rows: next(answers))
+
+    if succeeds:
+        route.check([statvar("Variable1")])
+    else:
+        with pytest.raises(GraphCheckError):
+            route.check([statvar("Variable1")])
+
+    assert len(route.waits) == len(statuses) - (not succeeds)
+    assert all(wait > 0 for wait in route.waits)
+
+
+@pytest.mark.parametrize(
+    ("handler", "requests"),
+    [
+        pytest.param(lambda rows: answer(1), 2, id="slow answers"),
+        pytest.param(
+            lambda rows: httpx.Response(503, headers={"Retry-After": "25"}),
+            1,
+            id="a wait past the limit",
+        ),
+    ],
+)
+def test_check_statvars_gives_up_past_the_time_limit(
+    handler: Handler, requests: int
+) -> None:
+    """Test a check given a time limit fails once the time spent answering and
+    waiting would pass it, and sends no request after it"""
+    route = Route(handler, answer_seconds=20.0)
+
+    with pytest.raises(GraphCheckError):
+        route.check(
+            [statvar(f"Variable{index}") for index in range(3)], time_limit=30.0
+        )
+
+    assert len(route.requests) == requests
+    assert route.now <= 40.0
+
+
+@pytest.mark.parametrize(
     ("retry_after", "waits"),
     [
         pytest.param(lambda: "0", 1.0, id="zero"),
@@ -228,9 +303,14 @@ def test_check_statvars_counts_each_retry_after_toward_the_wait_limit(
     assert sum(route.waits) <= RETRY_WAIT_LIMIT_SECONDS
 
 
+def unreachable(rows: list[dict[str, Any]]) -> httpx.Response:
+    raise httpx.ConnectError("refused")
+
+
 @pytest.mark.parametrize(
-    "response",
+    "handler",
     [
+        pytest.param(unreachable, id="unreachable"),
         pytest.param(answer(0), id="no row checked"),
         pytest.param(answer(2), id="more rows than sent"),
         pytest.param(answer(1, finding(1)), id="finding past the rows checked"),
@@ -257,27 +337,39 @@ def test_check_statvars_counts_each_retry_after_toward_the_wait_limit(
             ),
             id="finding without its members",
         ),
+        pytest.param(answer(1, finding(0, property=["aidType"])), id="list property"),
+        pytest.param(answer(1, finding(0, field=["dcid"])), id="list field"),
+        pytest.param(answer(1, finding(0, code=1)), id="number code"),
+        pytest.param(answer(1, finding(0, severity=None)), id="null severity"),
     ],
 )
 def test_check_statvars_fails_on_an_answer_it_cannot_place(
-    response: httpx.Response,
+    handler: Handler | httpx.Response,
 ) -> None:
-    """Test an answer that would leave rows unchecked or misplace a finding fails
-    the check"""
-    route = Route(lambda rows: response)
+    """Test an unreachable Graph API, or an answer that would leave rows unchecked,
+    misplace a finding or carry a member of the wrong type, fails the check"""
+    route = Route(
+        (lambda rows: handler) if isinstance(handler, httpx.Response) else handler
+    )
 
     with pytest.raises(GraphCheckError):
         route.check([statvar("Variable1")])
 
 
-def test_check_statvars_fails_when_the_graph_api_is_unreachable() -> None:
-    """Test a transport error fails the check"""
+def test_open_client_posts_to_the_base_url_within_the_request_timeout() -> None:
+    """Test the client the check opens sends to the Graph API's URL and gives
+    each request the check's timeout"""
+    sent: list[httpx.Request] = []
 
-    def refuse(rows: list[dict[str, Any]]) -> httpx.Response:
-        raise httpx.ConnectError("refused")
+    def record(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return answer(1)
 
-    with pytest.raises(GraphCheckError):
-        Route(refuse).check([statvar("Variable1")])
+    with open_client(BASE_URL, transport=httpx.MockTransport(record)) as client:
+        client.post(CHECK_PATH, json={"rows": []})
+
+    assert [str(request.url) for request in sent] == [f"{BASE_URL}{CHECK_PATH}"]
+    assert sent[0].extensions["timeout"]["read"] == REQUEST_TIMEOUT_SECONDS
 
 
 def test_check_spec_fails_on_a_graph_api_url_httpx_rejects() -> None:
@@ -314,22 +406,54 @@ def test_check_statvars_skips_a_row_the_route_refuses() -> None:
     assert [f.statvar for f in check.findings] == ["Variable3"]
 
 
+def test_check_statvars_gives_up_after_the_refused_row_limit() -> None:
+    """Test a route refusing row after row fails the check once it has refused
+    more rows than the limit, rather than sending the rest again for each"""
+    route = Route(
+        lambda rows: httpx.Response(400, json={"detail": "bad", "pointer": "/rows/0"})
+    )
+
+    with pytest.raises(GraphCheckError):
+        route.check([statvar(f"Variable{index}") for index in range(1_000)])
+
+    assert len(route.requests) == REFUSED_ROW_LIMIT + 1
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")], ids=["nan", "inf"])
+def test_check_statvars_refuses_a_row_with_a_number_json_cannot_carry(
+    value: float,
+) -> None:
+    """Test a row whose cell is not a finite number is reported refused and the
+    other rows are checked"""
+    route = Route(lambda rows: answer(len(rows)))
+
+    check = route.check([statvar("Variable1", aid_type=value), statvar("Variable2")])
+
+    assert [[row["dcid"] for row in rows] for rows in route.requests] == [["Variable2"]]
+    assert [(r.statvar, r.pointer) for r in check.refused] == [
+        ("Variable1", "/rows/0/constraint_properties/aidType")
+    ]
+
+
 def test_check_statvars_drops_absent_node_findings_on_statvars_the_rows_define() -> (
     None
 ):
-    """Test a `node_not_held` or `node_untyped` finding whose value is a StatVar the
-    rows define is dropped, since the graph lacks it until ingestion, while other
-    findings on such a value are kept"""
+    """Test an absent-node finding on a denominator naming a StatVar the rows define
+    is dropped, since the graph lacks it until ingestion, while other findings on
+    such a value, and absent-node findings where a StatVar is no valid value, are
+    kept"""
     route = Route(
         lambda rows: answer(
             2,
-            finding(0, field="measurement_denominator", value="Variable2"),
-            finding(
-                0,
-                field="measurement_denominator",
-                value="Variable2",
-                code="node_untyped",
+            *(
+                finding(
+                    0, field="measurement_denominator", value="Variable2", code=code
+                )
+                for code in ("node_not_held", "node_untyped", "node_provisional")
             ),
+            finding(0, field="population_type", property=None, value="Variable2"),
+            finding(0, field="measured_property", property=None, value="Variable2"),
+            finding(0, value="Variable2"),
             finding(
                 1,
                 field="measurement_denominator",
@@ -349,7 +473,10 @@ def test_check_statvars_drops_absent_node_findings_on_statvars_the_rows_define()
         ]
     ).findings
 
-    assert [(f.statvar, f.code, f.value) for f in findings] == [
-        ("Variable2", "definition_differs", "Variable1"),
-        ("Variable2", "node_not_held", "AidType9"),
+    assert [(f.statvar, f.field, f.code, f.value) for f in findings] == [
+        ("Variable1", "population_type", "node_not_held", "Variable2"),
+        ("Variable1", "measured_property", "node_not_held", "Variable2"),
+        ("Variable1", "constraint_properties", "node_not_held", "Variable2"),
+        ("Variable2", "measurement_denominator", "definition_differs", "Variable1"),
+        ("Variable2", "constraint_properties", "node_not_held", "AidType9"),
     ]

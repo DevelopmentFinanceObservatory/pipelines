@@ -36,6 +36,10 @@ def unreachable(request: httpx.Request) -> httpx.Response:
     raise httpx.ConnectError("refused")
 
 
+def fails(request: httpx.Request) -> httpx.Response:
+    raise RuntimeError("a fault the check does not expect")
+
+
 def refused(request: httpx.Request) -> httpx.Response:
     return httpx.Response(
         400, json={"detail": "not finite", "pointer": "/rows/0/stat_type"}
@@ -73,6 +77,7 @@ def database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         ),
         pytest.param(refused, check_statvars.EXIT_FINDINGS, id="refused row"),
         pytest.param(unreachable, check_statvars.EXIT_UNCHECKED, id="unreachable"),
+        pytest.param(fails, check_statvars.EXIT_UNCHECKED, id="unexpected error"),
         pytest.param(
             lambda request: httpx.Response(200, text="<html>"),
             check_statvars.EXIT_UNCHECKED,
@@ -135,7 +140,7 @@ def test_main_checks_the_default_graph_api_when_the_variable_is_unset_or_empty(
 def test_main_exits_unchecked_when_duckdb_path_is_unset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test the command exits 2, not 1, when it has no database to read"""
+    """Test the command exits unchecked when it has no database to read"""
     monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
     monkeypatch.delenv("DUCKDB_PATH", raising=False)
 
@@ -145,7 +150,7 @@ def test_main_exits_unchecked_when_duckdb_path_is_unset(
 def test_main_exits_unchecked_when_the_model_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test the command exits 2, not 1, when the StatVar model is not built"""
+    """Test the command exits unchecked when the StatVar model is not built"""
     path = tmp_path / "database.duckdb"
     duckdb.connect(str(path)).close()
     monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
