@@ -32,10 +32,10 @@ from upath import UPath
 
 from dfo_pipelines.data_commons.graph_check import (
     GRAPH_API_URL_VARIABLE,
-    GraphCheckError,
-    check_statvars,
+    check_spec,
+    finding_groups,
     graph_api_url,
-    open_client,
+    plural,
 )
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.warehouse import get_model_rows
@@ -207,8 +207,8 @@ class ExportMetadata:
         observation_count: Count of observations written across every file.
         statvar_count: Count of StatVars declared in the MCF.
         observation_file_count: Count of files the observations were partitioned into.
-        check_findings: Count of findings the Graph API's schema check made over
-            the StatVars, or None when the check was skipped.
+        check_findings: Count of findings and refused rows the Graph API's schema
+            check made over the StatVars, or None when the check was skipped.
     """
 
     observation_count: int
@@ -236,27 +236,30 @@ def _provenance_property_value(column: str, value: Any) -> str:
 def _check_statvars(
     spec: ExportSpec, *, connection: DuckDBPyConnection, log: logging.Logger
 ) -> int | None:
-    """Count of the Graph API's findings over the spec's StatVars, each logged as a
-    warning, or None when the check is skipped because the Graph API is unset or
-    cannot finish the check"""
+    """Count of the Graph API's findings and refused rows over the spec's StatVars,
+    logged as warnings, or None when the check is skipped because the Graph API is
+    unset or cannot finish the check"""
     base_url = graph_api_url()
     if base_url is None:
         log.info(f"Skipping the graph check: {GRAPH_API_URL_VARIABLE} is unset")
         return None
+    # The check never fails the export, whatever goes wrong in it.
     try:
-        with open_client(base_url) as client:
-            findings = check_statvars(
-                get_model_rows(connection, spec.statvar_model),
-                column_to_property=spec.statvar_column_to_property,
-                client=client,
-            )
-    except GraphCheckError as error:
-        log.info(f"Skipping the graph check: {error}")
+        check = check_spec(
+            spec, get_model_rows(connection, spec.statvar_model), base_url=base_url
+        )
+    except Exception:
+        log.warning("The graph check did not finish", exc_info=True)
         return None
-    for finding in findings:
-        log.warning(f"Graph check: {finding}")
-    log.info(f"The graph check found {len(findings)} findings")
-    return len(findings)
+    for line in finding_groups(check.findings):
+        log.warning(f"Graph check: {line}")
+    for refused in check.refused:
+        log.warning(f"Graph check: {refused}")
+    log.info(
+        f"The graph check found {plural(len(check.findings), 'finding')}"
+        f" and refused {plural(len(check.refused), 'row')}"
+    )
+    return check.count
 
 
 def _file_pattern(stem: str) -> str:
@@ -283,8 +286,8 @@ def export_bundle(
     after it, while everything the config records is registered before it.
 
     When `DFO_GRAPH_API_URL` names a deployment, the StatVars are checked against
-    its served schema and each finding is logged as a warning. The check never
-    fails the export.
+    its served schema, once the MCF validates, and the findings are logged as
+    warnings, one line per distinct finding. The check never fails the export.
 
     Args:
         spec: Models to read, and how their columns map onto Data Commons
@@ -354,9 +357,6 @@ def export_bundle(
             " (format csv, header)",
             [str(statvars_csv)],
         ).fetchall()[0]
-        # Warn-only: the check reads the served graph, which lacks the nodes a
-        # pipeline adds until its ontology, shared and own bundles are ingested.
-        check_findings = _check_statvars(spec, connection=connection, log=log)
         manager.add_variables_to_mcf_from_csv(
             statvars_csv,
             column_to_property_mapping=spec.statvar_column_to_property,
@@ -379,6 +379,10 @@ def export_bundle(
 
     log.info("Writing MCF files")
     manager.export_all(str(out_dir), validate_data=True)
+
+    # Warn-only: the check reads the served graph, which lacks the nodes a
+    # pipeline adds until its ontology, shared and own bundles are ingested.
+    check_findings = _check_statvars(spec, connection=connection, log=log)
 
     log.info("Writing observations")
     observation_count = 0

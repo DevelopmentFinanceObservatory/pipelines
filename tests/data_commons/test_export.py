@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import duckdb
@@ -159,12 +160,6 @@ from (values
 """
 
 
-@pytest.fixture(autouse=True)
-def no_graph_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the export's graph check from reaching a deployment the shell names"""
-    monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
-
-
 def connect(tmp_path: Path) -> DuckDBPyConnection:
     """A database holding the models the export reads, as a small fixture bundle"""
     connection = duckdb.connect(str(tmp_path / "database.duckdb"))
@@ -219,35 +214,51 @@ def stub_graph_api(
     """Point the export's graph check at a stub answering through `answer`"""
     monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
     monkeypatch.setattr(
-        "dfo_pipelines.data_commons.export.open_client",
+        "dfo_pipelines.data_commons.graph_check.open_client",
         lambda base_url: httpx.Client(
             base_url=base_url, transport=httpx.MockTransport(answer)
         ),
     )
 
 
+def graph_finding(row: int) -> dict[str, Any]:
+    """A finding the route makes on the fixture's second constraint value"""
+    return {
+        "row": row,
+        "field": "constraint_properties",
+        "property": "constraintProperty2",
+        "subject": "value",
+        "value": "ConstraintValue2",
+        "served": None,
+        "code": "node_not_held",
+        "severity": "error",
+    }
+
+
+def warnings_logged(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [
+        r for r in caplog.records if r.name == LOG.name and r.levelno == logging.WARNING
+    ]
+
+
 def test_export_bundle_logs_and_counts_the_graph_checks_findings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test each finding the Graph API makes over the StatVars is logged as a
-    warning and counted, and the bundle is written all the same"""
+    """Test the findings the Graph API makes over the StatVars are counted and
+    logged as one warning per distinct finding, and the bundle is written all the
+    same"""
     checked: list[str] = []
 
     def answer(request: httpx.Request) -> httpx.Response:
         assert request.url.path == CHECK_PATH
         checked.extend(row["dcid"] for row in json.loads(request.content)["rows"])
-        finding = {
-            "row": 1,
-            "field": "constraint_properties",
-            "property": "constraintProperty2",
-            "subject": "value",
-            "value": "ConstraintValue2",
-            "served": None,
-            "code": "node_not_held",
-            "severity": "error",
-        }
         return httpx.Response(
-            200, json={"generation": "g1", "rows_checked": 2, "findings": [finding]}
+            200,
+            json={
+                "generation": "g1",
+                "rows_checked": 2,
+                "findings": [graph_finding(0), graph_finding(1)],
+            },
         )
 
     stub_graph_api(monkeypatch, answer)
@@ -256,29 +267,95 @@ def test_export_bundle_logs_and_counts_the_graph_checks_findings(
         metadata, out_dir = run_export(tmp_path)
 
     assert checked == ["Variable1", "Variable2"]
-    assert metadata.check_findings == 1
-    [warning] = [
-        r for r in caplog.records if r.name == LOG.name and r.levelno == logging.WARNING
-    ]
-    assert "Variable2" in warning.message and "node_not_held" in warning.message
+    assert metadata.check_findings == 2
+    [warning] = warnings_logged(caplog)
+    assert "Variable1" in warning.message and "Variable2" in warning.message
     assert (out_dir / "custom_nodes.mcf").exists()
 
 
-def test_export_bundle_skips_the_graph_check_when_the_graph_api_is_unreachable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_export_bundle_counts_a_row_the_graph_api_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test an unreachable Graph API leaves the export to finish, its findings
-    uncounted"""
+    """Test a 400 naming one row reports that row and the check carries on with
+    the rest"""
+    sent: list[list[str]] = []
 
-    def refuse(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("refused")
+    def answer(request: httpx.Request) -> httpx.Response:
+        rows = [row["dcid"] for row in json.loads(request.content)["rows"]]
+        sent.append(rows)
+        if len(sent) == 1:
+            return httpx.Response(
+                400,
+                json={
+                    "code": "request_invalid",
+                    "detail": "constraint value is not finite",
+                    "pointer": "/rows/0/constraint_properties",
+                },
+            )
+        return httpx.Response(
+            200, json={"generation": "g1", "rows_checked": len(rows), "findings": []}
+        )
 
-    stub_graph_api(monkeypatch, refuse)
+    stub_graph_api(monkeypatch, answer)
 
-    metadata, out_dir = run_export(tmp_path)
+    with caplog.at_level(logging.WARNING, logger=LOG.name):
+        metadata, _ = run_export(tmp_path)
+
+    assert sent == [["Variable1", "Variable2"], ["Variable2"]]
+    assert metadata.check_findings == 1
+    [warning] = warnings_logged(caplog)
+    assert "Variable1" in warning.message
+
+
+def refuse(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("refused")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(refuse, id="unreachable"),
+        pytest.param(
+            lambda request: httpx.Response(400, json={"code": "request_invalid"}),
+            id="refusal naming no row",
+        ),
+        pytest.param(lambda request: httpx.Response(200, text="<html>"), id="not JSON"),
+    ],
+)
+def test_export_bundle_warns_when_the_graph_check_cannot_finish(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    answer: Callable[[httpx.Request], httpx.Response],
+) -> None:
+    """Test a check that cannot finish logs a warning with its cause and leaves the
+    export to finish, its findings uncounted"""
+    stub_graph_api(monkeypatch, answer)
+
+    with caplog.at_level(logging.WARNING, logger=LOG.name):
+        metadata, out_dir = run_export(tmp_path)
 
     assert metadata.check_findings is None
+    [warning] = warnings_logged(caplog)
+    assert warning.exc_info is not None
     assert (out_dir / "config.json").exists()
+
+
+def test_export_bundle_skips_the_graph_check_quietly_when_the_graph_api_is_unset(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test an unset Graph API skips the check with an info line naming the
+    variable, and no warning"""
+    with caplog.at_level(logging.INFO, logger=LOG.name):
+        metadata, _ = run_export(tmp_path)
+
+    assert metadata.check_findings is None
+    assert warnings_logged(caplog) == []
+    assert any(
+        r.levelno == logging.INFO and GRAPH_API_URL_VARIABLE in r.message
+        for r in caplog.records
+        if r.name == LOG.name
+    )
 
 
 def test_export_bundle_clears_the_output_directory(tmp_path: Path) -> None:

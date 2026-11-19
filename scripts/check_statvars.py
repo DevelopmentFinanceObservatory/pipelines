@@ -6,9 +6,11 @@ each finding. Run it after `dbt build`:
 
     uv run --env-file .env python scripts/check_statvars.py oecd_dac2a
 
-It exits 0 when the check finds nothing, 1 when it prints findings, and 2 when the
-check could not run: `DFO_GRAPH_API_URL` is unset, the Graph API is unreachable, or
-it kept answering 503 or 429 past the wait limit.
+It exits 0 when the check finds no error, 1 when it finds an error or the Graph API
+refuses a row, and 2 when the check could not run: `DUCKDB_PATH` or
+`DFO_GRAPH_API_URL` is unset, the model cannot be read, the Graph API is
+unreachable, kept answering 503 or 429 past the wait limit, or answered something
+the check cannot read. Warnings are printed and leave the exit code alone.
 """
 
 import argparse
@@ -20,9 +22,9 @@ import duckdb
 from dfo_pipelines.data_commons.graph_check import (
     GRAPH_API_URL_VARIABLE,
     GraphCheckError,
-    check_statvars,
+    check_spec,
     graph_api_url,
-    open_client,
+    plural,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.warehouse import get_model_rows
@@ -42,26 +44,33 @@ def main(argv: list[str] | None = None) -> int:
     if base_url is None:
         print(f"{GRAPH_API_URL_VARIABLE} is unset", file=sys.stderr)
         return EXIT_UNCHECKED
-    with duckdb.connect(os.environ["DUCKDB_PATH"], read_only=True) as connection:
-        statvars = get_model_rows(connection, spec.statvar_model)
+    database = os.environ.get("DUCKDB_PATH")
+    if not database:
+        print("DUCKDB_PATH is unset", file=sys.stderr)
+        return EXIT_UNCHECKED
     try:
-        with open_client(base_url) as client:
-            findings = check_statvars(
-                statvars,
-                column_to_property=spec.statvar_column_to_property,
-                client=client,
-            )
+        with duckdb.connect(database, read_only=True) as connection:
+            statvars = get_model_rows(connection, spec.statvar_model)
+    except duckdb.Error as error:
+        print(f"Could not read {spec.statvar_model}: {error}", file=sys.stderr)
+        return EXIT_UNCHECKED
+    try:
+        check = check_spec(spec, statvars, base_url=base_url)
     except GraphCheckError as error:
         print(f"The check did not finish: {error}", file=sys.stderr)
         return EXIT_UNCHECKED
 
-    for finding in findings:
+    for finding in check.findings:
         print(finding)
+    for refused in check.refused:
+        print(refused)
     print(
-        f"{len(findings)} findings over {len(statvars)} StatVars of {spec.import_name}",
+        f"{plural(len(check.findings), 'finding')} and"
+        f" {plural(len(check.refused), 'refused row')} over"
+        f" {plural(len(statvars), 'StatVar')} of {spec.import_name}",
         file=sys.stderr,
     )
-    return EXIT_FINDINGS if findings else EXIT_CLEAN
+    return EXIT_FINDINGS if check.has_errors else EXIT_CLEAN
 
 
 if __name__ == "__main__":

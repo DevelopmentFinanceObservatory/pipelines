@@ -33,6 +33,12 @@ def unreachable(request: httpx.Request) -> httpx.Response:
     raise httpx.ConnectError("refused")
 
 
+def refused(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        400, json={"detail": "not finite", "pointer": "/rows/0/stat_type"}
+    )
+
+
 @pytest.fixture
 def database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A database holding one StatVar in the DAC2A export's StatVar model"""
@@ -55,7 +61,20 @@ def database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             check_statvars.EXIT_FINDINGS,
             id="findings",
         ),
+        pytest.param(
+            lambda request: checked(
+                FINDING | {"code": "definition_differs", "severity": "warning"}
+            ),
+            check_statvars.EXIT_CLEAN,
+            id="warnings only",
+        ),
+        pytest.param(refused, check_statvars.EXIT_FINDINGS, id="refused row"),
         pytest.param(unreachable, check_statvars.EXIT_UNCHECKED, id="unreachable"),
+        pytest.param(
+            lambda request: httpx.Response(200, text="<html>"),
+            check_statvars.EXIT_UNCHECKED,
+            id="200 not JSON",
+        ),
         pytest.param(
             lambda request: httpx.Response(503, headers={"Retry-After": "600"}),
             check_statvars.EXIT_UNCHECKED,
@@ -69,12 +88,12 @@ def test_main_exits_by_what_the_check_found(
     answer: Callable[[httpx.Request], httpx.Response],
     exit_code: int,
 ) -> None:
-    """Test the command exits 0 on a clean check, 1 on findings, and 2 when the
-    check could not finish"""
-    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+    """Test the command exits 0 on a check without errors, 1 on errors or a refused
+    row, and 2 when the check could not finish"""
+    # The trailing newline a `.env` value can carry is stripped.
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example\n")
     monkeypatch.setattr(
-        check_statvars,
-        "open_client",
+        "dfo_pipelines.data_commons.graph_check.open_client",
         lambda base_url: httpx.Client(
             base_url=base_url, transport=httpx.MockTransport(answer)
         ),
@@ -88,5 +107,27 @@ def test_main_exits_unchecked_when_the_graph_api_is_unset(
 ) -> None:
     """Test the command refuses to report a clean check it never ran"""
     monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
+
+    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+
+
+def test_main_exits_unchecked_when_duckdb_path_is_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the command exits 2, not 1, when it has no database to read"""
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+
+    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+
+
+def test_main_exits_unchecked_when_the_model_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test the command exits 2, not 1, when the StatVar model is not built"""
+    path = tmp_path / "database.duckdb"
+    duckdb.connect(str(path)).close()
+    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
+    monkeypatch.setenv("DUCKDB_PATH", str(path))
 
     assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED

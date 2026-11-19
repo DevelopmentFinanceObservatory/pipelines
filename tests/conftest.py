@@ -1,6 +1,13 @@
 import pytest
 
+from dfo_pipelines.data_commons.graph_check import GRAPH_API_URL_VARIABLE
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
+
+
+@pytest.fixture(autouse=True)
+def no_graph_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every export's graph check from reaching a deployment the shell names"""
+    monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
 
 
 @pytest.fixture
