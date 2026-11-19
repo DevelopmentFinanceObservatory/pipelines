@@ -130,7 +130,7 @@ def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> Non
     fetch = build_fetch(download=download, release_date=release_date)
 
     with _version_lookup(VERSION) as lookup:
-        release_dates, metadata = fetch(UPath(tmp_path / "data.parquet"))
+        release_dates, metadata, _ = fetch(UPath(tmp_path / "data.parquet"))
 
     lookup.assert_called_once_with(
         flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True

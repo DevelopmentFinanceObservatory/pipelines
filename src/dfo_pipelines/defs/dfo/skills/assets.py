@@ -15,14 +15,16 @@ from yaml.constructor import ConstructorError
 
 from dfo_pipelines.data_commons.mcf import escape_markdown, mcf_node_dcids
 from dfo_pipelines.defs.dfo.ontology.assets import (
+    ONTOLOGY_LANDING_ASSET,
     ONTOLOGY_MCF,
     dfo_ontology_dc_ingestion,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
+from dfo_pipelines.extraction.metadata import FetchedRelease, read_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import landing_result
+from dfo_pipelines.orchestration.landing import commit_landing_directory, landing_result
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -482,9 +484,6 @@ def dfo_skills_landing(
     repository needs git to hold GitHub credentials wherever this runs.
     """
     url = skills_repository.url
-    landing_directory = landing_file_store.build_date_partitioned_path(
-        "dfo_skills/skills"
-    )
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
@@ -520,21 +519,29 @@ def dfo_skills_landing(
                 )
             files.extend(path for path in root_path.rglob("*") if path.is_file())
 
-        # Cleared after the clone succeeds, so a failed fetch keeps the day's
-        # copy and a rerun drops skills deleted upstream.
-        if landing_directory.exists():
-            landing_directory.rmdir(recursive=True)
-        landing_directory.mkdir(parents=True)
-        for path in files:
-            target = landing_directory / path.relative_to(clone_path)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(path.read_bytes())
+        def write(landing_directory: UPath) -> FetchedRelease:
+            for path in files:
+                target = landing_directory / path.relative_to(clone_path)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(path.read_bytes())
+            return FetchedRelease(
+                release_dates={}, metadata={}, recorded={"commit": commit}
+            )
+
+        landing_directory, extraction, _ = commit_landing_directory(
+            context,
+            landing_file_store=landing_file_store,
+            path="dfo_skills/skills",
+            write=write,
+        )
 
     skill_count = sum(
         1
         for _, path in _skill_directories(landing_directory)
         if (path / "SKILL.md").is_file()
     )
+    # The commit the returned directory holds, an earlier run's when deduplicated
+    commit = extraction.recorded["commit"]
     context.log.info(
         f"Wrote {skill_count} skills from {url} {commit} to {landing_directory}"
     )
@@ -548,6 +555,10 @@ def dfo_skills_landing(
             dg.AssetCheckResult(check_name="skills_not_empty", passed=(skill_count > 0))
         ],
     )
+
+
+# Named here, since the export's input of the same name shadows the asset.
+SKILLS_LANDING_ASSET = dfo_skills_landing.key.to_user_string()
 
 
 def _check_attachment_targets(
@@ -593,10 +604,18 @@ def dfo_skills_dc_export(
     both of the repository's roots, or an attachment target that does not
     resolve, fails the run before anything is written.
     """
+    skills_directory = UPath(dfo_skills_landing)
+    read_extraction_metadata(
+        skills_directory, release_names=(), landing_asset=SKILLS_LANDING_ASSET
+    )
+    ontology_directory = UPath(dfo_ontology_landing)
+    read_extraction_metadata(
+        ontology_directory, release_names=(), landing_asset=ONTOLOGY_LANDING_ASSET
+    )
     provenance_dcid = "dcid:provenance/DFOSkills"
     out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
 
-    skill_directories = _skill_directories(UPath(dfo_skills_landing))
+    skill_directories = _skill_directories(skills_directory)
     # A skill's name is its id in the graph, so two roots cannot share one.
     names = Counter(path.name for _, path in skill_directories)
     if repeated := sorted(name for name, count in names.items() if count > 1):
@@ -607,7 +626,7 @@ def dfo_skills_dc_export(
 
     _check_attachment_targets(
         skills,
-        ontology_dcids=mcf_node_dcids(UPath(dfo_ontology_landing) / ONTOLOGY_MCF),
+        ontology_dcids=mcf_node_dcids(ontology_directory / ONTOLOGY_MCF),
         provenance_dcids={spec.minted_provenance_dcid for spec in EXPORT_SPECS},
     )
 

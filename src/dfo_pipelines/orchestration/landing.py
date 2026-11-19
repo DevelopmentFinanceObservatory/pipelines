@@ -1,22 +1,138 @@
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 import dagster as dg
 import pyarrow.parquet as pq
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    ExtractionMetadata,
+    FetchedRelease,
+    commit_extraction_metadata,
+    file_hashes,
+    holds_same_download,
+    read_extraction_metadata,
+)
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
-def _landing_directory(
-    landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
-) -> UPath:
-    """Directory a download at `downloaded_at` is written to"""
-    return landing_file_store.build_date_partitioned_path(
-        path, partition_date=downloaded_at.date()
+class CommittedLandingDirectory(NamedTuple):
+    """A landing directory holding a complete download, and what was recorded about it
+
+    Attributes:
+        directory: The directory, this run's or an earlier run's holding the same
+            download.
+        extraction: The extraction metadata recorded in `directory`.
+        fetched: What this run's write returned.
+    """
+
+    directory: UPath
+    extraction: ExtractionMetadata
+    fetched: FetchedRelease
+
+
+def commit_landing_directory(
+    context: dg.AssetExecutionContext,
+    *,
+    landing_file_store: UPathFileStoreResource,
+    path: str,
+    write: Callable[[UPath], FetchedRelease],
+) -> CommittedLandingDirectory:
+    """Write a download to a directory of its own and mark it complete
+
+    The directory is `<path>/<download time in UTC>/` in the file store. Its
+    extraction metadata, holding the sha256 of each file, is written last, so a
+    directory without it is incomplete. A download whose file hashes and
+    release dates match those of the directory the asset's latest materialization
+    returned, if a sibling of this one, is deleted and that directory returned.
+
+    Args:
+        context: Context of the landing asset.
+        landing_file_store: File store the directory is written to.
+        path: Path in the file store of the source's landing directories, such as
+            `<group>/<dataset>`.
+        write: Writes the download into the directory it is given and returns
+            what it fetched.
+
+    Raises:
+        FileExistsError: If the directory exists.
+    """
+    downloaded_at = datetime.now(UTC)
+    directory = (
+        UPath(landing_file_store.base_path)
+        / path
+        / downloaded_at.strftime("%Y%m%dT%H%M%SZ")
     )
+    if directory.exists():
+        raise FileExistsError(
+            f"{directory} exists, and a landing directory is written once"
+        )
+    directory.mkdir(parents=True)
+    try:
+        fetched = write(directory)
+        files = file_hashes(directory)
+        materialized_directory = _latest_sibling(context, directory)
+        duplicate = materialized_directory is not None and holds_same_download(
+            materialized_directory, files=files, release_dates=fetched.release_dates
+        )
+        if not duplicate:
+            commit_extraction_metadata(
+                directory,
+                downloaded_at=downloaded_at,
+                run_id=context.run.run_id,
+                fetched=fetched,
+                files=files,
+            )
+    except BaseException:
+        # Raise the failure that stopped the write, not one from cleaning up after it.
+        try:
+            directory.rmdir(recursive=True)
+        except Exception as error:
+            context.log.warning(f"Could not remove {directory}: {error}")
+        raise
+    if duplicate:
+        try:
+            directory.rmdir(recursive=True)
+        except Exception as error:
+            context.log.warning(
+                f"Download matches {materialized_directory}, but {directory} could "
+                f"not be removed: {error}"
+            )
+        else:
+            context.log.info(
+                f"Download matches {materialized_directory}, so {directory} was deleted"
+            )
+        directory = materialized_directory
+    extraction = read_extraction_metadata(
+        directory,
+        release_names=fetched.release_dates.keys(),
+        landing_asset=context.asset_key.to_user_string(),
+    )
+    return CommittedLandingDirectory(directory, extraction, fetched)
+
+
+def _latest_sibling(
+    context: dg.AssetExecutionContext, directory: UPath
+) -> UPath | None:
+    """Directory the asset's latest materialization returned, if a sibling of
+    `directory`"""
+    event = context.instance.get_latest_materialization_event(context.asset_key)
+    if event is None or event.asset_materialization is None:
+        return None
+    uri = event.asset_materialization.metadata.get("dagster/uri")
+    if not isinstance(uri, dg.TextMetadataValue):
+        return None
+    materialized_directory = UPath(uri.value)
+    if materialized_directory.parent != directory.parent:
+        return None
+    return materialized_directory
+
+
+def _parquet_rows(file_path: UPath) -> int:
+    with file_path.open("rb") as handle:
+        return pq.read_metadata(handle).num_rows
 
 
 def landing_result(
@@ -50,7 +166,8 @@ def build_landing_asset(
         title: Name of the source in the description and logs, such as "OECD DAC1".
         fetch: Writes the download to the path it is given, putting any working
             files in that path's directory and nowhere else. Each of its release
-            dates is recorded as `<name>_release_date`.
+            dates, of which it returns at least one, is recorded as
+            `<name>_release_date`, and its metadata's `version`, if any, as `version`.
         retry_policy: Retry policy of the asset.
     """
     name = f"{group}_landing"
@@ -72,31 +189,45 @@ def build_landing_asset(
     def landing(
         context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
     ):
-        downloaded_at = datetime.now(UTC)
-        directory = _landing_directory(
-            landing_file_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
+        def write(directory: UPath) -> FetchedRelease:
+            file_path = directory / f"{dataset}.parquet"
+            fetched = fetch(file_path)
+            if not fetched.release_dates:
+                raise ValueError(f"The {title} fetch returned no release dates")
+            # Read before the directory is committed, so an unreadable file is not.
+            _parquet_rows(file_path)
+            context.log.info(f"Wrote {title} data to {file_path}")
+            if "version" not in fetched.metadata:
+                return fetched
+            return fetched._replace(
+                recorded={**fetched.recorded, "version": fetched.metadata["version"]}
+            )
+
+        directory, extraction, fetched = commit_landing_directory(
+            context,
+            landing_file_store=landing_file_store,
+            path=f"{group}/{dataset}",
+            write=write,
         )
-        directory.mkdir(parents=True, exist_ok=True)
         file_path = directory / f"{dataset}.parquet"
-        release_dates, source_metadata = fetch(file_path)
-        with file_path.open("rb") as handle:
-            rows = pq.read_metadata(handle).num_rows
-        write_extraction_metadata(
-            directory, downloaded_at=downloaded_at, release_dates=release_dates
-        )
+        rows = _parquet_rows(file_path)
         file_size = file_path.stat().st_size
-        context.log.info(f"Wrote {title} data to {file_path}")
         return landing_result(
             directory,
             metadata={
                 "file_size": dg.MetadataValue.int(file_size),
                 "dagster/row_count": dg.MetadataValue.int(rows),
-                **source_metadata,
+                **fetched.metadata,
+                # The returned directory's version, an earlier run's when deduplicated
+                **{
+                    name: dg.MetadataValue.text(value)
+                    for name, value in extraction.recorded.items()
+                },
                 **{
                     f"{release}_release_date": dg.MetadataValue.text(
                         release_date.isoformat()
                     )
-                    for release, release_date in release_dates.items()
+                    for release, release_date in extraction.release_dates.items()
                 },
             },
             check_results=[

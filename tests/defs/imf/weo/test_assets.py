@@ -51,7 +51,7 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo(file_path)
+        release_dates, metadata, _ = fetch_weo(file_path)
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))

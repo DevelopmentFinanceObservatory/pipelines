@@ -1,13 +1,21 @@
-from contextlib import ExitStack
-from datetime import datetime
+from collections.abc import Iterator, Mapping
+from contextlib import ExitStack, contextmanager
+from datetime import UTC, date, datetime, tzinfo
 from functools import cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Self
+from unittest.mock import patch
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
+from upath import UPath
 
 from dfo_pipelines.definitions import defs
+from dfo_pipelines.extraction.metadata import (
+    FetchedRelease,
+    commit_extraction_metadata,
+)
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
@@ -22,6 +30,39 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     value = result.metadata[key]
     assert isinstance(value, kind)
     return value
+
+
+def mark_committed(
+    directory: Path,
+    *,
+    downloaded_at: datetime = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC),
+    release_dates: Mapping[str, date] = MappingProxyType({}),
+) -> None:
+    """Record extraction metadata in `directory`, marking it complete for the assets
+    reading it
+
+    No file hashes are recorded, since only the landing asset reads them.
+    """
+    commit_extraction_metadata(
+        UPath(directory),
+        downloaded_at=downloaded_at,
+        run_id="test",
+        fetched=FetchedRelease(release_dates=release_dates, metadata={}),
+        files={},
+    )
+
+
+@contextmanager
+def patch_download_clock(at: datetime) -> Iterator[None]:
+    """Freeze the instant a landing asset stamps a download with, in the zone it
+    names, which a local-time reading would not"""
+
+    def now(tz: tzinfo) -> datetime:
+        return at.astimezone(tz)
+
+    with patch("dfo_pipelines.orchestration.landing.datetime") as mock_datetime:
+        mock_datetime.now.side_effect = now
+        yield
 
 
 def row_count(duckdb: DuckDBResource, table: str) -> int:
