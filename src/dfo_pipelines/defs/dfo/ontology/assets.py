@@ -11,7 +11,7 @@ from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import raw_path_result
+from dfo_pipelines.orchestration.landing import landing_result
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -27,19 +27,19 @@ COMPILE_REPORT = "report.txt"
     kinds={"file"},
     check_specs=[
         dg.AssetCheckSpec(
-            name="mcf_not_empty", asset="dfo_ontology_raw_directory", blocking=True
+            name="mcf_not_empty", asset="dfo_ontology_landing", blocking=True
         ),
         dg.AssetCheckSpec(
-            name="csv_not_empty", asset="dfo_ontology_raw_directory", blocking=True
+            name="csv_not_empty", asset="dfo_ontology_landing", blocking=True
         ),
     ],
 )
-def dfo_ontology_raw_directory(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
+def dfo_ontology_landing(
+    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
 ):
     """Compiled DFO ontology MCF, code mapping and validation report"""
-    raw_directory = raw_file_store.build_date_partitioned_path("dfo/ontology")
-    raw_directory.mkdir(parents=True, exist_ok=True)
+    landing_directory = landing_file_store.build_date_partitioned_path("dfo/ontology")
+    landing_directory.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
@@ -65,14 +65,14 @@ def dfo_ontology_raw_directory(
                 f"The DFO ontology compiled without {', '.join(missing)}"
             )
         for path in expected_files:
-            (raw_directory / path.name).write_bytes(path.read_bytes())
+            (landing_directory / path.name).write_bytes(path.read_bytes())
 
-    mcf_path = raw_directory / ONTOLOGY_MCF
+    mcf_path = landing_directory / ONTOLOGY_MCF
     file_size = mcf_path.stat().st_size
-    code_rows = len((raw_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
-    context.log.info(f"Wrote the compiled DFO ontology to {raw_directory}")
-    return raw_path_result(
-        raw_directory,
+    code_rows = len((landing_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
+    context.log.info(f"Wrote the compiled DFO ontology to {landing_directory}")
+    return landing_result(
+        landing_directory,
         metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
         check_results=[
             dg.AssetCheckResult(check_name="mcf_not_empty", passed=(file_size > 0)),
@@ -94,12 +94,12 @@ def dfo_ontology_raw_directory(
     ],
 )
 def dfo_ontology_raw_code_mapping_table(
-    duckdb: DuckDBResource, dfo_ontology_raw_directory: str
+    duckdb: DuckDBResource, dfo_ontology_landing: str
 ) -> dg.MaterializeResult:
     """Raw DFO ontology code mapping database table"""
     schema = "dfo_ontology"
     table = "raw_code_mapping"
-    code_mapping = str(UPath(dfo_ontology_raw_directory) / CODE_MAPPING_CSV)
+    code_mapping = str(UPath(dfo_ontology_landing) / CODE_MAPPING_CSV)
     with duckdb.get_connection() as connection:
         connection.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         connection.execute(
@@ -120,7 +120,7 @@ def dfo_ontology_raw_code_mapping_table(
 def dfo_ontology_dc_export(
     context: dg.AssetExecutionContext,
     export_file_store: UPathFileStoreResource,
-    dfo_ontology_raw_directory: str,
+    dfo_ontology_landing: str,
 ) -> dg.MaterializeResult:
     """Data Commons export for the DFO ontology"""
     out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
@@ -147,7 +147,7 @@ def dfo_ontology_dc_export(
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
     manager.export_all(str(out_dir), validate_data=True)
     shutil.copyfileobj(
-        (UPath(dfo_ontology_raw_directory) / ONTOLOGY_MCF).open("rb"),
+        (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb"),
         (out_dir / ONTOLOGY_MCF).open("wb"),
     )
     context.log.info(f"Exported the DFO ontology to {out_dir}")

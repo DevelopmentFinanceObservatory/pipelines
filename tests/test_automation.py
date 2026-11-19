@@ -35,7 +35,7 @@ IDS_MEASURE_MAPPING_KEY = dg.AssetKey(["world_bank_ids", "ids_measure_mapping"])
 IDS_UNIT_MAPPING_KEY = dg.AssetKey(["world_bank_ids", "ids_unit_mapping"])
 
 IDS_SOURCE_KEY = dg.AssetKey("world_bank_ids_source")
-IDS_RAW_FILE_KEY = dg.AssetKey("world_bank_ids_raw_file")
+IDS_LANDING_KEY = dg.AssetKey("world_bank_ids_landing")
 IDS_RAW_TABLE_KEY = dg.AssetKey("world_bank_ids_raw_table")
 IDS_RAW_METADATA_KEY = dg.AssetKey("world_bank_ids_raw_metadata")
 IDS_EXPORT_KEY = dg.AssetKey("world_bank_ids_dc_export")
@@ -59,7 +59,7 @@ IDS_DBT_MODEL_KEYS = {
 
 IDS_ASSET_KEYS = {
     IDS_SOURCE_KEY,
-    IDS_RAW_FILE_KEY,
+    IDS_LANDING_KEY,
     IDS_RAW_TABLE_KEY,
     IDS_RAW_METADATA_KEY,
     IDS_EXPORT_KEY,
@@ -77,25 +77,25 @@ IDS_PARENT_KEYS = {
 }
 
 CRS_SOURCE_KEY = dg.AssetKey("oecd_dac_crs_source")
-CRS_RAW_FILE_KEY = dg.AssetKey("oecd_dac_crs_raw_file")
+CRS_LANDING_KEY = dg.AssetKey("oecd_dac_crs_landing")
 CRS_RAW_TABLE_KEY = dg.AssetKey("oecd_dac_crs_raw_table")
 CRS_RAW_METADATA_KEY = dg.AssetKey("oecd_dac_crs_raw_metadata")
 CRS_EXPORT_KEY = dg.AssetKey("oecd_dac_crs_dc_export")
 
 DAC1_SOURCE_KEY = dg.AssetKey("oecd_dac1_source")
-DAC1_RAW_FILE_KEY = dg.AssetKey("oecd_dac1_raw_file")
+DAC1_LANDING_KEY = dg.AssetKey("oecd_dac1_landing")
 DAC1_RAW_TABLE_KEY = dg.AssetKey("oecd_dac1_raw_table")
 DAC1_RAW_METADATA_KEY = dg.AssetKey("oecd_dac1_raw_metadata")
 DAC1_EXPORT_KEY = dg.AssetKey("oecd_dac1_dc_export")
 
 DAC2A_SOURCE_KEY = dg.AssetKey("oecd_dac2a_source")
-DAC2A_RAW_FILE_KEY = dg.AssetKey("oecd_dac2a_raw_file")
+DAC2A_LANDING_KEY = dg.AssetKey("oecd_dac2a_landing")
 DAC2A_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2a_raw_table")
 DAC2A_RAW_METADATA_KEY = dg.AssetKey("oecd_dac2a_raw_metadata")
 DAC2A_EXPORT_KEY = dg.AssetKey("oecd_dac2a_dc_export")
 
 DAC2B_SOURCE_KEY = dg.AssetKey("oecd_dac2b_source")
-DAC2B_RAW_FILE_KEY = dg.AssetKey("oecd_dac2b_raw_file")
+DAC2B_LANDING_KEY = dg.AssetKey("oecd_dac2b_landing")
 DAC2B_RAW_TABLE_KEY = dg.AssetKey("oecd_dac2b_raw_table")
 DAC2B_RAW_METADATA_KEY = dg.AssetKey("oecd_dac2b_raw_metadata")
 DAC2B_EXPORT_KEY = dg.AssetKey("oecd_dac2b_dc_export")
@@ -116,7 +116,7 @@ CRS_DBT_MODEL_KEYS = {
 
 CRS_ASSET_KEYS = {
     CRS_SOURCE_KEY,
-    CRS_RAW_FILE_KEY,
+    CRS_LANDING_KEY,
     CRS_RAW_TABLE_KEY,
     CRS_RAW_METADATA_KEY,
     CRS_EXPORT_KEY,
@@ -138,7 +138,7 @@ DAC1_DBT_MODEL_KEYS = {
 
 DAC1_ASSET_KEYS = {
     DAC1_SOURCE_KEY,
-    DAC1_RAW_FILE_KEY,
+    DAC1_LANDING_KEY,
     DAC1_RAW_TABLE_KEY,
     DAC1_RAW_METADATA_KEY,
     DAC1_EXPORT_KEY,
@@ -165,7 +165,7 @@ DAC2A_DBT_MODEL_KEYS = {
 
 DAC2A_ASSET_KEYS = {
     DAC2A_SOURCE_KEY,
-    DAC2A_RAW_FILE_KEY,
+    DAC2A_LANDING_KEY,
     DAC2A_RAW_TABLE_KEY,
     DAC2A_RAW_METADATA_KEY,
     DAC2A_EXPORT_KEY,
@@ -192,7 +192,7 @@ DAC2B_DBT_MODEL_KEYS = {
 
 DAC2B_ASSET_KEYS = {
     DAC2B_SOURCE_KEY,
-    DAC2B_RAW_FILE_KEY,
+    DAC2B_LANDING_KEY,
     DAC2B_RAW_TABLE_KEY,
     DAC2B_RAW_METADATA_KEY,
     DAC2B_EXPORT_KEY,
@@ -206,7 +206,7 @@ DAC2B_PARENT_KEYS = SHARED_MAPPING_KEYS | {
 
 DFO_SKILLS_ASSET_KEYS = {
     dg.AssetKey("dfo_skills_source"),
-    dg.AssetKey("dfo_skills_raw_directory"),
+    dg.AssetKey("dfo_skills_landing"),
     dg.AssetKey("dfo_skills_dc_export"),
 }
 
@@ -221,7 +221,7 @@ DFO_SHARED_ASSET_KEYS = {*DFO_SHARED_SEED_KEYS, DFO_SHARED_EXPORT_KEY}
 CRS_PARENT_KEYS = SHARED_MAPPING_KEYS | {CRS_RAW_METADATA_KEY}
 
 IMS_SOURCE_KEY = dg.AssetKey("one_imputed_multilateral_sectors_source")
-IMS_RAW_FILE_KEY = dg.AssetKey("one_imputed_multilateral_sectors_raw_file")
+IMS_LANDING_KEY = dg.AssetKey("one_imputed_multilateral_sectors_landing")
 IMS_RAW_TABLE_KEY = dg.AssetKey("one_imputed_multilateral_sectors_raw_table")
 IMS_RAW_METADATA_KEY = dg.AssetKey("one_imputed_multilateral_sectors_raw_metadata")
 IMS_EXPORT_KEY = dg.AssetKey("one_imputed_multilateral_sectors_dc_export")
@@ -244,7 +244,7 @@ IMS_DBT_MODEL_KEYS = {
 
 IMS_ASSET_KEYS = {
     IMS_SOURCE_KEY,
-    IMS_RAW_FILE_KEY,
+    IMS_LANDING_KEY,
     IMS_RAW_TABLE_KEY,
     IMS_RAW_METADATA_KEY,
     IMS_EXPORT_KEY,
@@ -256,7 +256,7 @@ CLIMATE_FINANCE_ASSET_KEYS = {
     dg.AssetKey(f"one_climate_finance_{name}")
     for name in (
         "source",
-        "raw_file",
+        "landing",
         "raw_spending",
         "raw_crdf_commitments",
         "raw_btr_totals",
@@ -268,7 +268,7 @@ CLIMATE_FINANCE_ASSET_KEYS = {
 }
 
 WEO_SOURCE_KEY = dg.AssetKey("imf_weo_source")
-WEO_RAW_FILE_KEY = dg.AssetKey("imf_weo_raw_file")
+WEO_LANDING_KEY = dg.AssetKey("imf_weo_landing")
 WEO_RAW_TABLE_KEY = dg.AssetKey("imf_weo_raw_table")
 WEO_RAW_METADATA_KEY = dg.AssetKey("imf_weo_raw_metadata")
 WEO_EXPORT_KEY = dg.AssetKey("imf_weo_dc_export")
@@ -288,7 +288,7 @@ WEO_DBT_MODEL_KEYS = {dg.AssetKey(["imf_weo", name]) for name in WEO_DBT_MODEL_N
 
 WEO_ASSET_KEYS = {
     WEO_SOURCE_KEY,
-    WEO_RAW_FILE_KEY,
+    WEO_LANDING_KEY,
     WEO_RAW_TABLE_KEY,
     WEO_RAW_METADATA_KEY,
     WEO_EXPORT_KEY,
@@ -661,7 +661,7 @@ def test_ims_source_cascades_through_dbt_models_to_the_export() -> None:
     mapping models, `code_mapping` and `stat_type_mapping`, are materialized
     here as a precondition rather than as part of the cascade under test: they
     come from the ontology pipeline, whose root asset
-    `dfo_ontology_raw_directory` carries no automation condition, so a
+    `dfo_ontology_landing` carries no automation condition, so a
     deployment materializes it once by hand before any pipeline's dbt models
     can run.
 
@@ -683,7 +683,7 @@ def test_ims_source_cascades_through_dbt_models_to_the_export() -> None:
 
     for key in (
         *IMS_DBT_MODEL_KEYS,
-        IMS_RAW_FILE_KEY,
+        IMS_LANDING_KEY,
         IMS_RAW_TABLE_KEY,
         IMS_RAW_METADATA_KEY,
     ):
@@ -842,7 +842,7 @@ def test_dbt_translation_predicate_matches_intended_schemas() -> None:
 @pytest.mark.parametrize(
     ("parent", "check_name", "child"),
     [
-        ("oecd_dac_crs_raw_file", "file_not_empty", "oecd_dac_crs_raw_table"),
+        ("oecd_dac_crs_landing", "file_not_empty", "oecd_dac_crs_raw_table"),
         ("oecd_dac_crs_raw_table", "table_not_empty", "oecd_dac_crs/stg_dac_crs"),
         (
             "oecd_dac_crs_raw_table",

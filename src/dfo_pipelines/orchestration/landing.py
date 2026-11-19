@@ -10,22 +10,22 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
-def _raw_file_directory(
-    raw_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
+def _landing_directory(
+    landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
 ) -> UPath:
-    """Directory the raw file of a download at `downloaded_at` is written to"""
-    return raw_file_store.build_date_partitioned_path(
+    """Directory a download at `downloaded_at` is written to"""
+    return landing_file_store.build_date_partitioned_path(
         path, partition_date=downloaded_at.date()
     )
 
 
-def raw_path_result(
+def landing_result(
     path: UPath,
     *,
     metadata: Mapping[str, dg.MetadataValue],
     check_results: Sequence[dg.AssetCheckResult],
 ) -> dg.MaterializeResult:
-    """Result of writing a source's raw file or directory to `path`, with its checks"""
+    """Result of writing a source's landing directory to `path`, with its checks"""
     return dg.MaterializeResult(
         value=str(path),
         metadata={"dagster/uri": dg.MetadataValue.text(str(path)), **metadata},
@@ -33,7 +33,7 @@ def raw_path_result(
     )
 
 
-def build_raw_file_asset(
+def build_landing_asset(
     *,
     group: str,
     dataset: str,
@@ -41,22 +41,23 @@ def build_raw_file_asset(
     fetch: Callable[[UPath], FetchedRelease],
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
-    """The `<group>_raw_file` asset writing a source's download as `data.parquet`
+    """The `<group>_landing` asset writing a download as `<dataset>.parquet`
 
     Args:
         group: Group of the source, naming the asset and its `<group>_source` dep.
-        dataset: Directory under the group the raw file is written to.
+        dataset: Directory under the group the download is written to, and the
+            download's stem.
         title: Name of the source in the description and logs, such as "OECD DAC1".
         fetch: Writes the download to the path it is given, putting any working
             files in that path's directory and nowhere else. Each of its release
             dates is recorded as `<name>_release_date`.
         retry_policy: Retry policy of the asset.
     """
-    name = f"{group}_raw_file"
+    name = f"{group}_landing"
 
     @dg.asset(
         name=name,
-        description=f"Raw {title} file and metadata",
+        description=f"{title} download and its metadata",
         deps=[dg.AssetKey(f"{group}_source")],
         group_name=group,
         kinds={"file", "parquet"},
@@ -68,15 +69,15 @@ def build_raw_file_asset(
     )
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
-    def raw_file(
-        context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
+    def landing(
+        context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
     ):
         downloaded_at = datetime.now(UTC)
-        directory = _raw_file_directory(
-            raw_file_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
+        directory = _landing_directory(
+            landing_file_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
         )
         directory.mkdir(parents=True, exist_ok=True)
-        file_path = directory / "data.parquet"
+        file_path = directory / f"{dataset}.parquet"
         release_dates, source_metadata = fetch(file_path)
         with file_path.open("rb") as handle:
             rows = pq.read_metadata(handle).num_rows
@@ -85,8 +86,8 @@ def build_raw_file_asset(
         )
         file_size = file_path.stat().st_size
         context.log.info(f"Wrote {title} data to {file_path}")
-        return raw_path_result(
-            file_path,
+        return landing_result(
+            directory,
             metadata={
                 "file_size": dg.MetadataValue.int(file_size),
                 "dagster/row_count": dg.MetadataValue.int(rows),
@@ -103,4 +104,4 @@ def build_raw_file_asset(
             ],
         )
 
-    return raw_file
+    return landing

@@ -22,8 +22,8 @@ from dfo_pipelines.extraction.oecd import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 
 @dg.observable_source_asset(
@@ -48,7 +48,7 @@ def oecd_dac1_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac1_raw_file(file_path: UPath) -> FetchedRelease:
+def fetch_dac1(file_path: UPath) -> FetchedRelease:
     """Write the DAC1 bulk file to `file_path`"""
     return fetch_bulk_file(
         file_path,
@@ -60,16 +60,23 @@ def fetch_dac1_raw_file(file_path: UPath) -> FetchedRelease:
     )
 
 
-oecd_dac1_raw_file = build_raw_file_asset(
-    group="oecd_dac1", dataset="dac1", title="OECD DAC1", fetch=fetch_dac1_raw_file
+oecd_dac1_landing = build_landing_asset(
+    group="oecd_dac1", dataset="dac1", title="OECD DAC1", fetch=fetch_dac1
 )
 
 
-oecd_dac1_raw_table, oecd_dac1_raw_metadata = build_raw_table_assets(
+oecd_dac1_raw_tables = build_raw_table_assets(
     group="oecd_dac1",
-    table="raw_dac1",
     title="OECD DAC1",
-    renames=DAC_COLUMN_RENAMES,
+    tables=[
+        RawTableSpec(
+            asset="oecd_dac1_raw_table",
+            file_stem="dac1",
+            table="raw_dac1",
+            renames=DAC_COLUMN_RENAMES,
+        )
+    ],
+    metadata_table="raw_dac1_metadata",
 )
 
 

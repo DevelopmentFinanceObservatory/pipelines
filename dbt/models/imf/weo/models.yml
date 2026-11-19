@@ -469,7 +469,7 @@ models:
           - not_null
       - name: source_data_url
         data_type: string
-        description: URL of the data the raw file is downloaded from
+        description: URL the data is downloaded from
         data_tests:
           - not_null
       - name: license

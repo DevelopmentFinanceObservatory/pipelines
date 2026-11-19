@@ -36,17 +36,6 @@ def column_list(duckdb: DuckDBResource, table: str) -> list:
         return connection.sql(f"select * from {table}").columns
 
 
-def list_first_row(duckdb: DuckDBResource, table: str) -> list:
-    """List first row in a database table"""
-    with duckdb.get_connection() as connection:
-        return (
-            connection.sql(f"select * from {table} limit 1")
-            .df()
-            .values.flatten()
-            .tolist()
-        )
-
-
 def logged_messages(
     assets: list[dg.AssetsDefinition], resources: dict[str, object]
 ) -> list[str]:
@@ -84,7 +73,9 @@ class AutomationHarness:
         self._raw_assets = raw_assets
         self._instance = dg.DagsterInstance.ephemeral()
         self._resources = {
-            "raw_file_store": UPathFileStoreResource(base_path=str(tmp_path / "raw")),
+            "landing_file_store": UPathFileStoreResource(
+                base_path=str(tmp_path / "landing")
+            ),
             "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
             **(resources or {}),
         }
@@ -172,6 +163,7 @@ class AutomationHarness:
         )
         self._last_tick = result
         return {
-            asset.key.to_user_string(): result.get_num_requested(asset.key)
+            key.to_user_string(): result.get_num_requested(key)
             for asset in self._raw_assets
+            for key in asset.keys
         }

@@ -22,7 +22,7 @@ from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import raw_path_result
+from dfo_pipelines.orchestration.landing import landing_result
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -89,39 +89,39 @@ def _is_skill_directory(path: UPath) -> bool:
     """A directory is a skill unless its name starts with `_`
 
     A directory under either root whose name starts with `_` is left out of the
-    raw directory's skill count and out of the export, and so is a file, such
+    landing directory's skill count and out of the export, and so is a file, such
     as `skills/categories.yaml`. A store error while reading the path's type
     raises.
     """
     return not path.name.startswith("_") and _is_directory(path)
 
 
-def _skill_directories(raw_directory: UPath) -> list[tuple[str, UPath]]:
-    """Each skill directory under a raw directory, with the root it sits in
+def _skill_directories(landing_directory: UPath) -> list[tuple[str, UPath]]:
+    """Each skill directory under a landing directory, with the root it sits in
 
-    A raw directory mirrors the repository's roots. One without `skills/`, such
+    A landing directory mirrors the repository's roots. One without `skills/`, such
     as one holding its skills at the top level, is refused, since reading it
     would find no skills.
 
-    Which roots exist is read from a listing of the raw directory, and each
+    Which roots exist is read from a listing of the landing directory, and each
     root's entries from a listing of the root. A listing raises when the store
     fails, and so does reading whether a listed entry is a directory. An
     existence or type check that answers False on any error would read as a
     repository without that root or that skill.
     """
-    listed = {path.name for path in raw_directory.iterdir()}
+    listed = {path.name for path in landing_directory.iterdir()}
     if INSTALLABLE_ROOT not in listed:
         raise RuntimeError(
-            f"raw directory {raw_directory} has no {INSTALLABLE_ROOT}/ directory: "
-            "materialize dfo_skills_raw_directory again to write one"
+            f"landing directory {landing_directory} has no {INSTALLABLE_ROOT}/ directory: "
+            "materialize dfo_skills_landing again to write one"
         )
     return [
         (root, path)
         for root in SKILL_ROOTS
-        # The raw directory holds files only, so a root's first directory is
+        # The landing directory holds files only, so a root's first directory is
         # listed exactly when the root has files.
         if root.split("/")[0] in listed
-        for path in sorted((raw_directory / root).iterdir())
+        for path in sorted((landing_directory / root).iterdir())
         if _is_skill_directory(path)
     ]
 
@@ -466,23 +466,25 @@ def dfo_skills_source(skills_repository: SkillsRepositoryResource) -> dg.Observe
     automation_condition=EAGER_WHEN_CHECKS_PASS,
     check_specs=[
         dg.AssetCheckSpec(
-            name="skills_not_empty", asset="dfo_skills_raw_directory", blocking=True
+            name="skills_not_empty", asset="dfo_skills_landing", blocking=True
         )
     ],
 )
-def dfo_skills_raw_directory(
+def dfo_skills_landing(
     context: dg.AssetExecutionContext,
-    raw_file_store: UPathFileStoreResource,
+    landing_file_store: UPathFileStoreResource,
     skills_repository: SkillsRepositoryResource,
 ):
     """DFO agent skills, as published on the skills repository's branch
 
-    The raw directory mirrors the repository's skill roots: `skills/<name>/`,
+    The landing directory mirrors the repository's skill roots: `skills/<name>/`,
     and `internal/skills/<name>/` where the repository has one. A private
     repository needs git to hold GitHub credentials wherever this runs.
     """
     url = skills_repository.url
-    raw_directory = raw_file_store.build_date_partitioned_path("dfo_skills/skills")
+    landing_directory = landing_file_store.build_date_partitioned_path(
+        "dfo_skills/skills"
+    )
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
@@ -520,24 +522,24 @@ def dfo_skills_raw_directory(
 
         # Cleared after the clone succeeds, so a failed fetch keeps the day's
         # copy and a rerun drops skills deleted upstream.
-        if raw_directory.exists():
-            raw_directory.rmdir(recursive=True)
-        raw_directory.mkdir(parents=True)
+        if landing_directory.exists():
+            landing_directory.rmdir(recursive=True)
+        landing_directory.mkdir(parents=True)
         for path in files:
-            target = raw_directory / path.relative_to(clone_path)
+            target = landing_directory / path.relative_to(clone_path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
 
     skill_count = sum(
         1
-        for _, path in _skill_directories(raw_directory)
+        for _, path in _skill_directories(landing_directory)
         if (path / "SKILL.md").is_file()
     )
     context.log.info(
-        f"Wrote {skill_count} skills from {url} {commit} to {raw_directory}"
+        f"Wrote {skill_count} skills from {url} {commit} to {landing_directory}"
     )
-    return raw_path_result(
-        raw_directory,
+    return landing_result(
+        landing_directory,
         metadata={
             "version": dg.MetadataValue.text(commit),
             "skill_count": dg.MetadataValue.int(skill_count),
@@ -580,8 +582,8 @@ def dfo_skills_dc_export(
     context: dg.AssetExecutionContext,
     export_file_store: UPathFileStoreResource,
     skills_repository: SkillsRepositoryResource,
-    dfo_skills_raw_directory: str,
-    dfo_ontology_raw_directory: str,
+    dfo_skills_landing: str,
+    dfo_ontology_landing: str,
 ) -> dg.MaterializeResult:
     """Data Commons export for the DFO agent skills
 
@@ -594,7 +596,7 @@ def dfo_skills_dc_export(
     provenance_dcid = "dcid:provenance/DFOSkills"
     out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
 
-    skill_directories = _skill_directories(UPath(dfo_skills_raw_directory))
+    skill_directories = _skill_directories(UPath(dfo_skills_landing))
     # A skill's name is its id in the graph, so two roots cannot share one.
     names = Counter(path.name for _, path in skill_directories)
     if repeated := sorted(name for name, count in names.items() if count > 1):
@@ -605,7 +607,7 @@ def dfo_skills_dc_export(
 
     _check_attachment_targets(
         skills,
-        ontology_dcids=mcf_node_dcids(UPath(dfo_ontology_raw_directory) / ONTOLOGY_MCF),
+        ontology_dcids=mcf_node_dcids(UPath(dfo_ontology_landing) / ONTOLOGY_MCF),
         provenance_dcids={spec.minted_provenance_dcid for spec in EXPORT_SPECS},
     )
 

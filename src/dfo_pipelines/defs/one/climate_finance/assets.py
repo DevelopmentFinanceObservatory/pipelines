@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
@@ -13,9 +12,9 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.climate_finance import (
+    EXPORT_TABLES,
     LATEST_FILE_NAME,
     MANIFEST_FILE_NAME,
-    RAW_TABLES,
     ExportManifest,
     LatestExport,
     sha256_bytes,
@@ -26,22 +25,13 @@ from dfo_pipelines.orchestration.automation import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_tables import (
-    metadata_table_result,
-    raw_table_result,
-)
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
     UPathFileStoreResource,
 )
-from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
 
 SCHEMA = "one_climate_finance"
-# The asset and database table each raw table loads into, by raw file stem.
-RAW_TABLE_KEYS = {
-    stem: dg.AssetKey(f"one_climate_finance_raw_{stem}") for stem in RAW_TABLES
-}
-RAW_TABLE_NAMES = {stem: f"raw_climate_finance_{stem}" for stem in RAW_TABLES}
 
 
 def read_manifest(directory: UPath, *, sha256: str) -> ExportManifest:
@@ -120,20 +110,20 @@ def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
     check_specs=[
         dg.AssetCheckSpec(
             name=f"{stem}_not_empty",
-            asset="one_climate_finance_raw_file",
+            asset="one_climate_finance_landing",
             blocking=True,
         )
-        for stem in RAW_TABLES
+        for stem in EXPORT_TABLES
     ],
 )
 # The function has no return annotation because Dagster types an asset annotated
 # `-> MaterializeResult` as returning Nothing, and the directory this returns is
 # the raw tables' input.
-def one_climate_finance_raw_file(
-    context: dg.AssetExecutionContext, raw_file_store: UPathFileStoreResource
+def one_climate_finance_landing(
+    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
 ):
-    """Raw climate finance from the observed climate-finance release, one parquet
-    file per raw table, copied from its export.
+    """Climate finance tables from the observed release, as exported, one parquet
+    file per raw table.
 
     `spending` holds the package's climate finance received, 2010 to 2024, and
     provided, 2013 to 2024, under ONE Data's and the OECD's methods and both
@@ -148,14 +138,14 @@ def one_climate_finance_raw_file(
     downloaded_at = datetime.now(UTC)
     export, manifest_sha256 = latest_observation(context)
     manifest = read_manifest(export, sha256=manifest_sha256)
-    directory = raw_file_store.build_date_partitioned_path(
+    directory = landing_file_store.build_date_partitioned_path(
         "one_climate_finance/climate_finance", partition_date=downloaded_at.date()
     )
     directory.mkdir(parents=True, exist_ok=True)
 
     rows = {}
     file_size = 0
-    for stem in RAW_TABLES:
+    for stem in EXPORT_TABLES:
         source = export / f"{stem}.parquet"
         data = source.read_bytes()
         if (actual := sha256_bytes(data)) != (expected := manifest.tables[stem].sha256):
@@ -193,59 +183,19 @@ def one_climate_finance_raw_file(
     )
 
 
-@dg.multi_asset(
-    specs=[
-        dg.AssetSpec(
-            key,
-            description=f"Raw climate finance {stem} database table",
-            group_name="one_climate_finance",
-            kinds={"duckdb"},
-            automation_condition=EAGER_WHEN_CHECKS_PASS,
-            deps=[one_climate_finance_raw_file],
+one_climate_finance_raw_tables = build_raw_table_assets(
+    group=SCHEMA,
+    title="climate finance",
+    tables=[
+        RawTableSpec(
+            asset=f"one_climate_finance_raw_{stem}",
+            file_stem=stem,
+            table=f"raw_climate_finance_{stem}",
         )
-        for stem, key in RAW_TABLE_KEYS.items()
+        for stem in EXPORT_TABLES
     ],
-    ins={"one_climate_finance_raw_file": dg.AssetIn()},
-    check_specs=[
-        dg.AssetCheckSpec(name="table_not_empty", asset=key, blocking=True)
-        for key in RAW_TABLE_KEYS.values()
-    ],
+    metadata_table="raw_climate_finance_metadata",
 )
-def one_climate_finance_raw_tables(
-    duckdb: DuckDBResource, one_climate_finance_raw_file: str
-):
-    """Raw climate finance database tables, one per raw file"""
-    with duckdb.get_connection() as connection:
-        for stem, key in RAW_TABLE_KEYS.items():
-            table = RAW_TABLE_NAMES[stem]
-            rows = load_parquet(
-                connection,
-                path=str(UPath(one_climate_finance_raw_file) / f"{stem}.parquet"),
-                schema=SCHEMA,
-                table=table,
-            )
-            yield raw_table_result(f"{SCHEMA}.{table}", rows, asset_key=key)
-
-
-@dg.asset(
-    group_name="one_climate_finance",
-    kinds={"duckdb"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-)
-def one_climate_finance_raw_metadata(
-    duckdb: DuckDBResource, one_climate_finance_raw_file: str
-) -> dg.MaterializeResult:
-    """Extraction metadata for the climate finance raw data"""
-    table = "raw_climate_finance_metadata"
-    with duckdb.get_connection() as connection:
-        rows = load_extraction_metadata(
-            connection,
-            directory=UPath(one_climate_finance_raw_file),
-            schema=SCHEMA,
-            table=table,
-            release_names=("source",),
-        )
-    return metadata_table_result(f"{SCHEMA}.{table}", rows)
 
 
 def _export_spec(

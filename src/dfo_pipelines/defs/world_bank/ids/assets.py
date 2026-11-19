@@ -20,8 +20,8 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.raw_files import build_raw_file_asset
-from dfo_pipelines.orchestration.raw_tables import build_raw_table_assets
+from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
 
@@ -134,7 +134,7 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids_raw_file(
+def fetch_ids(
     file_path: UPath,
 ) -> FetchedRelease:
     """Write the combined IDS bulk files to `file_path`
@@ -151,18 +151,25 @@ def fetch_ids_raw_file(
     )
 
 
-world_bank_ids_raw_file = build_raw_file_asset(
+world_bank_ids_landing = build_landing_asset(
     group="world_bank_ids",
     dataset="ids",
     title="World Bank IDS",
-    fetch=fetch_ids_raw_file,
+    fetch=fetch_ids,
 )
 
 
-world_bank_ids_raw_table, world_bank_ids_raw_metadata = build_raw_table_assets(
+world_bank_ids_raw_tables = build_raw_table_assets(
     group="world_bank_ids",
-    table="raw_ids",
     title="World Bank IDS",
+    tables=[
+        RawTableSpec(
+            asset="world_bank_ids_raw_table",
+            file_stem="ids",
+            table="raw_ids",
+        )
+    ],
+    metadata_table="raw_ids_metadata",
 )
 
 

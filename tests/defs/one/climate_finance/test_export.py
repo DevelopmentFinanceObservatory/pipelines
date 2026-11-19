@@ -20,7 +20,7 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.extraction.climate_finance import (
-    RAW_TABLES,
+    EXPORT_TABLES,
     ExportManifest,
     LatestExport,
     sha256_bytes,
@@ -36,7 +36,7 @@ NAME = "2026a-rc9"
 
 @pytest.fixture
 def extracted(monkeypatch: pytest.MonkeyPatch, raw_tables: dict[str, Any]) -> None:
-    """Hand the export the raw tables extracted once per session"""
+    """Hand the export the tables extracted once per session"""
     extracts = {
         stem: lambda release, stem=stem: raw_tables[stem] for stem in raw_tables
     }
@@ -88,7 +88,7 @@ def _files(root: Path) -> dict[str, bytes]:
 
 def test_extracts_cover_every_raw_table() -> None:
     """Test the script extracts the tables the pipeline reads, in its order"""
-    assert tuple(export_script.EXTRACTS) == RAW_TABLES
+    assert tuple(export_script.EXTRACTS) == EXPORT_TABLES
 
 
 def test_package_source_sha256_matches_the_digest_the_release_records() -> None:
