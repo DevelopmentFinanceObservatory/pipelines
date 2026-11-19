@@ -8,7 +8,10 @@ import duckdb
 import httpx
 import pytest
 
-from dfo_pipelines.data_commons.graph_check import GRAPH_API_URL_VARIABLE
+from dfo_pipelines.data_commons.graph_check import (
+    DEFAULT_GRAPH_API_URL,
+    GRAPH_API_URL_VARIABLE,
+)
 from scripts import check_statvars
 
 FINDING: dict[str, Any] = {
@@ -102,13 +105,31 @@ def test_main_exits_by_what_the_check_found(
     assert check_statvars.main(["oecd_dac2a"]) == exit_code
 
 
-def test_main_exits_unchecked_when_the_graph_api_is_unset(
-    database: None, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("value", [None, "", "  "], ids=["unset", "empty", "blank"])
+def test_main_checks_the_default_graph_api_when_the_variable_is_unset_or_empty(
+    database: None, monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
-    """Test the command refuses to report a clean check it never ran"""
-    monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
+    """Test the command posts to the public Graph API when the variable has no
+    value"""
+    if value is None:
+        monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
+    else:
+        monkeypatch.setenv(GRAPH_API_URL_VARIABLE, value)
+    urls: list[str] = []
 
-    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_UNCHECKED
+    def open_client(base_url: str) -> httpx.Client:
+        urls.append(base_url)
+        return httpx.Client(
+            base_url=base_url,
+            transport=httpx.MockTransport(lambda request: checked()),
+        )
+
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.graph_check.open_client", open_client
+    )
+
+    assert check_statvars.main(["oecd_dac2a"]) == check_statvars.EXIT_CLEAN
+    assert urls == [DEFAULT_GRAPH_API_URL]
 
 
 def test_main_exits_unchecked_when_duckdb_path_is_unset(

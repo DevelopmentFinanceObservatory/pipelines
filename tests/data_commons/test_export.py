@@ -25,6 +25,7 @@ from dfo_pipelines.data_commons.export import (
 )
 from dfo_pipelines.data_commons.graph_check import (
     CHECK_PATH,
+    DEFAULT_GRAPH_API_URL,
     GRAPH_API_URL_VARIABLE,
 )
 
@@ -341,21 +342,35 @@ def test_export_bundle_warns_when_the_graph_check_cannot_finish(
     assert (out_dir / "config.json").exists()
 
 
-def test_export_bundle_skips_the_graph_check_quietly_when_the_graph_api_is_unset(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize("value", [None, ""], ids=["unset", "empty"])
+def test_export_bundle_checks_the_default_graph_api_when_the_variable_has_no_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
-    """Test an unset Graph API skips the check with an info line naming the
-    variable, and no warning"""
-    with caplog.at_level(logging.INFO, logger=LOG.name):
-        metadata, _ = run_export(tmp_path)
+    """Test the export posts to the public Graph API when the variable is unset or
+    empty"""
+    if value is not None:
+        monkeypatch.setenv(GRAPH_API_URL_VARIABLE, value)
+    urls: list[str] = []
 
-    assert metadata.check_findings is None
-    assert warnings_logged(caplog) == []
-    assert any(
-        r.levelno == logging.INFO and GRAPH_API_URL_VARIABLE in r.message
-        for r in caplog.records
-        if r.name == LOG.name
+    def open_client(base_url: str) -> httpx.Client:
+        urls.append(base_url)
+        return httpx.Client(
+            base_url=base_url,
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200, json={"rows_checked": 2, "findings": []}
+                )
+            ),
+        )
+
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.graph_check.open_client", open_client
     )
+
+    metadata, _ = run_export(tmp_path)
+
+    assert urls == [DEFAULT_GRAPH_API_URL]
+    assert metadata.check_findings == 0
 
 
 def test_export_bundle_clears_the_output_directory(tmp_path: Path) -> None:

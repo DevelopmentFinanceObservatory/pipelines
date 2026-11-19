@@ -1,6 +1,6 @@
 """Check an export's StatVar definitions against the Graph API's served schema.
 
-The Graph API's `POST /api/graph/schema/check` judges candidate StatVar rows against
+The Graph API's `POST /schema/check` judges candidate StatVar rows against
 the graph the deployment serves: whether each node a row names exists, has the right
 kind, and fits the ranges and domains of DFO's properties. The route checks the first
 `rows_checked` rows of a request, at least one, and the caller resumes at that index.
@@ -30,10 +30,14 @@ import httpx
 if TYPE_CHECKING:
     from dfo_pipelines.data_commons.export import ExportSpec
 
-# The deployment origin the check posts to, e.g. https://developmentfinance.org.
+# The variable that overrides the Graph API URL the check posts to, e.g. to check
+# against the dev deployment.
 GRAPH_API_URL_VARIABLE = "DFO_GRAPH_API_URL"
 
-CHECK_PATH = "/api/graph/schema/check"
+# The public Graph API, which answers the check without a key.
+DEFAULT_GRAPH_API_URL = "https://developmentfinance.org/api/graph"
+
+CHECK_PATH = "/schema/check"
 
 # The most rows one request carries, the route's `CHECK_MAX_ROWS`.
 CHECK_MAX_ROWS = 2_000
@@ -151,10 +155,10 @@ class GraphCheck:
         )
 
 
-def graph_api_url() -> str | None:
-    """The origin `GRAPH_API_URL_VARIABLE` names, stripped of surrounding
-    whitespace, or None when it is unset or blank"""
-    return os.environ.get(GRAPH_API_URL_VARIABLE, "").strip() or None
+def graph_api_url() -> str:
+    """The Graph API URL `GRAPH_API_URL_VARIABLE` names, stripped of surrounding
+    whitespace, or `DEFAULT_GRAPH_API_URL` when it is unset or blank"""
+    return os.environ.get(GRAPH_API_URL_VARIABLE, "").strip() or DEFAULT_GRAPH_API_URL
 
 
 def open_client(base_url: str) -> httpx.Client:
@@ -385,7 +389,7 @@ def check_statvars(
     Args:
         statvars: The StatVar model's rows, keyed on column name.
         column_to_property: The export spec's `statvar_column_to_property`.
-        client: Client whose base URL is the Graph API's origin.
+        client: Client whose base URL is the Graph API's URL.
         sleep: Called with the seconds to wait before retrying a 503 or 429.
 
     Raises:
@@ -434,7 +438,7 @@ def check_spec(
     Args:
         spec: The export whose StatVar columns the rows carry.
         rows: The rows of `spec.statvar_model`, keyed on column name.
-        base_url: The Graph API's origin, as `graph_api_url` gives it.
+        base_url: The Graph API's URL, as `graph_api_url` gives it.
         sleep: Called with the seconds to wait before retrying a 503 or 429.
 
     Raises:

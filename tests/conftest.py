@@ -1,3 +1,4 @@
+import httpx
 import pytest
 
 from dfo_pipelines.data_commons.graph_check import GRAPH_API_URL_VARIABLE
@@ -6,8 +7,19 @@ from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 
 @pytest.fixture(autouse=True)
 def no_graph_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep every export's graph check from reaching a deployment the shell names"""
+    """Keep every export's graph check off the network and off a deployment the
+    shell names: the Graph API is unreachable unless a test stubs it"""
     monkeypatch.delenv(GRAPH_API_URL_VARIABLE, raising=False)
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no network in tests", request=request)
+
+    monkeypatch.setattr(
+        "dfo_pipelines.data_commons.graph_check.open_client",
+        lambda base_url: httpx.Client(
+            base_url=base_url, transport=httpx.MockTransport(unreachable)
+        ),
+    )
 
 
 @pytest.fixture

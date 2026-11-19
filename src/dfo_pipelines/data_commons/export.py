@@ -31,7 +31,6 @@ from duckdb import DuckDBPyConnection
 from upath import UPath
 
 from dfo_pipelines.data_commons.graph_check import (
-    GRAPH_API_URL_VARIABLE,
     check_spec,
     finding_groups,
     graph_api_url,
@@ -238,12 +237,8 @@ def _check_statvars(
     spec: ExportSpec, *, connection: DuckDBPyConnection, log: logging.Logger
 ) -> int | None:
     """Count of the Graph API's findings and refused rows over the spec's StatVars,
-    logged as warnings, or None when the check is skipped because
-    `DFO_GRAPH_API_URL` is unset or cannot finish"""
+    logged as warnings, or None when the check cannot finish"""
     base_url = graph_api_url()
-    if base_url is None:
-        log.info(f"Skipping the graph check because {GRAPH_API_URL_VARIABLE} is unset")
-        return None
     # The check never fails the export, whatever goes wrong in it.
     try:
         check = check_spec(
@@ -286,9 +281,10 @@ def export_bundle(
     bundle carries only what this export wrote — and so the observations are written
     after it, while everything the config records is registered before it.
 
-    When `DFO_GRAPH_API_URL` names a deployment, the StatVars are checked against
-    its served schema, once the MCF validates, and the findings are logged as
-    warnings, one line per distinct finding. The check never fails the export.
+    Once the MCF validates, the StatVars are checked against the schema the Graph API
+    serves, the public one unless `DFO_GRAPH_API_URL` names another, and the findings
+    are logged as warnings, one line per distinct finding. The check never fails the
+    export, and an unreachable Graph API logs a warning.
 
     Args:
         spec: Models to read, and how their columns map onto Data Commons
