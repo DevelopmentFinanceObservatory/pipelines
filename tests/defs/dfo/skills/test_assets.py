@@ -4,7 +4,7 @@ import subprocess
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from unittest.mock import patch
 
 import dagster as dg
@@ -97,13 +97,33 @@ def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return repository
 
 
-def materialize_landing(tmp_path: Path) -> Any:
+class LandingRun(NamedTuple):
+    """The directory a landing asset run returned, its materialization and checks"""
+
+    directory: Path
+    materialization: dg.AssetMaterialization
+    checks: dict[str, bool]
+
+
+def materialize_landing(tmp_path: Path) -> LandingRun:
     """Run the landing asset against a file store under tmp_path"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
-    return dfo_skills_landing(
-        context=dg.build_asset_context(),
-        landing_file_store=file_store,
-        skills_repository=SKILLS_REPOSITORY,
+    result = dg.materialize(
+        [dfo_skills_landing],
+        resources={
+            "landing_file_store": file_store,
+            "skills_repository": SKILLS_REPOSITORY,
+            "io_manager": dg.mem_io_manager,
+        },
+    )
+    [materialization] = result.asset_materializations_for_node("dfo_skills_landing")
+    return LandingRun(
+        directory=Path(result.output_for_node("dfo_skills_landing")),
+        materialization=materialization,
+        checks={
+            check.check_name: check.passed
+            for check in result.get_asset_check_evaluations()
+        },
     )
 
 
@@ -129,15 +149,13 @@ def test_landing_copies_the_skills_at_the_head_of_main(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the published skills arrive unchanged, traced to their commit"""
+    head = git(upstream, "rev-parse", "HEAD")
+
     result = materialize_landing(tmp_path)
 
-    assert files_under(Path(str(result.value))) == landing_files(SKILLS)
-    assert meta(result, "version", dg.TextMetadataValue).value == git(
-        upstream, "rev-parse", "HEAD"
-    )
-    [check] = result.check_results
-    assert check.check_name == "skills_not_empty"
-    assert check.passed
+    assert files_under(result.directory) == landing_files(SKILLS)
+    assert result.materialization.metadata["version"] == dg.TextMetadataValue(head)
+    assert result.checks == {"skills_not_empty": True}
 
 
 @dg.asset(name="dfo_ontology_landing")
@@ -182,14 +200,14 @@ def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
 
     result = materialize_landing(tmp_path)
 
-    assert files_under(Path(str(result.value))) == landing_files(replaced)
+    assert files_under(result.directory) == landing_files(replaced)
 
 
 def test_landing_keeps_the_previous_copy_when_the_clone_fails(
     tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a failed fetch leaves the day's earlier copy in place"""
-    published = Path(str(materialize_landing(tmp_path).value))
+    published = materialize_landing(tmp_path).directory
 
     redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
     with pytest.raises(RuntimeError, match="git clone failed"):
@@ -240,7 +258,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
 ) -> None:
     """Test a committed symlink fails the fetch rather than copying its target"""
-    published = Path(str(materialize_landing(tmp_path).value))
+    published = materialize_landing(tmp_path).directory
     secret = tmp_path / "secret"
     secret.mkdir()
     (secret / "SKILL.md").write_text("not for the graph")
@@ -422,9 +440,9 @@ def test_landing_and_export_carry_a_skill_from_each_root(
 
     raw_result = materialize_landing(tmp_path)
 
-    landing_directory = Path(str(raw_result.value))
+    landing_directory = raw_result.directory
     assert files_under(landing_directory) == landing_files(SKILLS, INTERNAL_SKILLS)
-    assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 2
+    assert raw_result.materialization.metadata["skill_count"] == dg.IntMetadataValue(2)
 
     export_result, out_dir = export_skills(
         tmp_path, landing_directory=landing_directory
@@ -540,11 +558,9 @@ def test_landing_and_export_skip_a_draft_with_only_a_readme(
     commit(upstream, SKILLS | {"_draft/README.md": "Notes for a draft skill.\n"})
 
     raw_result = materialize_landing(tmp_path)
-    assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
+    assert raw_result.materialization.metadata["skill_count"] == dg.IntMetadataValue(1)
 
-    export_result, _ = export_skills(
-        tmp_path, landing_directory=Path(str(raw_result.value))
-    )
+    export_result, _ = export_skills(tmp_path, landing_directory=raw_result.directory)
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 
@@ -558,11 +574,9 @@ def test_landing_and_export_skip_a_draft_with_a_skill_file(
     )
 
     raw_result = materialize_landing(tmp_path)
-    assert meta(raw_result, "skill_count", dg.IntMetadataValue).value == 1
+    assert raw_result.materialization.metadata["skill_count"] == dg.IntMetadataValue(1)
 
-    export_result, _ = export_skills(
-        tmp_path, landing_directory=Path(str(raw_result.value))
-    )
+    export_result, _ = export_skills(tmp_path, landing_directory=raw_result.directory)
     assert meta(export_result, "skill_count", dg.IntMetadataValue).value == 1
 
 

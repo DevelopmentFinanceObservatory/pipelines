@@ -61,15 +61,28 @@ def patch_download_clock() -> Iterator[None]:
         yield
 
 
-def materialize_directly(
-    asset: dg.AssetsDefinition, tmp_path: Path
-) -> dg.MaterializeResult:
-    """Run the asset's body against a file store under `tmp_path`"""
+def materialize_example(
+    asset: dg.AssetsDefinition,
+    tmp_path: Path,
+    *,
+    raise_on_error: bool = True,
+) -> dg.ExecuteInProcessResult:
+    """Materialize the asset against a file store under `tmp_path`"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     with patch_download_clock():
-        result = asset(context=dg.build_asset_context(), landing_file_store=file_store)
-    assert isinstance(result, dg.MaterializeResult)
-    return result
+        return dg.materialize(
+            [asset],
+            resources={
+                "landing_file_store": file_store,
+                "io_manager": dg.mem_io_manager,
+            },
+            raise_on_error=raise_on_error,
+        )
+
+
+def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
+    [event] = result.asset_materializations_for_node("example_landing")
+    return event
 
 
 def test_build_landing_asset_writes_the_download_and_its_metadata(
@@ -81,7 +94,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
     )
 
-    result = materialize_directly(asset, tmp_path)
+    result = materialize_example(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     file_path = directory / "things.parquet"
@@ -93,15 +106,15 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "downloaded_at": "2026-08-03T23:47:05+00:00",
         "source_release_date": "2026-07-07",
     }
-    assert result.value == str(directory)
-    assert result.metadata == {
+    assert result.output_for_node("example_landing") == str(directory)
+    assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "file_size": dg.IntMetadataValue(file_path.stat().st_size),
         "dagster/row_count": dg.IntMetadataValue(3),
         "version": dg.TextMetadataValue("v20260801"),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    [check] = result.check_results
+    [check] = result.get_asset_check_evaluations()
     assert check.check_name == "file_not_empty"
     assert check.passed
 
@@ -119,7 +132,7 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         )
     )
 
-    result = materialize_directly(asset, tmp_path)
+    result = materialize_example(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
@@ -128,24 +141,26 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         "crs_release_date": "2026-07-01",
         "multisystem_release_date": "2026-06-15",
     }
-    assert result.metadata is not None
+    metadata = materialization(result).metadata
     assert (
-        result.metadata.items()
+        metadata.items()
         >= {
             "crs_release_date": dg.TextMetadataValue("2026-07-01"),
             "multisystem_release_date": dg.TextMetadataValue("2026-06-15"),
         }.items()
     )
-    assert "source_release_date" not in result.metadata
+    assert "source_release_date" not in metadata
 
 
 def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
     tmp_path: Path,
 ) -> None:
     """Test an empty download, which still carries a schema, fails the check"""
-    result = materialize_directly(build_example(fetch_rows(0)), tmp_path)
+    result = materialize_example(
+        build_example(fetch_rows(0)), tmp_path, raise_on_error=False
+    )
 
-    [check] = result.check_results
+    [check] = result.get_asset_check_evaluations()
     assert check.check_name == "file_not_empty"
     assert not check.passed
 
@@ -159,7 +174,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
-        materialize_directly(build_example(fail), tmp_path)
+        materialize_example(build_example(fail), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
@@ -174,7 +189,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
         return FetchedRelease(release_dates={"source": RELEASE_DATE}, metadata={})
 
     with pytest.raises(pa.ArrowInvalid):
-        materialize_directly(build_example(truncate), tmp_path)
+        materialize_example(build_example(truncate), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 

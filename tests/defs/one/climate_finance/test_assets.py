@@ -23,7 +23,6 @@ from dfo_pipelines.orchestration.resources import (
     UPathFileStoreResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT
-from tests.helpers import meta
 
 NAME = "2026a-rc9"
 STEMS = ["spending", "crdf_commitments", "btr_totals"]
@@ -83,13 +82,25 @@ def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
     )
 
 
-def _materialize(instance: dg.DagsterInstance, tmp: Path) -> dg.MaterializeResult:
-    result = one_climate_finance_landing(
-        context=dg.build_asset_context(instance=instance),
-        landing_file_store=UPathFileStoreResource(base_path=str(tmp / "landing")),
+def _materialize(
+    instance: dg.DagsterInstance, tmp: Path, *, raise_on_error: bool = True
+) -> dg.ExecuteInProcessResult:
+    return dg.materialize(
+        [one_climate_finance_landing],
+        resources={
+            "landing_file_store": UPathFileStoreResource(
+                base_path=str(tmp / "landing")
+            ),
+            "io_manager": dg.mem_io_manager,
+        },
+        instance=instance,
+        raise_on_error=raise_on_error,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return result
+
+
+def _materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
+    [event] = result.asset_materializations_for_node("one_climate_finance_landing")
+    return event
 
 
 def test_source_observes_the_export_latest_json_names(export: Path) -> None:
@@ -156,22 +167,22 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
 
     result = _materialize(instance, tmp_path)
 
-    directory = Path(str(result.value))
+    directory = Path(result.output_for_node("one_climate_finance_landing"))
+    metadata = _materialization(result).metadata
     for stem in STEMS:
         copied = (directory / f"{stem}.parquet").read_bytes()
         assert copied == (export / NAME / f"{stem}.parquet").read_bytes()
-        row_count = meta(result, f"{stem}_row_count", dg.IntMetadataValue).value
-        assert row_count == manifest.tables[stem].rows
-    assert {check.check_name: check.passed for check in result.check_results} == {
-        f"{stem}_not_empty": True for stem in STEMS
-    }
-    assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == sum(
-        table.rows for table in manifest.tables.values()
+        assert metadata[f"{stem}_row_count"] == dg.IntMetadataValue(
+            manifest.tables[stem].rows
+        )
+    assert {
+        check.check_name: check.passed for check in result.get_asset_check_evaluations()
+    } == {f"{stem}_not_empty": True for stem in STEMS}
+    assert metadata["dagster/row_count"] == dg.IntMetadataValue(
+        sum(table.rows for table in manifest.tables.values())
     )
-    assert meta(result, "version", dg.TextMetadataValue).value == NAME
-    assert (
-        meta(result, "source_release_date", dg.TextMetadataValue).value == "2026-11-10"
-    )
+    assert metadata["version"] == dg.TextMetadataValue(NAME)
+    assert metadata["source_release_date"] == dg.TextMetadataValue("2026-11-10")
     recorded = read_extraction_metadata(UPath(directory), release_names=("source",))
     assert recorded.release_dates["source"].isoformat() == "2026-11-10"
 
@@ -186,9 +197,13 @@ def test_landing_check_fails_on_a_table_with_no_rows(
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
 
-    result = _materialize(instance, tmp_path)
+    result = _materialize(instance, tmp_path, raise_on_error=False)
 
-    failed = {check.check_name for check in result.check_results if not check.passed}
+    failed = {
+        check.check_name
+        for check in result.get_asset_check_evaluations()
+        if not check.passed
+    }
     assert failed == {f"{stem}_not_empty"}
 
 
