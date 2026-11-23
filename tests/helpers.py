@@ -55,6 +55,13 @@ def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterializatio
     return event.step_materialization_data.materialization
 
 
+def landed_directory(result: dg.ExecuteInProcessResult) -> Path:
+    """The landing directory the run's one materialization recorded"""
+    uri = materialization(result).metadata["dagster/uri"]
+    assert isinstance(uri, dg.TextMetadataValue)
+    return Path(uri.value)
+
+
 def check_outcomes(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
     """Whether each check the run evaluated passed, keyed on its name"""
     return {

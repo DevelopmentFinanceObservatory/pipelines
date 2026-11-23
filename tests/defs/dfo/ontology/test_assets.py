@@ -22,6 +22,7 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     check_outcomes,
     column_list,
+    landed_directory,
     materialization,
     materialize_landing,
     meta,
@@ -143,13 +144,7 @@ def test_landing_publishes_nothing_when_an_output_is_missing(
     one by one would leave the ontology of one compile beside the mapping of
     another, with no materialization recording that it happened.
     """
-    published = Path(
-        str(
-            materialize_landing(dfo_ontology_landing, tmp_path).output_for_node(
-                "dfo_ontology_landing"
-            )
-        )
-    )
+    published = landed_directory(materialize_landing(dfo_ontology_landing, tmp_path))
     compiler.side_effect = fake_compile(
         mcf="Node: dcid:Replaced\n", omit=(CODE_MAPPING_CSV,)
     )
