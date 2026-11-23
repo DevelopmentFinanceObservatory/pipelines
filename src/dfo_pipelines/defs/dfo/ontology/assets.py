@@ -11,7 +11,7 @@ from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.extraction.metadata import FetchedRelease
-from dfo_pipelines.extraction.wikibase import LatestEdit, fetch_latest_edit
+from dfo_pipelines.extraction.wikibase import LatestRevision, fetch_latest_revision
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
@@ -33,60 +33,30 @@ BENCH = Config(bench="prod")
     automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
 def dfo_ontology_source() -> dg.ObserveResult:
-    """Observed latest edit to the ontology's Wikibase instance"""
-    edit = _fetch_latest_edit()
-    version = f"{edit.revision_id}-{edit.deletion_log_id}"
+    """Observed latest revision in the ontology's Wikibase instance"""
+    revision = _fetch_latest_revision()
+    version = str(revision.revision_id)
     return dg.ObserveResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(BENCH.url),
             "version": dg.MetadataValue.text(version),
-            "revision_id": dg.MetadataValue.int(edit.revision_id),
-            "revised_at": dg.MetadataValue.text(edit.revised_at.isoformat()),
-            "deletion_log_id": (
-                dg.MetadataValue.null()
-                if edit.deletion_log_id is None
-                else dg.MetadataValue.int(edit.deletion_log_id)
-            ),
-            "deleted_at": (
-                dg.MetadataValue.null()
-                if edit.deleted_at is None
-                else dg.MetadataValue.text(edit.deleted_at.isoformat())
-            ),
+            "revised_at": dg.MetadataValue.text(revision.revised_at.isoformat()),
         },
         data_version=dg.DataVersion(version),
     )
 
 
-def _fetch_latest_edit() -> LatestEdit:
-    """The latest edit to the namespaces the compiler reads from its bench"""
-    return fetch_latest_edit(api_url=BENCH.url, namespaces=BENCH.namespaces)
-
-
-def _observed_edit(observation: Observation) -> LatestEdit:
-    """The latest edit `dfo_ontology_source` recorded in its observation"""
-    deleted_at = observation.metadata["deleted_at"]
-    return LatestEdit(
-        revision_id=observation.metadata["revision_id"],
-        revised_at=datetime.fromisoformat(observation.metadata["revised_at"]),
-        deletion_log_id=observation.metadata["deletion_log_id"],
-        deleted_at=None if deleted_at is None else datetime.fromisoformat(deleted_at),
-    )
-
-
-def _edited_at(edit: LatestEdit) -> datetime:
-    """When the instance last changed: its latest revision or deletion"""
-    if edit.deleted_at is None:
-        return edit.revised_at
-    return max(edit.revised_at, edit.deleted_at)
+def _fetch_latest_revision() -> LatestRevision:
+    """The latest revision in the namespaces the compiler reads from its bench"""
+    return fetch_latest_revision(api_url=BENCH.url, namespaces=BENCH.namespaces)
 
 
 def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the compiled ontology, code mapping and report to `directory`
 
     The instance is read again after the compile, so a compile is never
-    recorded under an edit other than the observed one.
+    recorded under a revision other than the observed one.
     """
-    edit = _observed_edit(observation)
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
         result = run_logged(
@@ -110,7 +80,7 @@ def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease
             raise RuntimeError(
                 f"The DFO ontology compiled without {', '.join(missing)}"
             )
-        if _fetch_latest_edit() != edit:
+        if str(_fetch_latest_revision().revision_id) != observation.data_version:
             raise RuntimeError(
                 f"{BENCH.site} was edited after it was observed: observe it again"
             )
@@ -118,7 +88,9 @@ def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease
             (directory / path.name).write_bytes(path.read_bytes())
 
     return FetchedRelease(
-        release_dates={"source": _edited_at(edit).date()},
+        release_dates={
+            "source": datetime.fromisoformat(observation.metadata["revised_at"]).date()
+        },
         metadata={
             "node_count": dg.MetadataValue.int(
                 count_mcf_nodes(directory / ONTOLOGY_MCF)

@@ -26,7 +26,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     fetch_ontology,
 )
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
-from dfo_pipelines.extraction.wikibase import LatestEdit
+from dfo_pipelines.extraction.wikibase import LatestRevision
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
@@ -54,11 +54,8 @@ name: "CRS purpose"
 
 STUB_REPORT = "G1 identity: 2 nodes carry no dcid\n"
 
-LATEST_EDIT = LatestEdit(
-    revision_id=2982,
-    revised_at=datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC),
-    deletion_log_id=1700,
-    deleted_at=datetime(2026, 10, 8, 14, 8, 33, tzinfo=UTC),
+LATEST_REVISION = LatestRevision(
+    revision_id=2982, revised_at=datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC)
 )
 
 
@@ -126,13 +123,13 @@ def compiler() -> Iterator[Any]:
 
 @pytest.fixture(autouse=True)
 def wikibase() -> Iterator[Any]:
-    """The Wikibase lookup, answering with `LATEST_EDIT` on every call
+    """The Wikibase lookup, answering with `LATEST_REVISION` on every call
 
     A test that needs the instance edited reassigns `side_effect`.
     """
     with patch(
-        "dfo_pipelines.defs.dfo.ontology.assets.fetch_latest_edit",
-        return_value=LATEST_EDIT,
+        "dfo_pipelines.defs.dfo.ontology.assets.fetch_latest_revision",
+        return_value=LATEST_REVISION,
     ) as mock:
         yield mock
 
@@ -225,71 +222,38 @@ def test_landing_publishes_nothing_when_an_output_is_missing(
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
 
 
-def test_source_versions_the_latest_revision_and_deletion() -> None:
-    """Test the source versions the revision and deletion ids, and reports the API
-    and the edit"""
+def test_source_versions_the_latest_revision() -> None:
+    """Test the source versions the revision id, and reports the API and when the
+    revision was saved"""
     observe = dfo_ontology_source.observe_fn
     assert observe is not None
 
     result = observe()
 
     assert isinstance(result, dg.ObserveResult)
-    assert result.data_version == dg.DataVersion("2982-1700")
+    assert result.data_version == dg.DataVersion("2982")
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(BENCH.url),
-        "version": dg.TextMetadataValue("2982-1700"),
-        "revision_id": dg.IntMetadataValue(2982),
+        "version": dg.TextMetadataValue("2982"),
         "revised_at": dg.TextMetadataValue("2026-11-10T13:08:34+00:00"),
-        "deletion_log_id": dg.IntMetadataValue(1700),
-        "deleted_at": dg.TextMetadataValue("2026-10-08T14:08:33+00:00"),
     }
 
 
-@pytest.mark.parametrize(
-    ("edit", "release_date"),
-    [
-        (LATEST_EDIT, "2026-11-10"),
-        (
-            dataclasses.replace(
-                LATEST_EDIT, deleted_at=datetime(2026, 11, 12, 9, tzinfo=UTC)
-            ),
-            "2026-11-12",
-        ),
-        (
-            dataclasses.replace(LATEST_EDIT, deletion_log_id=None, deleted_at=None),
-            "2026-11-10",
-        ),
-    ],
-    ids=["revision", "deletion", "no_deletion"],
-)
-def test_landing_records_the_date_of_the_latest_change_as_the_release_date(
-    tmp_path: Path, compiler: Any, wikibase: Any, edit: LatestEdit, release_date: str
+def test_landing_records_the_date_of_the_observed_revision_as_the_release_date(
+    tmp_path: Path, compiler: Any
 ) -> None:
-    """Test the ontology was released on the day of its latest revision or deletion,
-    so a deletion alone moves the release date"""
-    wikibase.return_value = edit
-
+    """Test the ontology was released on the day of the observed revision"""
     result = materialize_observed(tmp_path)
 
     landed = landed_directory(result)
     assert (
         json.loads((landed / METADATA_FILE_NAME).read_text())["source_release_date"]
-        == release_date
+        == "2026-11-10"
     )
 
 
-@pytest.mark.parametrize(
-    "edit_after_observation",
-    [
-        dataclasses.replace(LATEST_EDIT, revision_id=LATEST_EDIT.revision_id + 1),
-        dataclasses.replace(
-            LATEST_EDIT, deletion_log_id=(LATEST_EDIT.deletion_log_id or 0) + 1
-        ),
-    ],
-    ids=["revision", "deletion"],
-)
 def test_landing_raises_when_the_instance_is_edited_after_the_observation(
-    tmp_path: Path, compiler: Any, wikibase: Any, edit_after_observation: LatestEdit
+    tmp_path: Path, compiler: Any, wikibase: Any
 ) -> None:
     """Test a compile is refused when the instance changed after it was observed
 
@@ -297,7 +261,12 @@ def test_landing_raises_when_the_instance_is_edited_after_the_observation(
     observed version and its release date. What an earlier run landed stays.
     """
     published = landed_directory(materialize_observed(tmp_path))
-    wikibase.side_effect = [LATEST_EDIT, edit_after_observation]
+    wikibase.side_effect = [
+        LATEST_REVISION,
+        dataclasses.replace(
+            LATEST_REVISION, revision_id=LATEST_REVISION.revision_id + 1
+        ),
+    ]
     compiler.side_effect = fake_compile(mcf="Node: dcid:Replaced\n")
 
     with pytest.raises(RuntimeError, match="edited after it was observed"):
@@ -309,11 +278,11 @@ def test_landing_raises_when_the_instance_is_edited_after_the_observation(
 def test_fetch_raises_when_the_instance_was_edited_before_the_compile(
     tmp_path: Path, compiler: Any, wikibase: Any
 ) -> None:
-    """Test the fetch compares against the observed edit, so an edit made between
-    the observation and the compile is refused too"""
+    """Test the fetch compares against the observed revision, so an edit made
+    between the observation and the compile is refused too"""
     observation = observe()
     wikibase.return_value = dataclasses.replace(
-        LATEST_EDIT, revision_id=LATEST_EDIT.revision_id + 1
+        LATEST_REVISION, revision_id=LATEST_REVISION.revision_id + 1
     )
 
     with pytest.raises(RuntimeError, match="edited after it was observed"):
