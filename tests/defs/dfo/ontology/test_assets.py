@@ -30,7 +30,6 @@ from dfo_pipelines.extraction.wikibase import LatestEdit
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    check_outcomes,
     column_list,
     landed_directory,
     materialization,
@@ -327,19 +326,21 @@ def test_fetch_raises_when_the_instance_was_edited_before_the_compile(
 def test_landing_check_fails_when_the_mcf_declares_no_nodes(
     tmp_path: Path, compiler: Any, mcf: str
 ) -> None:
-    """Test the MCF check fails when the compiler emits no ontology, even with the
-    header comment it writes"""
+    """Test the files check fails on the MCF when the compiler emits no ontology,
+    even with the header comment it writes"""
     compiler.side_effect = fake_compile(mcf=mcf)
 
     result = materialize_observed(tmp_path, raise_on_error=False)
 
-    assert check_outcomes(result) == {"dfo_not_empty": False, "codes_not_empty": True}
+    [evaluation] = result.get_asset_check_evaluations()
+    assert not evaluation.passed
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue([ONTOLOGY_MCF])
 
 
 def test_landing_check_fails_when_the_code_mapping_has_no_rows(
     tmp_path: Path, compiler: Any
 ) -> None:
-    """Test the mapping check counts rows, so a header alone does not pass it
+    """Test the files check counts the mapping's rows, so a header alone fails it
 
     A file holding only its header is not empty on disk, but resolves nothing.
     """
@@ -347,7 +348,11 @@ def test_landing_check_fails_when_the_code_mapping_has_no_rows(
 
     result = materialize_observed(tmp_path, raise_on_error=False)
 
-    assert check_outcomes(result) == {"dfo_not_empty": True, "codes_not_empty": False}
+    [evaluation] = result.get_asset_check_evaluations()
+    assert not evaluation.passed
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue(
+        [CODE_MAPPING_CSV]
+    )
 
 
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
