@@ -12,14 +12,20 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 
 def export_directory_result(
-    out_dir: UPath, counts: Mapping[str, int]
+    out_dir: UPath, counts: Mapping[str, int | None]
 ) -> dg.MaterializeResult:
-    """Result of writing a bundle to `out_dir`, with each of its `counts`"""
+    """Result of writing a bundle to `out_dir`, with each of its `counts`, a None
+    count reported as null"""
     return dg.MaterializeResult(
         value=str(out_dir),
         metadata={
             "dagster/uri": dg.MetadataValue.text(str(out_dir)),
-            **{name: dg.MetadataValue.int(count) for name, count in counts.items()},
+            **{
+                name: dg.MetadataValue.null()
+                if count is None
+                else dg.MetadataValue.int(count)
+                for name, count in counts.items()
+            },
         },
     )
 
@@ -64,6 +70,7 @@ def build_dc_export_asset(
                 "observation_count": export_metadata.observation_count,
                 "statvar_count": export_metadata.statvar_count,
                 "observation_file_count": export_metadata.observation_file_count,
+                "check_findings": export_metadata.check_findings,
             },
         )
 
