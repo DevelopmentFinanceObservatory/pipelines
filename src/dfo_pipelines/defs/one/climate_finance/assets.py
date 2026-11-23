@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 import dagster as dg
 from upath import UPath
 
@@ -19,17 +17,12 @@ from dfo_pipelines.extraction.climate_finance import (
     LatestExport,
     sha256_bytes,
 )
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
-from dfo_pipelines.orchestration.automation import (
-    EAGER_WHEN_CHECKS_PASS,
-)
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
+from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
-from dfo_pipelines.orchestration.resources import (
-    ClimateFinanceExportResource,
-    UPathFileStoreResource,
-)
+from dfo_pipelines.orchestration.resources import ClimateFinanceExportResource
 
 SCHEMA = "one_climate_finance"
 
@@ -102,49 +95,18 @@ def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
     return UPath(str(metadata["dagster/uri"].value)), str(metadata["sha256"].value)
 
 
-@dg.asset(
-    deps=[one_climate_finance_source],
-    group_name="one_climate_finance",
-    kinds={"file", "parquet"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name=f"{stem}_not_empty",
-            asset="one_climate_finance_landing",
-            blocking=True,
-        )
-        for stem in EXPORT_TABLES
-    ],
-)
-# The function has no return annotation because Dagster types an asset annotated
-# `-> MaterializeResult` as returning Nothing, and the directory this returns is
-# the raw tables' input.
-def one_climate_finance_landing(
-    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
-):
-    """Climate finance tables from the observed release, as exported, one parquet
-    file per raw table.
-
-    `spending` holds the package's climate finance received, 2010 to 2024, and
-    provided, 2013 to 2024, under ONE Data's and the OECD's methods and both
-    attribution rules, by `bi_multi`. `crdf_commitments` holds the OECD's CRDF
-    commitments, 2010 to 2024, and `btr_totals` the parties' Biennial Transparency
-    Report totals. `scripts/export_climate_finance_release.py` extracts them.
+def fetch_climate_finance(
+    context: dg.AssetExecutionContext, directory: UPath
+) -> FetchedRelease:
+    """Copy the climate finance tables of the observed release to `directory`, as
+    exported, one parquet file per raw table.
 
     Raises:
         ValueError: If the export's manifest or a table differs from the sha256
             the observation or the manifest recorded.
     """
-    downloaded_at = datetime.now(UTC)
     export, manifest_sha256 = latest_observation(context)
     manifest = read_manifest(export, sha256=manifest_sha256)
-    directory = landing_file_store.build_date_partitioned_path(
-        "one_climate_finance/climate_finance", partition_date=downloaded_at.date()
-    )
-    directory.mkdir(parents=True, exist_ok=True)
-
-    rows = {}
-    file_size = 0
     for stem in EXPORT_TABLES:
         source = export / f"{stem}.parquet"
         data = source.read_bytes()
@@ -153,34 +115,23 @@ def one_climate_finance_landing(
                 f"{source} has sha256 {actual}, its manifest records {expected}"
             )
         (directory / f"{stem}.parquet").write_bytes(data)
-        file_size += len(data)
-        rows[stem] = manifest.tables[stem].rows
-
-    release_date = manifest.created_at.date()
-    write_extraction_metadata(
-        directory, downloaded_at=downloaded_at, release_dates={"source": release_date}
-    )
     context.log.info(
         f"Copied climate finance release {manifest.release} to {directory}"
     )
-    return dg.MaterializeResult(
-        value=str(directory),
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(str(directory)),
-            "file_size": dg.MetadataValue.int(file_size),
-            "dagster/row_count": dg.MetadataValue.int(sum(rows.values())),
-            **{
-                f"{stem}_row_count": dg.MetadataValue.int(count)
-                for stem, count in rows.items()
-            },
-            "version": dg.MetadataValue.text(manifest.release),
-            "source_release_date": dg.MetadataValue.text(release_date.isoformat()),
-        },
-        check_results=[
-            dg.AssetCheckResult(check_name=f"{stem}_not_empty", passed=count > 0)
-            for stem, count in rows.items()
-        ],
+    return FetchedRelease(
+        release_dates={"source": manifest.created_at.date()},
+        metadata={"version": dg.MetadataValue.text(manifest.release)},
     )
+
+
+one_climate_finance_landing = build_landing_asset(
+    group="one_climate_finance",
+    source=one_climate_finance_source,
+    dataset="climate_finance",
+    title="Climate finance",
+    files=[f"{stem}.parquet" for stem in EXPORT_TABLES],
+    fetch=fetch_climate_finance,
+)
 
 
 one_climate_finance_raw_tables = build_raw_table_assets(

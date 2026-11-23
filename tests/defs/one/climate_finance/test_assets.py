@@ -8,6 +8,7 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.defs.one.climate_finance.assets import (
+    fetch_climate_finance,
     one_climate_finance_landing,
     one_climate_finance_source,
 )
@@ -193,20 +194,22 @@ def test_landing_check_fails_on_a_table_with_no_rows(
 def test_landing_refuses_an_export_replaced_after_the_observation(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing asset refuses a manifest other than the one observed"""
+    """Test the fetch refuses a manifest other than the one observed"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     empty = _empty_table(export / NAME / "btr_totals.parquet")
     _republish(export, tables={"btr_totals": empty})
 
     with pytest.raises(ValueError, match=r"manifest\.json has sha256"):
-        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
+        fetch_climate_finance(
+            dg.build_asset_context(instance=instance), UPath(tmp_path)
+        )
 
 
 def test_landing_refuses_a_table_its_manifest_does_not_record(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing asset refuses a table whose sha256 differs from the manifest's"""
+    """Test the fetch refuses a table whose sha256 differs from the manifest's"""
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
     shutil.copy(
@@ -214,14 +217,15 @@ def test_landing_refuses_a_table_its_manifest_does_not_record(
     )
 
     with pytest.raises(ValueError, match=r"spending\.parquet has sha256"):
-        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
+        fetch_climate_finance(
+            dg.build_asset_context(instance=instance), UPath(tmp_path)
+        )
 
 
 def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
-    """Test the landing asset fails when the source was never observed"""
+    """Test the fetch fails when the source was never observed"""
     with pytest.raises(ValueError, match="has no observation"):
-        materialize_landing(
-            one_climate_finance_landing,
-            tmp_path,
-            instance=dg.DagsterInstance.ephemeral(),
+        fetch_climate_finance(
+            dg.build_asset_context(instance=dg.DagsterInstance.ephemeral()),
+            UPath(tmp_path),
         )
