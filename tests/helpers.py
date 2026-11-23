@@ -49,6 +49,12 @@ def materialize_landing(
     )
 
 
+def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
+    """The one asset materialization the run recorded"""
+    [event] = result.get_asset_materialization_events()
+    return event.step_materialization_data.materialization
+
+
 def check_outcomes(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
     """Whether each check the run evaluated passed, keyed on its name"""
     return {

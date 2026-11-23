@@ -20,6 +20,7 @@ from tests.helpers import (
     AutomationHarness,
     check_outcomes,
     logged_messages,
+    materialization,
     materialize_landing,
 )
 
@@ -75,11 +76,6 @@ def materialize_example(
     """Materialize the asset at the frozen download instant"""
     with patch_download_clock():
         return materialize_landing(asset, tmp_path, raise_on_error=raise_on_error)
-
-
-def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
-    [event] = result.asset_materializations_for_node("example_landing")
-    return event
 
 
 def test_build_landing_asset_writes_the_download_and_its_metadata(

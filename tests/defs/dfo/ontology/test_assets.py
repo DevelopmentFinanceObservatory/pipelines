@@ -22,6 +22,7 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     check_outcomes,
     column_list,
+    materialization,
     materialize_landing,
     meta,
     row_count,
@@ -116,8 +117,7 @@ def test_landing_counts_the_nodes_the_mcf_declares(
     """Test the node count counts nodes, not the blocks the file separates into"""
     result = materialize_landing(dfo_ontology_landing, tmp_path)
 
-    [materialization] = result.asset_materializations_for_node("dfo_ontology_landing")
-    assert materialization.metadata["node_count"] == dg.IntMetadataValue(
+    assert materialization(result).metadata["node_count"] == dg.IntMetadataValue(
         STUB_MCF.count("Node: ")
     )
 

@@ -22,7 +22,7 @@ from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT
-from tests.helpers import check_outcomes, materialize_landing
+from tests.helpers import check_outcomes, materialization, materialize_landing
 
 NAME = "2026a-rc9"
 STEMS = ["spending", "crdf_commitments", "btr_totals"]
@@ -80,11 +80,6 @@ def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
             tags={"dagster/data_version": result.data_version.value},
         )
     )
-
-
-def _materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
-    [event] = result.asset_materializations_for_node("one_climate_finance_landing")
-    return event
 
 
 def test_source_observes_the_export_latest_json_names(export: Path) -> None:
@@ -154,7 +149,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
     )
 
     directory = Path(result.output_for_node("one_climate_finance_landing"))
-    metadata = _materialization(result).metadata
+    metadata = materialization(result).metadata
     for stem in STEMS:
         copied = (directory / f"{stem}.parquet").read_bytes()
         assert copied == (export / NAME / f"{stem}.parquet").read_bytes()
