@@ -1,10 +1,10 @@
+import hashlib
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import dagster as dg
-import httpx
 from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 from dfo_ontology.config import Config
@@ -24,9 +24,9 @@ IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
 CODE_MAPPING_CSV = "codes.csv"
 COMPILE_REPORT = "report.txt"
+COMPILED_FILES = (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
 # The Wikibase instance the ontology is compiled from
 BENCH = Config(bench="prod")
-REQUEST_TIMEOUT_SECONDS = 30
 
 
 @dg.observable_source_asset(
@@ -34,96 +34,70 @@ REQUEST_TIMEOUT_SECONDS = 30
     automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
 def dfo_ontology_source() -> dg.ObserveResult:
-    """Observed latest revision in the ontology's Wikibase instance"""
-    revision_id, revised_at = _latest_revision()
-    version = str(revision_id)
+    """Observed hash of the ontology compiled from its Wikibase instance"""
+    with tempfile.TemporaryDirectory() as staging_dir:
+        staging_path = Path(staging_dir)
+        _compile(staging_path)
+        version = _compiled_version(staging_path)
     return dg.ObserveResult(
         metadata={
             "dagster/uri": dg.MetadataValue.text(BENCH.url),
             "version": dg.MetadataValue.text(version),
-            "revised_at": dg.MetadataValue.text(revised_at.isoformat()),
         },
         data_version=dg.DataVersion(version),
     )
 
 
-def _latest_revision() -> tuple[int, datetime]:
-    """The id and save time of the latest revision in the namespaces the compiler
-    reads from its bench
+def _compile(directory: Path) -> None:
+    """Compile the ontology, code mapping and report into `directory`
 
     Raises:
-        RuntimeError: If the API returns an error or the namespaces have no
-            revisions.
+        RuntimeError: If the compile fails or leaves out a file.
     """
-    with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = client.get(
-            BENCH.url,
-            params={
-                "action": "query",
-                "format": "json",
-                "formatversion": "2",
-                "list": "allrevisions",
-                "arvnamespace": "|".join(
-                    str(namespace) for namespace in BENCH.namespaces
-                ),
-                "arvlimit": "1",
-                "arvprop": "ids|timestamp",
-            },
-        )
-    response.raise_for_status()
-    payload = response.json()
-    if "error" in payload:
-        raise RuntimeError(f"{BENCH.url} returned an error: {payload['error']}")
-    revisions = payload["query"]["allrevisions"]
-    if not revisions:
-        raise RuntimeError(
-            f"{BENCH.url} has no revisions in namespaces {BENCH.namespaces}"
-        )
-    [revision] = revisions[0]["revisions"]
-    return revision["revid"], datetime.fromisoformat(revision["timestamp"])
+    result = run_logged(
+        [
+            "dfo-ontology",
+            "compile",
+            "--bench",
+            BENCH.bench,
+            "--output",
+            str(directory / ONTOLOGY_MCF),
+        ]
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
+    missing = [name for name in COMPILED_FILES if not (directory / name).exists()]
+    if missing:
+        raise RuntimeError(f"The DFO ontology compiled without {', '.join(missing)}")
+
+
+def _compiled_version(directory: Path) -> str:
+    """The sha256 of the compiled ontology and code mapping, leaving out the
+    report"""
+    digest = hashlib.sha256()
+    for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV):
+        digest.update(hashlib.sha256((directory / name).read_bytes()).digest())
+    return digest.hexdigest()
 
 
 def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the compiled ontology, code mapping and report to `directory`
 
-    The instance is read again after the compile, so a compile is never
-    recorded under a revision other than the observed one.
+    A compile that differs from the observed one is refused, so a change made
+    after the observation is never recorded under its version.
     """
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
-        result = run_logged(
-            [
-                "dfo-ontology",
-                "compile",
-                "--bench",
-                BENCH.bench,
-                "--output",
-                str(staging_path / ONTOLOGY_MCF),
-            ]
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
-        expected_files = [
-            staging_path / name
-            for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
-        ]
-        missing = [path.name for path in expected_files if not path.exists()]
-        if missing:
+        _compile(staging_path)
+        if _compiled_version(staging_path) != observation.data_version:
             raise RuntimeError(
-                f"The DFO ontology compiled without {', '.join(missing)}"
+                f"{BENCH.site} changed after it was observed: observe it again"
             )
-        revision_id, _ = _latest_revision()
-        if str(revision_id) != observation.data_version:
-            raise RuntimeError(
-                f"{BENCH.site} was edited after it was observed: observe it again"
-            )
-        for path in expected_files:
-            (directory / path.name).write_bytes(path.read_bytes())
+        for name in COMPILED_FILES:
+            (directory / name).write_bytes((staging_path / name).read_bytes())
 
     return FetchedRelease(
-        release_dates={
-            "source": datetime.fromisoformat(observation.metadata["revised_at"]).date()
-        },
+        release_dates={"source": datetime.now(UTC).date()},
         metadata={
             "node_count": dg.MetadataValue.int(
                 count_mcf_nodes(directory / ONTOLOGY_MCF)
