@@ -17,6 +17,8 @@ recipe, so every export states its recipe, or that it has none, on its spec.
 import hashlib
 import logging
 import tempfile
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -30,8 +32,19 @@ from dcp_tools.custom_data.models.common import mint_dcid
 from duckdb import DuckDBPyConnection
 from upath import UPath
 
+from dfo_pipelines.data_commons.graph_check import (
+    GraphCheck,
+    check_spec,
+    finding_groups,
+    graph_api_url,
+    plural,
+)
 from dfo_pipelines.data_commons.mcf import escape_markdown
 from dfo_pipelines.warehouse import get_model_rows
+
+# The most time the export's graph check may spend, in seconds, from the start of the
+# model read. The public Graph API checks a model of about a thousand StatVars in under a second.
+GRAPH_CHECK_TIME_LIMIT_SECONDS = 300.0
 
 # The observations are written one file per distinct value of this column. Every
 # pipeline's observation model carries the observation date in `date`, so the split
@@ -200,11 +213,14 @@ class ExportMetadata:
         observation_count: Count of observations written across every file.
         statvar_count: Count of StatVars declared in the MCF.
         observation_file_count: Count of files the observations were partitioned into.
+        check_findings: Count of findings and refused rows the Graph API's schema
+            check made over the StatVars, or None when the check could not finish.
     """
 
     observation_count: int
     statvar_count: int
     observation_file_count: int
+    check_findings: int | None
 
 
 def _provenance_property_value(column: str, value: Any) -> str:
@@ -221,6 +237,64 @@ def _provenance_property_value(column: str, value: Any) -> str:
     raise ValueError(
         f"Provenance column {column!r} must hold an integer or a string, got {value!r}"
     )
+
+
+def _check_statvars(
+    spec: ExportSpec, *, connection: DuckDBPyConnection, log: logging.Logger
+) -> int | None:
+    """Count of the Graph API's findings and refused rows over the spec's StatVars,
+    logged as warnings, or None when the check cannot finish.
+
+    The check runs in a daemon worker thread that the export waits for until
+    `GRAPH_CHECK_TIME_LIMIT_SECONDS` after the model read began, so the limit holds
+    however a request stalls. A worker still running at the limit is abandoned.
+    """
+    base_url = graph_api_url()
+    started = time.monotonic()
+    outcome: list[GraphCheck | Exception] = []
+
+    def work() -> None:
+        # The check never fails the export, whatever goes wrong in it.
+        try:
+            # A cursor, since the export goes on using `connection` if the worker
+            # outlives the limit.
+            rows = get_model_rows(connection.cursor(), spec.statvar_model)
+            outcome.append(
+                check_spec(
+                    spec,
+                    rows,
+                    base_url=base_url,
+                    time_limit=GRAPH_CHECK_TIME_LIMIT_SECONDS
+                    - (time.monotonic() - started),
+                )
+            )
+        except Exception as error:
+            outcome.append(error)
+
+    worker = threading.Thread(target=work, name="graph-check", daemon=True)
+    worker.start()
+    worker.join(timeout=GRAPH_CHECK_TIME_LIMIT_SECONDS)
+    if not outcome:
+        log.warning(
+            "The graph check did not finish: it ran past its time limit of"
+            f" {GRAPH_CHECK_TIME_LIMIT_SECONDS:.0f} s"
+        )
+        return None
+    [result] = outcome
+    if isinstance(result, Exception):
+        log.warning("The graph check did not finish", exc_info=result)
+        return None
+    lines = [
+        *finding_groups(result.findings),
+        *(str(refused) for refused in result.refused),
+    ]
+    for line in lines:
+        log.warning(f"Graph check: {line}")
+    log.info(
+        f"The graph check found {plural(len(result.findings), 'finding')}"
+        f" and refused {plural(len(result.refused), 'row')}"
+    )
+    return result.count
 
 
 def _file_pattern(stem: str) -> str:
@@ -245,6 +319,12 @@ def export_bundle(
     `export_all` empties `out_dir` before writing the config and the MCF, so the
     bundle carries only what this export wrote — and so the observations are written
     after it, while everything the config records is registered before it.
+
+    Once the MCF validates, the StatVars are checked against the schema the Graph API
+    serves, the public one unless `DFO_GRAPH_API_URL` names another, and the findings
+    are logged as warnings, one line per distinct finding. The check never fails the
+    export: an unreachable Graph API, or a check running past
+    `GRAPH_CHECK_TIME_LIMIT_SECONDS`, logs a warning.
 
     Args:
         spec: Models to read, and how their columns map onto Data Commons
@@ -337,6 +417,10 @@ def export_bundle(
     log.info("Writing MCF files")
     manager.export_all(str(out_dir), validate_data=True)
 
+    # The check only warns, because the served graph lacks the nodes a pipeline
+    # adds until its ontology, shared and own bundles are ingested.
+    check_findings = _check_statvars(spec, connection=connection, log=log)
+
     log.info("Writing observations")
     observation_count = 0
     observation_file_count = 0
@@ -379,4 +463,5 @@ def export_bundle(
         observation_count=observation_count,
         statvar_count=statvar_count,
         observation_file_count=observation_file_count,
+        check_findings=check_findings,
     )
