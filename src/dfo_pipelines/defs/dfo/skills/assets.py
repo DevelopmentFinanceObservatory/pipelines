@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import dagster as dg
@@ -19,10 +20,11 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_dc_ingestion,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import landing_result
+from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -459,38 +461,38 @@ def dfo_skills_source(skills_repository: SkillsRepositoryResource) -> dg.Observe
     )
 
 
-@dg.asset(
-    deps=[dfo_skills_source],
-    group_name="dfo_skills",
-    kinds={"file"},
-    automation_condition=EAGER_WHEN_CHECKS_PASS,
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="skills_not_empty", asset="dfo_skills_landing", blocking=True
-        )
-    ],
-)
-def dfo_skills_landing(
-    context: dg.AssetExecutionContext,
-    landing_file_store: UPathFileStoreResource,
-    skills_repository: SkillsRepositoryResource,
-):
-    """DFO agent skills, as published on the skills repository's branch
+def _skill_count(landing_directory: UPath) -> int:
+    """Skills in a landing directory: its skill directories holding a `SKILL.md`"""
+    return sum(
+        1
+        for _, path in _skill_directories(landing_directory)
+        if (path / SKILL_FILE).is_file()
+    )
+
+
+def _has_skills(landing_directory: UPath) -> bool:
+    """Whether a landing directory holds at least one skill"""
+    return _skill_count(landing_directory) > 0
+
+
+def fetch_skills(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+    """Copy the skills on the skills repository's branch to `directory`
 
     The landing directory mirrors the repository's skill roots: `skills/<name>/`,
-    and `internal/skills/<name>/` where the repository has one. A private
-    repository needs git to hold GitHub credentials wherever this runs.
+    and `internal/skills/<name>/` where the repository has one. The release date
+    is that of the last commit touching either root. A private repository needs
+    git to hold GitHub credentials wherever this runs.
     """
+    skills_repository: SkillsRepositoryResource = context.resources.skills_repository
     url = skills_repository.url
-    landing_directory = landing_file_store.build_date_partitioned_path(
-        "dfo_skills/skills"
-    )
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
+        # Blobless rather than shallow, so the history shows which commit last
+        # touched the roots.
         _run_git(
             "clone",
-            "--depth=1",
+            "--filter=blob:none",
             f"--branch={skills_repository.branch}",
             url,
             str(clone_path),
@@ -500,13 +502,13 @@ def dfo_skills_landing(
         for root in SKILL_ROOTS:
             root_path = clone_path / root
             # Reading a symlink would copy whatever it points at on this machine.
-            for directory in (root_path, *root_path.parents):
-                if directory == clone_path:
+            for parent in (root_path, *root_path.parents):
+                if parent == clone_path:
                     break
-                if directory.is_symlink():
+                if parent.is_symlink():
                     raise RuntimeError(
                         f"{url} {commit} has "
-                        f"{directory.relative_to(clone_path).as_posix()}/ as a symlink"
+                        f"{parent.relative_to(clone_path).as_posix()}/ as a symlink"
                     )
             if not root_path.is_dir():
                 if root == INSTALLABLE_ROOT:
@@ -520,34 +522,50 @@ def dfo_skills_landing(
                 )
             files.extend(path for path in root_path.rglob("*") if path.is_file())
 
+        # First-parent, so a merged branch dates from when it reached the branch.
+        release_date = date.fromisoformat(
+            _run_git(
+                "log",
+                "-1",
+                "--first-parent",
+                "--format=%cs",
+                "--",
+                *SKILL_ROOTS,
+                cwd=clone_path,
+            )
+        )
+
         # Cleared after the clone succeeds, so a failed fetch keeps the day's
         # copy and a rerun drops skills deleted upstream.
-        if landing_directory.exists():
-            landing_directory.rmdir(recursive=True)
-        landing_directory.mkdir(parents=True)
+        if directory.exists():
+            directory.rmdir(recursive=True)
+        directory.mkdir(parents=True)
         for path in files:
-            target = landing_directory / path.relative_to(clone_path)
+            target = directory / path.relative_to(clone_path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
 
-    skill_count = sum(
-        1
-        for _, path in _skill_directories(landing_directory)
-        if (path / "SKILL.md").is_file()
-    )
-    context.log.info(
-        f"Wrote {skill_count} skills from {url} {commit} to {landing_directory}"
-    )
-    return landing_result(
-        landing_directory,
+    skill_count = _skill_count(directory)
+    context.log.info(f"Wrote {skill_count} skills from {url} {commit} to {directory}")
+    return FetchedRelease(
+        release_dates={"source": release_date},
         metadata={
             "version": dg.MetadataValue.text(commit),
             "skill_count": dg.MetadataValue.int(skill_count),
         },
-        check_results=[
-            dg.AssetCheckResult(check_name="skills_not_empty", passed=(skill_count > 0))
-        ],
     )
+
+
+dfo_skills_landing = build_landing_asset(
+    group="dfo_skills",
+    source=dfo_skills_source,
+    dataset="skills",
+    title="DFO agent skills",
+    files=(),
+    fetch=fetch_skills,
+    checks={"skills_not_empty": _has_skills},
+    required_resource_keys={"skills_repository"},
+)
 
 
 def _check_attachment_targets(

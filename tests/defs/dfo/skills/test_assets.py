@@ -20,8 +20,10 @@ from dfo_pipelines.defs.dfo.skills.assets import (
     dfo_skills_dc_export,
     dfo_skills_landing,
     dfo_skills_source,
+    fetch_skills,
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
+from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -115,11 +117,11 @@ def materialize_skills(tmp_path: Path) -> dg.ExecuteInProcessResult:
 
 
 def files_under(directory: Path) -> dict[str, str]:
-    """Every file below a directory, keyed on its path relative to it"""
+    """Every file below a directory but its extraction record, keyed on its path"""
     return {
         path.relative_to(directory).as_posix(): path.read_text()
         for path in directory.rglob("*")
-        if path.is_file()
+        if path.is_file() and path.name != METADATA_FILE_NAME
     }
 
 
@@ -143,6 +145,82 @@ def test_landing_copies_the_skills_at_the_head_of_main(
     assert files_under(landed_directory(result)) == landing_files(SKILLS)
     assert materialization(result).metadata["version"] == dg.TextMetadataValue(head)
     assert check_outcomes(result) == {"skills_not_empty": True}
+
+
+@pytest.mark.parametrize(
+    "internal", [None, INTERNAL_SKILLS], ids=["skills_root", "internal_root"]
+)
+def test_landing_release_date_is_the_last_commit_touching_a_skill_root(
+    tmp_path: Path,
+    upstream: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    internal: dict[str, str] | None,
+) -> None:
+    """Test a later commit outside the skill roots leaves the release date unchanged"""
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-01-02T12:00:00+00:00")
+    skills = SKILLS | {"oda-channels/SKILL.md": "---\nname: x\n---\n"}
+    commit(upstream, skills)
+    if internal is not None:
+        monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-02-03T12:00:00+00:00")
+        commit(upstream, skills, internal=internal)
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-03-04T12:00:00+00:00")
+    (upstream / "README.md").write_text("Skills for DFO agents.\n")
+    git(upstream, "add", "README.md")
+    git(upstream, "commit", "-qm", "add a readme")
+
+    result = materialize_skills(tmp_path)
+
+    expected = "2026-01-02" if internal is None else "2026-02-03"
+    assert materialization(result).metadata[
+        "source_release_date"
+    ] == dg.TextMetadataValue(expected)
+
+
+def test_landing_release_date_is_when_a_merge_reached_main(
+    tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a skill merged from a branch dates from the merge, not its own commit"""
+    git(upstream, "checkout", "-qb", "feature")
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-01-02T12:00:00+00:00")
+    commit(upstream, SKILLS | {"oda-channels/SKILL.md": "---\nname: x\n---\n"})
+    git(upstream, "checkout", "-q", "main")
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-02-03T12:00:00+00:00")
+    git(upstream, "merge", "-q", "--no-ff", "-m", "merge feature", "feature")
+
+    result = materialize_skills(tmp_path)
+
+    assert materialization(result).metadata[
+        "source_release_date"
+    ] == dg.TextMetadataValue("2026-02-03")
+
+
+def test_landing_fails_on_a_repository_that_never_had_a_skills_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a repository whose history has no `skills/` names what is missing"""
+    repository = tmp_path / "other"
+    repository.mkdir()
+    git(repository, "init", "-q", "--initial-branch=main")
+    (repository / "README.md").write_text("Not a skills repository.\n")
+    git(repository, "add", "README.md")
+    git(repository, "commit", "-qm", "add a readme")
+    redirect_repository(monkeypatch, repository.as_uri())
+
+    with pytest.raises(RuntimeError, match="has no skills/ directory"):
+        materialize_skills(tmp_path)
+
+
+def test_fetch_writes_to_a_directory_that_does_not_exist_yet(
+    tmp_path: Path, upstream: Path
+) -> None:
+    """Test the fetch creates its directory, as an object store does not until a
+    file is written to it"""
+    directory = tmp_path / "landing"
+    context = dg.build_asset_context(resources={"skills_repository": SKILLS_REPOSITORY})
+
+    fetch_skills(context, UPath(directory))
+
+    assert files_under(directory) == landing_files(SKILLS)
 
 
 @dg.asset(name="dfo_ontology_landing")
