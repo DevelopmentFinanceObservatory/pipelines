@@ -108,38 +108,62 @@ def parse_release_date(version: str, *, label: str) -> date:
     return date(int(matched["year"]), int(matched["month"]), int(matched["day"]))
 
 
+def verify_releases_unmoved(
+    *,
+    observed: Mapping[str, tuple[str, str]],
+    resolved: Mapping[str, tuple[str, str]],
+) -> None:
+    """Refuse when a source's bulk file URL or version differs from the observed one
+
+    Args:
+        observed: `{"crs": ..., "multisystem": ...}` (URL, version) pairs the
+            source observed.
+        resolved: The same pairs, from `resolve_bulk_versions()`.
+
+    Raises:
+        ValueError: If a source's pair differs from the observed one.
+    """
+    for name, label in _SOURCE_LABELS.items():
+        observed_url, observed_version = observed[name]
+        url, version = resolved[name]
+        if (url, version) != (observed_url, observed_version):
+            raise ValueError(
+                f"{label} release moved from {observed_url} at {observed_version} "
+                f"to {url} at {version} after it was observed: observe it again"
+            )
+
+
 def verify_release_provenance(
     *,
     provenance: Mapping[str, object] | None,
-    observed_before: Mapping[str, str],
-    observed_after: Mapping[str, str],
+    observed_before: Mapping[str, tuple[str, str]],
+    observed_after: Mapping[str, tuple[str, str]],
 ) -> None:
     """Refuse a result whose provenance disagrees with the observed releases.
 
     `imputed_multilateral_by_purpose` resolves its own release token through
-    `oda_reader`'s 7-day HTTP annotation cache in the same process, so it can
-    lag `resolve_bulk_versions()`'s bypassing lookup even when both run
-    back-to-back. This checks the token `result.attrs["provenance"]` reports
-    against the token observed immediately before the compute, then checks
-    that same token again against one observed immediately after: the bulk
-    file's URL stays stable across a republish, so a mid-compute republish
-    would otherwise be invisible to the first check alone.
+    `oda_reader`'s 7-day HTTP annotation cache, so it can lag the source's
+    bypassing lookup, or read a release published since the observation. This
+    checks the token `result.attrs["provenance"]` reports against the token
+    observed, then checks that same token again against one looked up
+    immediately after the compute: the bulk file's URL stays stable across a
+    republish, so a mid-compute republish would otherwise be invisible to the
+    first check alone.
 
     Args:
         provenance: `result.attrs.get("provenance")` from
             `imputed_multilateral_by_purpose`, read before any further
             transformation of the result frame.
-        observed_before: `{"crs": ..., "multisystem": ...}` version tokens
-            from `resolve_bulk_versions()`, called immediately before the
-            compute.
-        observed_after: The same tokens, from `resolve_bulk_versions()`
+        observed_before: `{"crs": ..., "multisystem": ...}` (URL, version)
+            pairs the source observed.
+        observed_after: The same pairs, from `resolve_bulk_versions()`
             called immediately after the compute.
 
     Raises:
         ValueError: If `provenance` is missing, a source's release is `None`
             or `"supplied"`, a source's reported `release_id` differs from
-            the token observed before the compute, or a source's token moved
-            between the two observations.
+            the token observed, or a source's URL or token moved between the
+            observation and the lookup after the compute.
     """
     if provenance is None:
         raise ValueError(
@@ -155,19 +179,13 @@ def verify_release_provenance(
                 "release record; cannot verify which release was read"
             )
         release_id = release.get("release_id") if isinstance(release, Mapping) else None
-        before = observed_before[name]
+        _, before = observed_before[name]
         if release_id != before:
             raise ValueError(
                 f"{label} release provenance reports release_id {release_id!r}, "
-                f"but {before!r} was observed immediately before the compute"
+                f"but {before!r} was observed: observe it again"
             )
-        after = observed_after[name]
-        if after != before:
-            raise ValueError(
-                f"{label} release moved from {before!r} to {after!r} while "
-                "imputed_multilateral_by_purpose was running; refusing a "
-                "result that may span two releases"
-            )
+    verify_releases_unmoved(observed=observed_before, resolved=observed_after)
 
 
 def _allocation_status_shares(result: pd.DataFrame) -> dict[str, dg.MetadataValue]:
@@ -296,7 +314,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 def fetch_imputed_multilateral_sectors(
     directory: UPath, observation: Observation
 ) -> FetchedRelease:
-    """Compute the imputation between two release observations and write it
+    """Compute the imputation from the releases the observation saw and write it
 
     Computes `imputed_multilateral_by_purpose` for every provider and year
     `oda-data` has, gross disbursements at current USD prices, sector shares
@@ -309,30 +327,48 @@ def fetch_imputed_multilateral_sectors(
     `purpose_code` null).
 
     The CRS and Members' Total Use releases the compute reads are verified
-    against the releases observed immediately before and after it; a
-    disagreement, or a republish mid-compute, refuses the run rather than
-    writing a result that may not match what was observed.
+    against the releases the observation saw and those looked up before and
+    after the compute; a disagreement, a bulk file that moved since the
+    observation, or an `oda-data` other than the observed one refuses the run
+    rather than writing a result that may not match what was observed.
     """
-    (_, crs_before), (_, multi_before) = resolve_bulk_versions()
-    observed_before = {"crs": crs_before, "multisystem": multi_before}
+    oda_data_version = installed_version("oda-data")
+    if oda_data_version != observation.metadata["oda_data_version"]:
+        raise ValueError(
+            f"oda-data {oda_data_version} is installed, but "
+            f"{observation.metadata['oda_data_version']} was observed: observe "
+            "one_imputed_multilateral_sectors_source again"
+        )
+    observed = {
+        "crs": (observation.metadata["crs_url"], observation.metadata["crs_version"]),
+        "multisystem": (
+            observation.metadata["multisystem_url"],
+            observation.metadata["multisystem_version"],
+        ),
+    }
+    crs_before, multi_before = resolve_bulk_versions()
+    verify_releases_unmoved(
+        observed=observed,
+        resolved={"crs": crs_before, "multisystem": multi_before},
+    )
 
     data = sector_imputations.imputed_multilateral_by_purpose(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True
     )
     provenance = data.attrs.get("provenance")
 
-    (_, crs_after), (_, multi_after) = resolve_bulk_versions()
+    crs_after, multi_after = resolve_bulk_versions()
     observed_after = {"crs": crs_after, "multisystem": multi_after}
 
     verify_release_provenance(
         provenance=provenance,
-        observed_before=observed_before,
+        observed_before=observed,
         observed_after=observed_after,
     )
     release_dates = {
-        "crs": parse_release_date(observed_before["crs"], label="CRS"),
+        "crs": parse_release_date(observation.metadata["crs_version"], label="CRS"),
         "multisystem": parse_release_date(
-            observed_before["multisystem"], label="Members' Total Use"
+            observation.metadata["multisystem_version"], label="Members' Total Use"
         ),
     }
 
@@ -354,8 +390,8 @@ def fetch_imputed_multilateral_sectors(
     return FetchedRelease(
         release_dates=release_dates,
         metadata={
-            "crs_version": observed_before["crs"],
-            "multisystem_version": observed_before["multisystem"],
+            "crs_version": observation.metadata["crs_version"],
+            "multisystem_version": observation.metadata["multisystem_version"],
             **build_quality_metadata(data, provenance=provenance),
         },
     )

@@ -70,27 +70,51 @@ def fetch_bulk_file(
     *,
     flow_url: str,
     label: str,
+    observed_url: str,
+    observed_version: str,
     download: Callable[..., object],
     downloaded_name: str,
     release_date: Callable[[str, str], date],
 ) -> FetchedRelease:
-    """Download the bulk file `label` lists at `flow_url` to `file_path`
+    """Download the bulk file `label` lists at `flow_url` to `file_path`, as observed
 
     Args:
         file_path: Path in the landing directory the bulk file is written to.
         flow_url: The OECD dataflow URL listing the bulk file.
         label: The bulk file's label in the dataflow's annotations.
+        observed_url: The bulk file's URL when its source was observed.
+        observed_version: The bulk file's version when its source was observed.
         download: oda_reader's bulk download function for the file.
         downloaded_name: Name of the file `download` writes.
         release_date: Date the OECD released the bulk file, from its URL and version.
+
+    Raises:
+        ValueError: If the bulk file's URL or version differs from the observed one,
+            before or after the download.
     """
-    # Resolve before downloading. The cache-bypassing resolve refreshes
+
+    def check_observed() -> None:
+        url, version = resolve_bulk_file(flow_url=flow_url, label=label)
+        if (url, version) != (observed_url, observed_version):
+            raise ValueError(
+                f"Bulk file {label!r} moved from {observed_url} at {observed_version} "
+                f"to {url} at {version} after it was observed: observe it again"
+            )
+
+    # Check before downloading. The cache-bypassing resolve refreshes
     # oda_reader's cached annotation, so the download, which re-resolves the URL
     # without a bypass, sees the version observed.
-    url, version = resolve_bulk_file(flow_url=flow_url, label=label)
-    released = release_date(url, version)
+    check_observed()
+    released = release_date(observed_url, observed_version)
     download(save_to_path=str(file_path.parent), use_raw_cache=False)
     (file_path.parent / downloaded_name).rename(file_path)
+    # The URL stays stable across a republish, so a republish during the
+    # download shows only in a lookup after it.
+    try:
+        check_observed()
+    except ValueError:
+        file_path.unlink()
+        raise
     return FetchedRelease(
-        release_dates={"source": released}, metadata={"version": version}
+        release_dates={"source": released}, metadata={"version": observed_version}
     )

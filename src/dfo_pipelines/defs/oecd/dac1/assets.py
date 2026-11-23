@@ -49,11 +49,13 @@ def oecd_dac1_source() -> dg.ObserveResult:
 
 
 def fetch_dac1(directory: UPath, observation: Observation) -> FetchedRelease:
-    """Write the DAC1 bulk file to `directory`"""
+    """Write the DAC1 bulk file the observation saw to `directory`"""
     return fetch_bulk_file(
         directory / "dac1.parquet",
         flow_url=DAC1_FLOW_URL,
         label=DAC1_BULK_LABEL,
+        observed_url=observation.metadata["dagster/uri"],
+        observed_version=observation.metadata["version"],
         download=bulk_download_dac1,
         downloaded_name="table1_data.parquet",
         release_date=lambda url, _: fetch_bulk_file_release_date(url),

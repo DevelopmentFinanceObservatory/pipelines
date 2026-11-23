@@ -32,16 +32,19 @@ def return_dataframe(parquet: Path) -> pd.DataFrame:
     return pd.read_parquet(parquet)
 
 
-def test_fetch_weo_pins_the_download_to_the_resolved_release(
+OBSERVATION = Observation(data_version="April;2026", metadata={"version": "April 2026"})
+
+
+def test_fetch_weo_lands_the_observed_release_when_a_newer_one_is_listed(
     tmp_path: Path,
 ) -> None:
-    """Test the download names its release, so imf_reader cannot roll back to an older one"""
+    """Test the download names the observed release, not the newest one listed"""
     file_path = UPath(tmp_path / "weo.parquet")
 
     with (
         patch(
             "dfo_pipelines.defs.imf.weo.assets.weo.get_weo_versions",
-            return_value=[("April", 2026), ("October", 2025)],
+            return_value=[("October", 2026), ("April", 2026)],
         ),
         patch(
             "dfo_pipelines.defs.imf.weo.assets.weo.fetch_data_with_metadata",
@@ -52,9 +55,7 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        release_dates, metadata = fetch_weo(UPath(tmp_path), OBSERVATION)
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
@@ -63,24 +64,21 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
     assert metadata == {"version": "April 2026"}
 
 
-def test_fetch_weo_raises_when_the_release_cannot_be_served(
+def test_fetch_weo_raises_when_the_observed_release_cannot_be_served(
     tmp_path: Path,
 ) -> None:
-    """Test an unservable release surfaces rather than rolling back to an older one"""
+    """Test an observed release the IMF no longer serves surfaces rather than rolling
+    back to an older one"""
     file_path = UPath(tmp_path / "weo.parquet")
 
     with (
-        patch(
-            "dfo_pipelines.defs.imf.weo.assets.weo.get_weo_versions",
-            return_value=[("April", 2026), ("October", 2025)],
-        ),
         patch(
             "dfo_pipelines.defs.imf.weo.assets.weo.fetch_data_with_metadata",
             side_effect=NoDataError("no data for April;2026"),
         ),
         pytest.raises(NoDataError, match="no data for April;2026"),
     ):
-        fetch_weo(UPath(tmp_path), Observation(data_version="v1", metadata={}))
+        fetch_weo(UPath(tmp_path), OBSERVATION)
 
     assert not file_path.exists()
 

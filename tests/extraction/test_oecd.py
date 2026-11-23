@@ -1,7 +1,7 @@
 from datetime import date
 from functools import partial
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import duckdb
 import httpx
@@ -116,6 +116,8 @@ def build_fetch(*, download: Mock, release_date: Mock):
         fetch_bulk_file,
         flow_url=FLOW_URL,
         label=LABEL,
+        observed_url=BULK_FILE_URL,
+        observed_version=VERSION,
         download=download,
         downloaded_name=DOWNLOADED_NAME,
         release_date=release_date,
@@ -124,7 +126,7 @@ def build_fetch(*, download: Mock, release_date: Mock):
 
 def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> None:
     """Test the download is written to the path unchanged, dated by the
-    release-date lookup, with the version the download was resolved at"""
+    release-date lookup, with the version the lookups before and after it agree on"""
     download = Mock(side_effect=write_download)
     release_date = Mock(return_value=RELEASE_DATE)
     fetch = build_fetch(download=download, release_date=release_date)
@@ -132,8 +134,9 @@ def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> Non
     with _version_lookup(VERSION) as lookup:
         release_dates, metadata = fetch(UPath(tmp_path / "data.parquet"))
 
-    lookup.assert_called_once_with(
-        flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True
+    assert (
+        lookup.call_args_list
+        == [call(flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True)] * 2
     )
     release_date.assert_called_once_with(BULK_FILE_URL, VERSION)
     download.assert_called_once_with(save_to_path=str(tmp_path), use_raw_cache=False)
@@ -175,6 +178,58 @@ def test_fetch_bulk_file_does_not_download_when_the_release_cannot_be_dated(
         fetch(UPath(tmp_path / "data.parquet"))
 
     download.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("url", "version"),
+    [
+        (BULK_FILE_URL, "v20260901"),
+        ("https://webfs-dcd.oecd.org/data/dac1/DAC1-2.parquet", VERSION),
+    ],
+)
+def test_fetch_bulk_file_refuses_a_bulk_file_that_moved_after_the_observation(
+    tmp_path: Path, url: str, version: str
+) -> None:
+    """Test a bulk file republished, or moved, since its source was observed stops
+    the fetch before it is dated or downloaded"""
+    download = Mock(side_effect=write_download)
+    release_date = Mock(return_value=RELEASE_DATE)
+    fetch = build_fetch(download=download, release_date=release_date)
+
+    with (
+        patch(
+            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+            autospec=True,
+            return_value=(url, version),
+        ),
+        pytest.raises(ValueError, match="after it was observed: observe it again"),
+    ):
+        fetch(UPath(tmp_path / "data.parquet"))
+
+    release_date.assert_not_called()
+    download.assert_not_called()
+
+
+def test_fetch_bulk_file_refuses_a_bulk_file_that_moved_during_the_download(
+    tmp_path: Path,
+) -> None:
+    """Test a bulk file republished during the download is refused and its download
+    deleted"""
+    download = Mock(side_effect=write_download)
+    fetch = build_fetch(download=download, release_date=Mock(return_value=RELEASE_DATE))
+
+    with (
+        patch(
+            "dfo_pipelines.extraction.oecd.get_bulk_file_url_with_version",
+            autospec=True,
+            side_effect=[(BULK_FILE_URL, VERSION), (BULK_FILE_URL, "v20260901")],
+        ),
+        pytest.raises(ValueError, match="after it was observed: observe it again"),
+    ):
+        fetch(UPath(tmp_path / "data.parquet"))
+
+    download.assert_called_once()
+    assert list(tmp_path.iterdir()) == []
 
 
 OECD_TESTS = Path(__file__).parents[1] / "defs" / "oecd"

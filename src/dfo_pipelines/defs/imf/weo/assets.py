@@ -52,13 +52,11 @@ def imf_weo_source() -> dg.ObserveResult:
 
 
 def fetch_weo(directory: UPath, observation: Observation) -> FetchedRelease:
-    """Write the latest WEO release to `directory`"""
-    # 'version' is resolved and passed explicitly because with version=None,
-    # imf_reader rolls back up to three releases when the newest one is listed
-    # in the dataflow catalogue but not yet servable (reader.py:160). This would
-    # return the older frame with no error — the gate would then hold a stale
-    # release under the new release's data version until the next publication.
-    version = weo.get_weo_versions()[0]
+    """Write the WEO release the observation saw to `directory`"""
+    # Named explicitly, imf_reader raises when it cannot serve the release, rather
+    # than rolling back to an older one as it does with version=None.
+    month, year = observation.metadata["version"].split()
+    version = (month, int(year))
     dataframe = weo.fetch_data_with_metadata(version=version)
     dataframe.to_parquet(directory / "weo.parquet", compression="gzip")
     return FetchedRelease(

@@ -72,13 +72,18 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
     }
 
 
+OBSERVATION = Observation(
+    data_version="v1", metadata={"dagster/uri": CRS_TEST_URL, "version": SOURCE_VERSION}
+)
+
+
 def test_fetch_dac_crs_dates_the_release_from_the_version(tmp_path: Path) -> None:
-    """Test the landing asset fetches the CRS bulk file and dates the release from its
-    version token"""
+    """Test the landing asset fetches the CRS bulk file its source observed and dates
+    the release from its version token"""
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
     ) as fetch:
-        fetch_dac_crs(UPath(tmp_path), Observation(data_version="v1", metadata={}))
+        fetch_dac_crs(UPath(tmp_path), OBSERVATION)
 
     arguments = dict(fetch.call_args.kwargs)
     assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (
@@ -87,6 +92,8 @@ def test_fetch_dac_crs_dates_the_release_from_the_version(tmp_path: Path) -> Non
     assert arguments == {
         "flow_url": CRS_FLOW_URL,
         "label": CRS_BULK_LABEL,
+        "observed_url": CRS_TEST_URL,
+        "observed_version": SOURCE_VERSION,
         "download": bulk_download_crs,
         "downloaded_name": "CRS.parquet",
     }

@@ -49,8 +49,14 @@ def test_dac1_source_observes_the_dac1_bulk_file() -> None:
     }
 
 
+OBSERVATION = Observation(
+    data_version="v1", metadata={"dagster/uri": DAC1_TEST_URL, "version": "v20260801"}
+)
+
+
 def test_fetch_dac1_dates_the_release_from_the_url(tmp_path: Path) -> None:
-    """Test the landing asset fetches the DAC1 bulk file and dates the release from its URL"""
+    """Test the landing asset fetches the DAC1 bulk file its source observed and dates
+    the release from its URL"""
     with (
         patch(
             "dfo_pipelines.defs.oecd.dac1.assets.fetch_bulk_file", autospec=True
@@ -60,7 +66,7 @@ def test_fetch_dac1_dates_the_release_from_the_url(tmp_path: Path) -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac1(UPath(tmp_path), Observation(data_version="v1", metadata={}))
+        fetch_dac1(UPath(tmp_path), OBSERVATION)
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC1_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE
@@ -70,6 +76,8 @@ def test_fetch_dac1_dates_the_release_from_the_url(tmp_path: Path) -> None:
     assert arguments == {
         "flow_url": DAC1_FLOW_URL,
         "label": DAC1_BULK_LABEL,
+        "observed_url": DAC1_TEST_URL,
+        "observed_version": "v20260801",
         "download": bulk_download_dac1,
         "downloaded_name": "table1_data.parquet",
     }

@@ -24,11 +24,12 @@ in `src/dfo_pipelines/defs/one/imputed_multilateral_sectors/assets.py` reads bot
 `one_imputed_multilateral_sectors_landing` calls `imputed_multilateral_by_purpose` with `refresh=True`, so
 every materialization re-reads both releases rather than serving a cached copy. `resolve_bulk_versions` is
 called again immediately before and immediately after that compute, and `verify_release_provenance` checks
-the compute's own `result.attrs["provenance"]` against the token observed before it, then checks that same
-token against the one observed after. The run refuses to write, leaving no parquet file and no metadata,
-when `oda-data`'s recorded release disagrees with the token observed before the compute, or when either
-source's token moves between the two observations: `oda-data` resolves its own release identity through a
-7-day HTTP annotation cache, so it can otherwise report a release that no longer matches what was read.
+the compute's own `result.attrs["provenance"]` against the token the source observed. The run refuses to
+write, leaving no parquet file and no metadata, when `oda-data`'s recorded release disagrees with the
+observed token, when either source's bulk file URL or token differs from the observed one in the lookup
+before or after, or when the installed `oda-data` is not the version observed: `oda-data`
+resolves its own release identity through a 7-day HTTP annotation cache, so it can otherwise report a
+release that no longer matches what was read.
 
 ## Mark the partial year
 
