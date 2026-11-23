@@ -19,7 +19,15 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_raw_code_mapping_table,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, meta, row_count
+from tests.helpers import (
+    check_outcomes,
+    column_list,
+    landed_directory,
+    materialization,
+    materialize_landing,
+    meta,
+    row_count,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -99,14 +107,6 @@ def compiler() -> Iterator[Any]:
         yield mock
 
 
-def materialize_landing(tmp_path: Path) -> Any:
-    """Run the landing asset against a file store under tmp_path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
-    return dfo_ontology_landing(
-        context=dg.build_asset_context(), landing_file_store=file_store
-    )
-
-
 def checks(result: dg.MaterializeResult) -> dict[str, bool]:
     """The asset's checks, keyed on name"""
     return {str(check.check_name): bool(check.passed) for check in result.check_results}
@@ -116,11 +116,11 @@ def test_landing_counts_the_nodes_the_mcf_declares(
     tmp_path: Path, compiler: Any
 ) -> None:
     """Test the node count counts nodes, not the blocks the file separates into"""
-    result = materialize_landing(tmp_path)
+    result = materialize_landing(dfo_ontology_landing, tmp_path)
 
-    node_count = meta(result, "node_count", dg.IntMetadataValue).value
-
-    assert node_count == STUB_MCF.count("Node: ")
+    assert materialization(result).metadata["node_count"] == dg.IntMetadataValue(
+        STUB_MCF.count("Node: ")
+    )
 
 
 def test_landing_raises_when_the_compiler_fails(tmp_path: Path, compiler: Any) -> None:
@@ -132,7 +132,7 @@ def test_landing_raises_when_the_compiler_fails(tmp_path: Path, compiler: Any) -
     compiler.side_effect = fake_compile(returncode=1)
 
     with pytest.raises(RuntimeError, match=STUB_REPORT.strip()):
-        materialize_landing(tmp_path)
+        materialize_landing(dfo_ontology_landing, tmp_path)
 
 
 def test_landing_publishes_nothing_when_an_output_is_missing(
@@ -144,13 +144,13 @@ def test_landing_publishes_nothing_when_an_output_is_missing(
     one by one would leave the ontology of one compile beside the mapping of
     another, with no materialization recording that it happened.
     """
-    published = Path(str(materialize_landing(tmp_path).value))
+    published = landed_directory(materialize_landing(dfo_ontology_landing, tmp_path))
     compiler.side_effect = fake_compile(
         mcf="Node: dcid:Replaced\n", omit=(CODE_MAPPING_CSV,)
     )
 
     with pytest.raises(RuntimeError, match=re.escape(CODE_MAPPING_CSV)):
-        materialize_landing(tmp_path)
+        materialize_landing(dfo_ontology_landing, tmp_path)
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
 
@@ -161,9 +161,9 @@ def test_landing_check_fails_when_the_mcf_is_empty(
     """Test the MCF check fails when the compiler emits no ontology"""
     compiler.side_effect = fake_compile(mcf="")
 
-    result = materialize_landing(tmp_path)
+    result = materialize_landing(dfo_ontology_landing, tmp_path, raise_on_error=False)
 
-    assert checks(result) == {"mcf_not_empty": False, "csv_not_empty": True}
+    assert check_outcomes(result) == {"mcf_not_empty": False, "csv_not_empty": True}
 
 
 def test_landing_check_fails_when_the_code_mapping_has_no_rows(
@@ -175,9 +175,9 @@ def test_landing_check_fails_when_the_code_mapping_has_no_rows(
     """
     compiler.side_effect = fake_compile(rows=[])
 
-    result = materialize_landing(tmp_path)
+    result = materialize_landing(dfo_ontology_landing, tmp_path, raise_on_error=False)
 
-    assert checks(result) == {"mcf_not_empty": True, "csv_not_empty": False}
+    assert check_outcomes(result) == {"mcf_not_empty": True, "csv_not_empty": False}
 
 
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:

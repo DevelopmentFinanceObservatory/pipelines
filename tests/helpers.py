@@ -1,8 +1,10 @@
+from collections.abc import Mapping
 from contextlib import ExitStack
 from datetime import datetime
 from functools import cache
 from pathlib import Path
-from typing import Self
+from types import MappingProxyType
+from typing import Any, Self
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
@@ -22,6 +24,49 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     value = result.metadata[key]
     assert isinstance(value, kind)
     return value
+
+
+def materialize_landing(
+    asset: dg.AssetsDefinition,
+    tmp_path: Path,
+    *,
+    resources: Mapping[str, Any] = MappingProxyType({}),
+    instance: dg.DagsterInstance | None = None,
+    raise_on_error: bool = True,
+) -> dg.ExecuteInProcessResult:
+    """Materialize a landing asset against a file store under `tmp_path`"""
+    return dg.materialize(
+        [asset],
+        resources={
+            "landing_file_store": UPathFileStoreResource(
+                base_path=str(tmp_path / "landing")
+            ),
+            "io_manager": dg.mem_io_manager,
+            **resources,
+        },
+        instance=instance,
+        raise_on_error=raise_on_error,
+    )
+
+
+def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
+    """The one asset materialization the run recorded"""
+    [event] = result.get_asset_materialization_events()
+    return event.step_materialization_data.materialization
+
+
+def landed_directory(result: dg.ExecuteInProcessResult) -> Path:
+    """The landing directory the run's one materialization recorded"""
+    uri = materialization(result).metadata["dagster/uri"]
+    assert isinstance(uri, dg.TextMetadataValue)
+    return Path(uri.value)
+
+
+def check_outcomes(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
+    """Whether each check the run evaluated passed, keyed on its name"""
+    return {
+        check.check_name: check.passed for check in result.get_asset_check_evaluations()
+    }
 
 
 def row_count(duckdb: DuckDBResource, table: str) -> int:

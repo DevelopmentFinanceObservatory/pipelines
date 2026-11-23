@@ -1,6 +1,5 @@
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import UTC, date, datetime, tzinfo
 from pathlib import Path
 from unittest.mock import patch
@@ -16,7 +15,13 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import AutomationHarness, logged_messages
+from tests.helpers import (
+    AutomationHarness,
+    check_outcomes,
+    logged_messages,
+    materialization,
+    materialize_landing,
+)
 
 # Late enough in the UTC day that any zone east of UTC has moved to the next date.
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
@@ -48,8 +53,8 @@ def build_example(fetch, **kwargs) -> dg.AssetsDefinition:
     )
 
 
-@contextmanager
-def patch_download_clock() -> Iterator[None]:
+@pytest.fixture(autouse=True)
+def frozen_download_clock() -> Iterator[None]:
     """Freeze the instant the landing asset stamps a download with, in the zone it
     names, which a local-time reading would not"""
 
@@ -61,17 +66,6 @@ def patch_download_clock() -> Iterator[None]:
         yield
 
 
-def materialize_directly(
-    asset: dg.AssetsDefinition, tmp_path: Path
-) -> dg.MaterializeResult:
-    """Run the asset's body against a file store under `tmp_path`"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
-    with patch_download_clock():
-        result = asset(context=dg.build_asset_context(), landing_file_store=file_store)
-    assert isinstance(result, dg.MaterializeResult)
-    return result
-
-
 def test_build_landing_asset_writes_the_download_and_its_metadata(
     tmp_path: Path,
 ) -> None:
@@ -81,7 +75,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
     )
 
-    result = materialize_directly(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     file_path = directory / "things.parquet"
@@ -93,17 +87,15 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "downloaded_at": "2026-08-03T23:47:05+00:00",
         "source_release_date": "2026-07-07",
     }
-    assert result.value == str(directory)
-    assert result.metadata == {
+    assert result.output_for_node("example_landing") == str(directory)
+    assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "file_size": dg.IntMetadataValue(file_path.stat().st_size),
         "dagster/row_count": dg.IntMetadataValue(3),
         "version": dg.TextMetadataValue("v20260801"),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert check.passed
+    assert check_outcomes(result) == {"file_not_empty": True}
 
 
 def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
@@ -119,7 +111,7 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         )
     )
 
-    result = materialize_directly(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
@@ -128,26 +120,26 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         "crs_release_date": "2026-07-01",
         "multisystem_release_date": "2026-06-15",
     }
-    assert result.metadata is not None
+    metadata = materialization(result).metadata
     assert (
-        result.metadata.items()
+        metadata.items()
         >= {
             "crs_release_date": dg.TextMetadataValue("2026-07-01"),
             "multisystem_release_date": dg.TextMetadataValue("2026-06-15"),
         }.items()
     )
-    assert "source_release_date" not in result.metadata
+    assert "source_release_date" not in metadata
 
 
 def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
     tmp_path: Path,
 ) -> None:
     """Test an empty download, which still carries a schema, fails the check"""
-    result = materialize_directly(build_example(fetch_rows(0)), tmp_path)
+    result = materialize_landing(
+        build_example(fetch_rows(0)), tmp_path, raise_on_error=False
+    )
 
-    [check] = result.check_results
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
+    assert check_outcomes(result) == {"file_not_empty": False}
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
@@ -159,7 +151,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
-        materialize_directly(build_example(fail), tmp_path)
+        materialize_landing(build_example(fail), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
@@ -174,7 +166,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
         return FetchedRelease(release_dates={"source": RELEASE_DATE}, metadata={})
 
     with pytest.raises(pa.ArrowInvalid):
-        materialize_directly(build_example(truncate), tmp_path)
+        materialize_landing(build_example(truncate), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
@@ -183,10 +175,9 @@ def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
     """Test the run log names the source and the file written"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
 
-    with patch_download_clock():
-        messages = logged_messages(
-            [build_example(fetch_rows(1))], {"landing_file_store": file_store}
-        )
+    messages = logged_messages(
+        [build_example(fetch_rows(1))], {"landing_file_store": file_store}
+    )
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     assert f"Wrote Example data to {directory / 'things.parquet'}" in messages
