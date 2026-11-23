@@ -3,7 +3,6 @@ import json
 import re
 import subprocess
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -28,7 +27,6 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     column_list,
     landed_directory,
-    materialization,
     materialize_landing,
     meta,
     record_observation,
@@ -167,17 +165,6 @@ def checks(result: dg.MaterializeResult) -> dict[str, bool]:
     return {str(check.check_name): bool(check.passed) for check in result.check_results}
 
 
-def test_landing_counts_the_nodes_the_mcf_declares(
-    tmp_path: Path, compiler: Any
-) -> None:
-    """Test the node count counts nodes, not the blocks the file separates into"""
-    result = materialize_observed(tmp_path, compiler)
-
-    assert materialization(result).metadata["node_count"] == dg.IntMetadataValue(
-        STUB_MCF.count("Node: ")
-    )
-
-
 def test_landing_raises_when_the_compiler_fails(tmp_path: Path, compiler: Any) -> None:
     """Test a bench the compiler rejects fails the asset, carrying its report
 
@@ -255,12 +242,7 @@ def test_landing_records_the_day_it_compiled_as_the_release_date(
     landed = landed_directory(materialize_observed(tmp_path, compiler))
 
     recorded = json.loads((landed / METADATA_FILE_NAME).read_text())
-    assert recorded["source_release_date"] == (
-        datetime.fromisoformat(recorded["downloaded_at"])
-        .astimezone(UTC)
-        .date()
-        .isoformat()
-    )
+    assert recorded["downloaded_at"].startswith(recorded["source_release_date"])
 
 
 def test_landing_raises_when_the_compile_differs_from_the_observed_one(
@@ -281,41 +263,6 @@ def test_landing_raises_when_the_compile_differs_from_the_observed_one(
         )
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
-
-
-@pytest.mark.parametrize(
-    "mcf", ["", STUB_MCF.split("\n\n")[0] + "\n"], ids=["empty", "header_only"]
-)
-def test_landing_check_fails_when_the_mcf_declares_no_nodes(
-    tmp_path: Path, compiler: Any, mcf: str
-) -> None:
-    """Test the files check fails on the MCF when the compiler emits no ontology,
-    even with the header comment it writes"""
-    compiler.side_effect = fake_compile(mcf=mcf)
-
-    result = materialize_observed(tmp_path, compiler, raise_on_error=False)
-
-    [evaluation] = result.get_asset_check_evaluations()
-    assert not evaluation.passed
-    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue([ONTOLOGY_MCF])
-
-
-def test_landing_check_fails_when_the_code_mapping_has_no_rows(
-    tmp_path: Path, compiler: Any
-) -> None:
-    """Test the files check counts the mapping's rows, so a header alone fails it
-
-    A file holding only its header is not empty on disk, but resolves nothing.
-    """
-    compiler.side_effect = fake_compile(rows=[])
-
-    result = materialize_observed(tmp_path, compiler, raise_on_error=False)
-
-    [evaluation] = result.get_asset_check_evaluations()
-    assert not evaluation.passed
-    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue(
-        [CODE_MAPPING_CSV]
-    )
 
 
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:

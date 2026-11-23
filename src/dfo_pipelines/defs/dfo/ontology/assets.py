@@ -98,11 +98,7 @@ def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease
 
     return FetchedRelease(
         release_dates={"source": datetime.now(UTC).date()},
-        metadata={
-            "node_count": dg.MetadataValue.int(
-                count_mcf_nodes(directory / ONTOLOGY_MCF)
-            )
-        },
+        metadata={},
     )
 
 
