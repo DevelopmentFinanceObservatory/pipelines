@@ -20,10 +20,9 @@ from dfo_pipelines.extraction.climate_finance import (
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
-    UPathFileStoreResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT
-from tests.helpers import check_outcomes
+from tests.helpers import check_outcomes, materialize_landing
 
 NAME = "2026a-rc9"
 STEMS = ["spending", "crdf_commitments", "btr_totals"]
@@ -80,22 +79,6 @@ def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
             metadata=result.metadata,
             tags={"dagster/data_version": result.data_version.value},
         )
-    )
-
-
-def _materialize(
-    instance: dg.DagsterInstance, tmp: Path, *, raise_on_error: bool = True
-) -> dg.ExecuteInProcessResult:
-    return dg.materialize(
-        [one_climate_finance_landing],
-        resources={
-            "landing_file_store": UPathFileStoreResource(
-                base_path=str(tmp / "landing")
-            ),
-            "io_manager": dg.mem_io_manager,
-        },
-        instance=instance,
-        raise_on_error=raise_on_error,
     )
 
 
@@ -166,7 +149,9 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
         (export / NAME / "manifest.json").read_bytes()
     )
 
-    result = _materialize(instance, tmp_path)
+    result = materialize_landing(
+        one_climate_finance_landing, tmp_path, instance=instance
+    )
 
     directory = Path(result.output_for_node("one_climate_finance_landing"))
     metadata = _materialization(result).metadata
@@ -196,7 +181,9 @@ def test_landing_check_fails_on_a_table_with_no_rows(
     instance = dg.DagsterInstance.ephemeral()
     _record_observation(instance, export)
 
-    result = _materialize(instance, tmp_path, raise_on_error=False)
+    result = materialize_landing(
+        one_climate_finance_landing, tmp_path, instance=instance, raise_on_error=False
+    )
 
     assert check_outcomes(result) == {
         f"{other}_not_empty": other != stem for other in STEMS
@@ -213,7 +200,7 @@ def test_landing_refuses_an_export_replaced_after_the_observation(
     _republish(export, tables={"btr_totals": empty})
 
     with pytest.raises(ValueError, match=r"manifest\.json has sha256"):
-        _materialize(instance, tmp_path)
+        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
 
 
 def test_landing_refuses_a_table_its_manifest_does_not_record(
@@ -227,10 +214,14 @@ def test_landing_refuses_a_table_its_manifest_does_not_record(
     )
 
     with pytest.raises(ValueError, match=r"spending\.parquet has sha256"):
-        _materialize(instance, tmp_path)
+        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
 
 
 def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
     """Test the landing asset fails when the source was never observed"""
     with pytest.raises(ValueError, match="has no observation"):
-        _materialize(dg.DagsterInstance.ephemeral(), tmp_path)
+        materialize_landing(
+            one_climate_finance_landing,
+            tmp_path,
+            instance=dg.DagsterInstance.ephemeral(),
+        )

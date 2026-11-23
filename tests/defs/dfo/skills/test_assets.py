@@ -26,7 +26,13 @@ from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from tests.helpers import AutomationHarness, check_outcomes, meta, project_definitions
+from tests.helpers import (
+    AutomationHarness,
+    check_outcomes,
+    materialize_landing,
+    meta,
+    project_definitions,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -105,16 +111,12 @@ class LandingRun(NamedTuple):
     checks: dict[str, bool]
 
 
-def materialize_landing(tmp_path: Path) -> LandingRun:
+def run_landing(tmp_path: Path) -> LandingRun:
     """Run the landing asset against a file store under tmp_path"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
-    result = dg.materialize(
-        [dfo_skills_landing],
-        resources={
-            "landing_file_store": file_store,
-            "skills_repository": SKILLS_REPOSITORY,
-            "io_manager": dg.mem_io_manager,
-        },
+    result = materialize_landing(
+        dfo_skills_landing,
+        tmp_path,
+        resources={"skills_repository": SKILLS_REPOSITORY},
     )
     [materialization] = result.asset_materializations_for_node("dfo_skills_landing")
     return LandingRun(
@@ -148,7 +150,7 @@ def test_landing_copies_the_skills_at_the_head_of_main(
     """Test the published skills arrive unchanged, traced to their commit"""
     head = git(upstream, "rev-parse", "HEAD")
 
-    result = materialize_landing(tmp_path)
+    result = run_landing(tmp_path)
 
     assert files_under(result.directory) == landing_files(SKILLS)
     assert result.materialization.metadata["version"] == dg.TextMetadataValue(head)
@@ -191,11 +193,11 @@ def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
 ) -> None:
     """Test a rerun replaces the day's copy rather than adding to it"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
-    materialize_landing(tmp_path)
+    run_landing(tmp_path)
     replaced = {"oda-channels/SKILL.md": "---\nname: oda-channels\n---\n"}
     commit(upstream, replaced)
 
-    result = materialize_landing(tmp_path)
+    result = run_landing(tmp_path)
 
     assert files_under(result.directory) == landing_files(replaced)
 
@@ -204,11 +206,11 @@ def test_landing_keeps_the_previous_copy_when_the_clone_fails(
     tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a failed fetch leaves the day's earlier copy in place"""
-    published = materialize_landing(tmp_path).directory
+    published = run_landing(tmp_path).directory
 
     redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
     with pytest.raises(RuntimeError, match="git clone failed"):
-        materialize_landing(tmp_path)
+        run_landing(tmp_path)
 
     assert files_under(published) == landing_files(SKILLS)
 
@@ -225,7 +227,7 @@ def test_landing_fails_when_git_stalls(
             patch("dfo_pipelines.defs.dfo.skills.assets.GIT_TIMEOUT_SECONDS", 1),
             pytest.raises(RuntimeError, match="git clone timed out after 1 seconds"),
         ):
-            materialize_landing(tmp_path)
+            run_landing(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -255,7 +257,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
 ) -> None:
     """Test a committed symlink fails the fetch rather than copying its target"""
-    published = materialize_landing(tmp_path).directory
+    published = run_landing(tmp_path).directory
     secret = tmp_path / "secret"
     secret.mkdir()
     (secret / "SKILL.md").write_text("not for the graph")
@@ -266,7 +268,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     git(upstream, "commit", "-qm", "add a symlink")
 
     with pytest.raises(RuntimeError, match=re.escape(error)):
-        materialize_landing(tmp_path)
+        run_landing(tmp_path)
 
     assert files_under(published) == landing_files(SKILLS)
 
@@ -435,7 +437,7 @@ def test_landing_and_export_carry_a_skill_from_each_root(
     """Test both roots reach the landing directory and each skill links to its own"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
 
-    raw_result = materialize_landing(tmp_path)
+    raw_result = run_landing(tmp_path)
 
     landing_directory = raw_result.directory
     assert files_under(landing_directory) == landing_files(SKILLS, INTERNAL_SKILLS)
@@ -554,7 +556,7 @@ def test_landing_and_export_skip_a_draft_with_only_a_readme(
     """Test a `_draft/README.md`-only directory is skipped by both, without raising"""
     commit(upstream, SKILLS | {"_draft/README.md": "Notes for a draft skill.\n"})
 
-    raw_result = materialize_landing(tmp_path)
+    raw_result = run_landing(tmp_path)
     assert raw_result.materialization.metadata["skill_count"] == dg.IntMetadataValue(1)
 
     export_result, _ = export_skills(tmp_path, landing_directory=raw_result.directory)
@@ -570,7 +572,7 @@ def test_landing_and_export_skip_a_draft_with_a_skill_file(
         SKILLS | {"_draft/SKILL.md": "---\nname: draft-skill\n---\n"},
     )
 
-    raw_result = materialize_landing(tmp_path)
+    raw_result = run_landing(tmp_path)
     assert raw_result.materialization.metadata["skill_count"] == dg.IntMetadataValue(1)
 
     export_result, _ = export_skills(tmp_path, landing_directory=raw_result.directory)

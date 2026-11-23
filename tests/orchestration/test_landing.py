@@ -16,7 +16,12 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import AutomationHarness, check_outcomes, logged_messages
+from tests.helpers import (
+    AutomationHarness,
+    check_outcomes,
+    logged_messages,
+    materialize_landing,
+)
 
 # Late enough in the UTC day that any zone east of UTC has moved to the next date.
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
@@ -67,17 +72,9 @@ def materialize_example(
     *,
     raise_on_error: bool = True,
 ) -> dg.ExecuteInProcessResult:
-    """Materialize the asset against a file store under `tmp_path`"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
+    """Materialize the asset at the frozen download instant"""
     with patch_download_clock():
-        return dg.materialize(
-            [asset],
-            resources={
-                "landing_file_store": file_store,
-                "io_manager": dg.mem_io_manager,
-            },
-            raise_on_error=raise_on_error,
-        )
+        return materialize_landing(asset, tmp_path, raise_on_error=raise_on_error)
 
 
 def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
