@@ -41,7 +41,10 @@ MULTI_TEST_URL = "https://webfs-dcd.oecd.org/data/multisystem/MULTISYSTEM.parque
 CRS_VERSION = "v20260801"
 MULTI_VERSION = "v20260715"
 
-OBSERVED_TOKENS = {"crs": CRS_VERSION, "multisystem": MULTI_VERSION}
+OBSERVED_RELEASES = {
+    "crs": (CRS_TEST_URL, CRS_VERSION),
+    "multisystem": (MULTI_TEST_URL, MULTI_VERSION),
+}
 
 
 def _observation(
@@ -51,7 +54,9 @@ def _observation(
     return Observation(
         data_version="v1",
         metadata={
+            "crs_url": CRS_TEST_URL,
             "crs_version": crs_version,
+            "multisystem_url": MULTI_TEST_URL,
             "multisystem_version": MULTI_VERSION,
             "oda_data_version": oda_data_version or installed_version("oda-data"),
         },
@@ -209,8 +214,8 @@ def test_verify_release_provenance_accepts_matching_tokens() -> None:
     """Test matching provenance and observations pass without raising"""
     verify_release_provenance(
         provenance=VALID_PROVENANCE,
-        observed_before=OBSERVED_TOKENS,
-        observed_after=OBSERVED_TOKENS,
+        observed_before=OBSERVED_RELEASES,
+        observed_after=OBSERVED_RELEASES,
     )
 
 
@@ -219,8 +224,8 @@ def test_verify_release_provenance_raises_when_provenance_is_missing() -> None:
     with pytest.raises(ValueError, match=r"no result.attrs\['provenance'\]"):
         verify_release_provenance(
             provenance=None,
-            observed_before=OBSERVED_TOKENS,
-            observed_after=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=OBSERVED_RELEASES,
         )
 
 
@@ -233,8 +238,8 @@ def test_verify_release_provenance_raises_when_the_crs_release_is_not_a_record(
     with pytest.raises(ValueError, match=f"CRS release provenance is {release!r}"):
         verify_release_provenance(
             provenance=provenance,
-            observed_before=OBSERVED_TOKENS,
-            observed_after=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=OBSERVED_RELEASES,
         )
 
 
@@ -249,8 +254,8 @@ def test_verify_release_provenance_raises_when_the_multisystem_release_is_not_a_
     ):
         verify_release_provenance(
             provenance=provenance,
-            observed_before=OBSERVED_TOKENS,
-            observed_after=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=OBSERVED_RELEASES,
         )
 
 
@@ -268,8 +273,8 @@ def test_verify_release_provenance_raises_when_the_crs_release_id_mismatches() -
     with pytest.raises(ValueError, match="CRS release provenance reports"):
         verify_release_provenance(
             provenance=provenance,
-            observed_before=OBSERVED_TOKENS,
-            observed_after=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=OBSERVED_RELEASES,
         )
 
 
@@ -289,8 +294,8 @@ def test_verify_release_provenance_raises_when_the_multisystem_release_id_mismat
     ):
         verify_release_provenance(
             provenance=provenance,
-            observed_before=OBSERVED_TOKENS,
-            observed_after=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=OBSERVED_RELEASES,
         )
 
 
@@ -303,11 +308,11 @@ def test_verify_release_provenance_raises_when_the_crs_token_moves_mid_compute()
     check alone cannot see a republish that happens while the compute is
     running; only the second observation can.
     """
-    observed_after = {**OBSERVED_TOKENS, "crs": "v20260901"}
+    observed_after = {**OBSERVED_RELEASES, "crs": (CRS_TEST_URL, "v20260901")}
     with pytest.raises(ValueError, match="CRS release moved"):
         verify_release_provenance(
             provenance=VALID_PROVENANCE,
-            observed_before=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
             observed_after=observed_after,
         )
 
@@ -316,11 +321,25 @@ def test_verify_release_provenance_raises_when_the_multisystem_token_moves_mid_c
     None
 ):
     """Test a Members' Total Use republish between the two observations is refused too"""
-    observed_after = {**OBSERVED_TOKENS, "multisystem": "v20260901"}
+    observed_after = {**OBSERVED_RELEASES, "multisystem": (MULTI_TEST_URL, "v20260901")}
     with pytest.raises(ValueError, match="Members' Total Use release moved"):
         verify_release_provenance(
             provenance=VALID_PROVENANCE,
-            observed_before=OBSERVED_TOKENS,
+            observed_before=OBSERVED_RELEASES,
+            observed_after=observed_after,
+        )
+
+
+def test_verify_release_provenance_raises_when_a_url_moves_mid_compute() -> None:
+    """Test a bulk file that moved to another URL under the same token is refused"""
+    observed_after = {
+        **OBSERVED_RELEASES,
+        "crs": ("https://webfs-dcd.oecd.org/data/dac_crs/CRS-2.parquet", CRS_VERSION),
+    }
+    with pytest.raises(ValueError, match="CRS release moved"):
+        verify_release_provenance(
+            provenance=VALID_PROVENANCE,
+            observed_before=OBSERVED_RELEASES,
             observed_after=observed_after,
         )
 
@@ -513,10 +532,19 @@ def test_build_quality_metadata_reports_hand_computed_values() -> None:
     assert metadata["multisystem_release_id"] == dg.MetadataValue.text(MULTI_VERSION)
 
 
-def _patched_bulk_versions(result: tuple[tuple[str, str], tuple[str, str]]):
-    """Stand in for resolve_bulk_versions, returning the given (crs, multi) pair"""
+def _patched_bulk_versions(*results: tuple[tuple[str, str], tuple[str, str]]):
+    """Stand in for resolve_bulk_versions, returning the given (crs, multi) pairs in
+    order, or the one pair on every call"""
+    if len(results) == 1:
+        return patch(
+            f"{ASSETS_MODULE}.resolve_bulk_versions",
+            autospec=True,
+            return_value=results[0],
+        )
     return patch(
-        f"{ASSETS_MODULE}.resolve_bulk_versions", autospec=True, return_value=result
+        f"{ASSETS_MODULE}.resolve_bulk_versions",
+        autospec=True,
+        side_effect=list(results),
     )
 
 
@@ -877,6 +905,7 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moves_
     """
     frame = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
+        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
         ((CRS_TEST_URL, "v20260901"), (MULTI_TEST_URL, MULTI_VERSION)),
     )
     compute_patch = patch(
@@ -928,31 +957,35 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_token_
     )
 
 
-def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moved_before_the_compute(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    "crs_release",
+    [
+        (CRS_TEST_URL, "v20260901"),
+        ("https://webfs-dcd.oecd.org/data/dac_crs/CRS-2.parquet", CRS_VERSION),
+    ],
+    ids=["version", "url"],
+)
+def test_fetch_imputed_multilateral_sectors_refuses_a_release_that_moved_before_the_compute(
+    tmp_path: Path, crs_release: tuple[str, str]
 ) -> None:
-    """Test a republish between the observation and the compute refuses, though the
-    compute and the lookup after it agree on the new release"""
-    republished = "v20260901"
-    provenance = {
-        **VALID_PROVENANCE,
-        "crs_release": {**CRS_RELEASE_RECORD, "release_id": republished},
-    }
-    frame = _result_frame(CONFORMING_ROWS, provenance=provenance)
+    """Test a CRS bulk file republished, or moved to another URL under the same
+    token, since the observation refuses before computing"""
+    _, compute_patch = _matching_bulk_and_frame(
+        CONFORMING_ROWS, provenance=VALID_PROVENANCE
+    )
     bulk_patch = _patched_bulk_versions(
-        ((CRS_TEST_URL, republished), (MULTI_TEST_URL, MULTI_VERSION)),
+        (crs_release, (MULTI_TEST_URL, MULTI_VERSION)),
     )
-    compute_patch = patch(
-        f"{ASSETS_MODULE}.sector_imputations.imputed_multilateral_by_purpose",
-        autospec=True,
-        return_value=frame,
-    )
-    _refused_and_nothing_written(
-        tmp_path,
-        bulk_patch=bulk_patch,
-        compute_patch=compute_patch,
-        match="was observed: observe it again",
-    )
+
+    with (
+        bulk_patch,
+        compute_patch as imputed_multilateral_by_purpose,
+        pytest.raises(ValueError, match="after it was observed: observe it again"),
+    ):
+        fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
+
+    imputed_multilateral_by_purpose.assert_not_called()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_fetch_imputed_multilateral_sectors_writes_nothing_when_oda_data_differs_from_the_observed(
