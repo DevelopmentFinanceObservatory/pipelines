@@ -67,10 +67,7 @@ def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
         patch(
             "dfo_pipelines.orchestration.dc_export.export_bundle",
             return_value=ExportMetadata(
-                observation_count=7,
-                statvar_count=3,
-                observation_file_count=2,
-                check_findings=None,
+                observation_count=7, statvar_count=3, observation_file_count=2
             ),
         ) as export_bundle,
     ):
@@ -95,7 +92,6 @@ def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
         "observation_count": dg.IntMetadataValue(7),
         "statvar_count": dg.IntMetadataValue(3),
         "observation_file_count": dg.IntMetadataValue(2),
-        "check_findings": dg.NullMetadataValue(),
     }
     # The IO manager adds the `path` it stored the value at.
     assert materialization.metadata.items() >= reported.items()

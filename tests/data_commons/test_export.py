@@ -2,16 +2,12 @@ import dataclasses
 import json
 import logging
 import shutil
-import threading
-from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 import duckdb
-import httpx
 import pytest
 from duckdb import DuckDBPyConnection
 from upath import UPath
@@ -23,14 +19,6 @@ from dfo_pipelines.data_commons.export import (
     ExportSpec,
     ObservationInput,
     export_bundle,
-)
-from dfo_pipelines.data_commons.graph_check import (
-    CHECK_PATH,
-    DEFAULT_GRAPH_API_URL,
-    GRAPH_API_URL_VARIABLE,
-    GraphFinding,
-    RefusedRow,
-    finding_groups,
 )
 
 LOG = logging.getLogger(__name__)
@@ -206,221 +194,8 @@ def test_export_bundle_writes_a_bundle(tmp_path: Path) -> None:
         "provenance.mcf",
     ]
     assert metadata == ExportMetadata(
-        observation_count=3,
-        statvar_count=2,
-        observation_file_count=2,
-        check_findings=None,
+        observation_count=3, statvar_count=2, observation_file_count=2
     )
-
-
-def stub_graph_api(
-    monkeypatch: pytest.MonkeyPatch, answer: Callable[[httpx.Request], httpx.Response]
-) -> None:
-    """Point the export's graph check at a stub answering through `answer`"""
-    monkeypatch.setenv(GRAPH_API_URL_VARIABLE, "https://graph.example")
-    monkeypatch.setattr(
-        "dfo_pipelines.data_commons.graph_check.open_client",
-        lambda base_url: httpx.Client(
-            base_url=base_url, transport=httpx.MockTransport(answer)
-        ),
-    )
-
-
-def graph_finding(row: int) -> dict[str, Any]:
-    """A finding the route makes on the fixture's second constraint value"""
-    return {
-        "row": row,
-        "field": "constraint_properties",
-        "property": "constraintProperty2",
-        "subject": "value",
-        "value": "ConstraintValue2",
-        "served": None,
-        "code": "node_not_held",
-        "severity": "error",
-    }
-
-
-def warnings_logged(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
-    return [
-        r for r in caplog.records if r.name == LOG.name and r.levelno == logging.WARNING
-    ]
-
-
-def test_export_bundle_logs_and_counts_the_graph_checks_findings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Test the findings the Graph API makes over the StatVars are counted and
-    logged as one warning per distinct finding, and the bundle is written all the
-    same"""
-    checked: list[str] = []
-
-    def answer(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == CHECK_PATH
-        checked.extend(row["dcid"] for row in json.loads(request.content)["rows"])
-        return httpx.Response(
-            200,
-            json={
-                "generation": "g1",
-                "rows_checked": 2,
-                "findings": [graph_finding(0), graph_finding(1)],
-            },
-        )
-
-    stub_graph_api(monkeypatch, answer)
-
-    with caplog.at_level(logging.WARNING, logger=LOG.name):
-        metadata, out_dir = run_export(tmp_path)
-
-    assert checked == ["Variable1", "Variable2"]
-    assert metadata.check_findings == 2
-    [line] = finding_groups(
-        GraphFinding(
-            statvar=statvar,
-            field="constraint_properties",
-            property="constraintProperty2",
-            value="ConstraintValue2",
-            code="node_not_held",
-            severity="error",
-        )
-        for statvar in ("Variable1", "Variable2")
-    )
-    [warning] = warnings_logged(caplog)
-    assert warning.message.endswith(line)
-    assert (out_dir / "custom_nodes.mcf").exists()
-
-
-def test_export_bundle_counts_a_row_the_graph_api_refuses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Test a 400 naming one row reports that row and the check carries on with
-    the rest"""
-    sent: list[list[str]] = []
-
-    def answer(request: httpx.Request) -> httpx.Response:
-        rows = [row["dcid"] for row in json.loads(request.content)["rows"]]
-        sent.append(rows)
-        if len(sent) == 1:
-            return httpx.Response(
-                400,
-                json={
-                    "code": "request_invalid",
-                    "detail": "constraint value is not finite",
-                    "pointer": "/rows/0/constraint_properties",
-                },
-            )
-        return httpx.Response(
-            200, json={"generation": "g1", "rows_checked": len(rows), "findings": []}
-        )
-
-    stub_graph_api(monkeypatch, answer)
-
-    with caplog.at_level(logging.WARNING, logger=LOG.name):
-        metadata, _ = run_export(tmp_path)
-
-    assert sent == [["Variable1", "Variable2"], ["Variable2"]]
-    assert metadata.check_findings == 1
-    refused = RefusedRow(
-        statvar="Variable1",
-        pointer="/rows/0/constraint_properties",
-        detail="constraint value is not finite",
-    )
-    [warning] = warnings_logged(caplog)
-    assert warning.message.endswith(str(refused))
-
-
-def refuse(request: httpx.Request) -> httpx.Response:
-    raise httpx.ConnectError("refused")
-
-
-@pytest.mark.parametrize(
-    "answer",
-    [
-        pytest.param(refuse, id="unreachable"),
-        pytest.param(
-            lambda request: httpx.Response(400, json={"code": "request_invalid"}),
-            id="refusal naming no row",
-        ),
-        pytest.param(lambda request: httpx.Response(200, text="<html>"), id="not JSON"),
-    ],
-)
-def test_export_bundle_warns_when_the_graph_check_cannot_finish(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    answer: Callable[[httpx.Request], httpx.Response],
-) -> None:
-    """Test a check that cannot finish logs a warning with its cause and leaves the
-    export to finish, its findings uncounted"""
-    stub_graph_api(monkeypatch, answer)
-
-    with caplog.at_level(logging.WARNING, logger=LOG.name):
-        metadata, out_dir = run_export(tmp_path)
-
-    assert metadata.check_findings is None
-    [warning] = warnings_logged(caplog)
-    assert warning.exc_info is not None
-    assert (out_dir / "config.json").exists()
-
-
-def test_export_bundle_stops_waiting_for_a_graph_check_past_the_time_limit(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test an export finishes at the limit while a request is still unanswered,
-    logging a warning and leaving its findings uncounted"""
-    release = threading.Event()
-    monkeypatch.setattr(
-        "dfo_pipelines.data_commons.export.GRAPH_CHECK_TIME_LIMIT_SECONDS", 0.05
-    )
-
-    def stalled(request: httpx.Request) -> httpx.Response:
-        # Bounded, so a fault that waits for the worker ends the test.
-        release.wait(timeout=10)
-        return httpx.Response(200, json={"rows_checked": 2, "findings": []})
-
-    stub_graph_api(monkeypatch, stalled)
-
-    try:
-        with caplog.at_level(logging.WARNING, logger=LOG.name):
-            metadata, out_dir = run_export(tmp_path)
-    finally:
-        release.set()
-
-    assert metadata.check_findings is None
-    assert len(warnings_logged(caplog)) == 1
-    assert (out_dir / "config.json").exists()
-
-
-@pytest.mark.parametrize("value", [None, ""], ids=["unset", "empty"])
-def test_export_bundle_checks_the_default_graph_api_when_the_variable_has_no_value(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str | None
-) -> None:
-    """Test the export posts to the public Graph API when the variable is unset or
-    empty"""
-    if value is not None:
-        monkeypatch.setenv(GRAPH_API_URL_VARIABLE, value)
-    urls: list[str] = []
-
-    def open_client(base_url: str) -> httpx.Client:
-        urls.append(base_url)
-        return httpx.Client(
-            base_url=base_url,
-            transport=httpx.MockTransport(
-                lambda request: httpx.Response(
-                    200, json={"rows_checked": 2, "findings": []}
-                )
-            ),
-        )
-
-    monkeypatch.setattr(
-        "dfo_pipelines.data_commons.graph_check.open_client", open_client
-    )
-
-    metadata, _ = run_export(tmp_path)
-
-    assert urls == [DEFAULT_GRAPH_API_URL]
-    assert metadata.check_findings == 0
 
 
 def test_export_bundle_clears_the_output_directory(tmp_path: Path) -> None:
@@ -529,10 +304,7 @@ def test_export_bundle_writes_each_observation_input_to_its_own_files(
         f"{ONE_CONSTRAINT_STATVAR},2001,Entity4,4\n"
     )
     assert metadata == ExportMetadata(
-        observation_count=5,
-        statvar_count=2,
-        observation_file_count=4,
-        check_findings=None,
+        observation_count=5, statvar_count=2, observation_file_count=4
     )
 
 
