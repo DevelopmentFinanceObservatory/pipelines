@@ -1,6 +1,5 @@
 import json
 from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import UTC, date, datetime, tzinfo
 from pathlib import Path
 from unittest.mock import patch
@@ -54,8 +53,8 @@ def build_example(fetch, **kwargs) -> dg.AssetsDefinition:
     )
 
 
-@contextmanager
-def patch_download_clock() -> Iterator[None]:
+@pytest.fixture(autouse=True)
+def frozen_download_clock() -> Iterator[None]:
     """Freeze the instant the landing asset stamps a download with, in the zone it
     names, which a local-time reading would not"""
 
@@ -67,17 +66,6 @@ def patch_download_clock() -> Iterator[None]:
         yield
 
 
-def materialize_example(
-    asset: dg.AssetsDefinition,
-    tmp_path: Path,
-    *,
-    raise_on_error: bool = True,
-) -> dg.ExecuteInProcessResult:
-    """Materialize the asset at the frozen download instant"""
-    with patch_download_clock():
-        return materialize_landing(asset, tmp_path, raise_on_error=raise_on_error)
-
-
 def test_build_landing_asset_writes_the_download_and_its_metadata(
     tmp_path: Path,
 ) -> None:
@@ -87,7 +75,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
     )
 
-    result = materialize_example(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     file_path = directory / "things.parquet"
@@ -123,7 +111,7 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         )
     )
 
-    result = materialize_example(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
@@ -147,7 +135,7 @@ def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
     tmp_path: Path,
 ) -> None:
     """Test an empty download, which still carries a schema, fails the check"""
-    result = materialize_example(
+    result = materialize_landing(
         build_example(fetch_rows(0)), tmp_path, raise_on_error=False
     )
 
@@ -163,7 +151,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
-        materialize_example(build_example(fail), tmp_path)
+        materialize_landing(build_example(fail), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
@@ -178,7 +166,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
         return FetchedRelease(release_dates={"source": RELEASE_DATE}, metadata={})
 
     with pytest.raises(pa.ArrowInvalid):
-        materialize_example(build_example(truncate), tmp_path)
+        materialize_landing(build_example(truncate), tmp_path)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
@@ -187,10 +175,9 @@ def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
     """Test the run log names the source and the file written"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
 
-    with patch_download_clock():
-        messages = logged_messages(
-            [build_example(fetch_rows(1))], {"landing_file_store": file_store}
-        )
+    messages = logged_messages(
+        [build_example(fetch_rows(1))], {"landing_file_store": file_store}
+    )
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     assert f"Wrote Example data to {directory / 'things.parquet'}" in messages
