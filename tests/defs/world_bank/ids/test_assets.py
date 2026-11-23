@@ -28,11 +28,11 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
 
 
-def patch_release_date():
+def patch_release_date(release_date: date = SOURCE_RELEASE_DATE):
     """Serve the World Bank API's IDS release date without a network call"""
     return patch(
         "dfo_pipelines.defs.world_bank.ids.assets.fetch_ids_release_date",
-        return_value=SOURCE_RELEASE_DATE,
+        return_value=release_date,
     )
 
 
@@ -41,7 +41,13 @@ OBSERVED_FILES: dict[str, dict[str, str | int | None]] = {
     filename: {"etag": f'"etag-{filename}-v1"'} for filename in BULK_XLSX_URLS
 }
 
-OBSERVATION = Observation(data_version="v1", metadata={"files": OBSERVED_FILES})
+OBSERVATION = Observation(
+    data_version="v1",
+    metadata={
+        "files": OBSERVED_FILES,
+        "release_date": SOURCE_RELEASE_DATE.isoformat(),
+    },
+)
 
 
 def _bulk_file_response(
@@ -189,15 +195,19 @@ def test_world_bank_ids_source_observe_fn_returns_metadata_and_data_version() ->
             200, headers=_get_mock_head_headers(filename=filename, version="v1")
         )
 
-    with _mock_http(handler):
+    with _mock_http(handler), patch_release_date():
         result = observe()
 
     assert isinstance(result, dg.ObserveResult)
     assert result.data_version == dg.DataVersion(
-        ";".join(f"{filename}:etag-{filename}-v1" for filename in BULK_XLSX_URLS)
+        ";".join(
+            [f"{filename}:etag-{filename}-v1" for filename in BULK_XLSX_URLS]
+            + ["release_date:2025-12-03"]
+        )
     )
     metadata = result.metadata
     assert metadata is not None
+    assert metadata["release_date"] == dg.TextMetadataValue("2025-12-03")
     files = metadata["files"]
     assert isinstance(files, dg.JsonMetadataValue)
     assert files.data is not None
@@ -223,7 +233,7 @@ def test_world_bank_ids_source_observe_fn_uses_last_modified_when_etag_missing()
             headers.pop("etag")
         return httpx.Response(200, headers=headers)
 
-    with _mock_http(handler):
+    with _mock_http(handler), patch_release_date():
         result = observe()
 
     assert result.data_version == dg.DataVersion(
@@ -233,6 +243,7 @@ def test_world_bank_ids_source_observe_fn_uses_last_modified_when_etag_missing()
                 f"{filename}:etag-{filename}-v1"
                 for filename in list(BULK_XLSX_URLS)[1:]
             ]
+            + ["release_date:2025-12-03"]
         )
     )
 
@@ -280,13 +291,10 @@ def test_fetch_ids_combines_the_downloads_unmodified(
             2024: [3.0, 4.0],
         }
     )
-    with (
-        patch_release_date(),
-        patch(
-            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
-            side_effect=_fake_download(source_df),
-        ) as download,
-    ):
+    with patch(
+        "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
+        side_effect=_fake_download(source_df),
+    ) as download:
         release_dates, metadata = fetch_ids(UPath(tmp_path), OBSERVATION)
 
     download.assert_called_once_with(file_path.parent, observed_files=OBSERVED_FILES)
@@ -315,6 +323,21 @@ def test_fetch_ids_combines_the_downloads_unmodified(
     assert [path.name for path in file_path.parent.iterdir()] == ["ids.parquet"]
 
 
+def test_fetch_ids_records_the_observed_release_date(tmp_path: Path) -> None:
+    """Test the release date recorded is the one observed, not one the API moved
+    to since"""
+    with (
+        patch_release_date(date(2026, 1, 15)),
+        patch(
+            "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
+            side_effect=_fake_download(pd.DataFrame({"Country Code": ["AFG"]})),
+        ),
+    ):
+        release_dates, _ = fetch_ids(UPath(tmp_path), OBSERVATION)
+
+    assert release_dates == {"source": SOURCE_RELEASE_DATE}
+
+
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
 def test_fetch_ids_cleans_up_when_combine_fails(
     tmp_path: Path, read_to_fail_on: int
@@ -339,7 +362,6 @@ def test_fetch_ids_cleans_up_when_combine_fails(
         return real_read_excel(*args, **kwargs)
 
     with (
-        patch_release_date(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(df),

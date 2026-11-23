@@ -121,21 +121,29 @@ def get_ids_bulk_download_version(
     automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
 def world_bank_ids_source() -> dg.ObserveResult:
-    """Observed World Bank IDS bulk XLSX files.
+    """Observed World Bank IDS bulk XLSX files and the release date they hold.
 
-    The source is observed daily via HTTP HEAD requests so downstream assets only
-    run when the publisher has updated the files in place.
+    The source is observed daily via HTTP HEAD requests and the World Bank API, so
+    downstream assets only run when the publisher has updated the files in place
+    or the release date.
     """
     files = fetch_ids_bulk_file_metadata()
+    release_date = fetch_ids_release_date()
     data_version = dg.DataVersion(
         ";".join(
-            f"{filename}:{get_ids_bulk_download_version(filename, file_metadata)}"
-            for filename, file_metadata in files.items()
+            [
+                f"{filename}:{get_ids_bulk_download_version(filename, file_metadata)}"
+                for filename, file_metadata in files.items()
+            ]
+            + [f"release_date:{release_date.isoformat()}"]
         )
     )
 
     return dg.ObserveResult(
-        metadata={"files": dg.MetadataValue.json(files)},
+        metadata={
+            "files": dg.MetadataValue.json(files),
+            "release_date": dg.MetadataValue.text(release_date.isoformat()),
+        },
         data_version=data_version,
     )
 
@@ -146,7 +154,7 @@ def fetch_ids(directory: UPath, observation: Observation) -> FetchedRelease:
     An unmodified concatenation of the World Bank's six IDS bulk XLSX files
     ("Counterpart-Area: All") into a single wide-format parquet file.
     """
-    source_release_date = fetch_ids_release_date()
+    source_release_date = date.fromisoformat(observation.metadata["release_date"])
     files = observation.metadata["files"]
     download_ids_bulk_data_files(directory, observed_files=files)
     combine_ids_bulk_data_files(directory, directory / "ids.parquet")
