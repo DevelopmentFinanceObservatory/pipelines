@@ -9,11 +9,10 @@ sources:
     tables:
       - name: raw_climate_finance_spending
         description: >
-          Climate finance received, 2010 to 2024, and provided, 2013 to 2024, under
-          ONE Data's and the OECD's methods and both attribution rules, current USD,
-          one row per family, flow, method, attribution rule, year, provider,
-          recipient and Bi_Multi code, loaded verbatim from the package's spending
-          query. Only the columns consumed by
+          Climate finance received and provided under ONE Data's and the OECD's
+          methods, current USD, one row per family, flow, method, attribution rule,
+          year, provider, recipient and Bi_Multi code, loaded verbatim from the
+          package's spending query. Only the columns consumed by
           stg_climate_finance_spending are declared.
         config:
           meta:
@@ -158,9 +157,9 @@ sources:
       - name: raw_climate_finance_crdf_commitments
         description: >
           The OECD's climate-related development finance (CRDF) commitments from
-          the recipient perspective, 2010 to 2024, current USD, one row per CRDF
-          row as the package repairs it, loaded verbatim. Only the columns consumed
-          by stg_climate_finance_crdf_commitments are declared.
+          the recipient perspective, current USD, one row per CRDF row as the
+          package repairs it, loaded verbatim. Only the columns consumed by
+          stg_climate_finance_crdf_commitments are declared.
         config:
           meta:
             dagster:
