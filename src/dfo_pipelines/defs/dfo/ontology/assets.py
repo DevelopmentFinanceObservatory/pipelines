@@ -1,9 +1,12 @@
 import shutil
 import tempfile
+from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import dagster as dg
+import httpx
 from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 from dfo_ontology.config import Config
@@ -11,7 +14,6 @@ from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.extraction.metadata import FetchedRelease
-from dfo_pipelines.extraction.wikibase import LatestRevision, fetch_latest_revision
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
@@ -26,6 +28,7 @@ CODE_MAPPING_CSV = "codes.csv"
 COMPILE_REPORT = "report.txt"
 # The Wikibase instance the ontology is compiled from
 BENCH = Config(bench="prod")
+REQUEST_TIMEOUT_SECONDS = 30
 
 
 @dg.observable_source_asset(
@@ -43,6 +46,59 @@ def dfo_ontology_source() -> dg.ObserveResult:
             "revised_at": dg.MetadataValue.text(revision.revised_at.isoformat()),
         },
         data_version=dg.DataVersion(version),
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class LatestRevision:
+    """The latest revision of a page in a set of namespaces
+
+    Attributes:
+        revision_id: Id of the revision.
+        revised_at: Instant the revision was saved.
+    """
+
+    revision_id: int
+    revised_at: datetime
+
+
+def fetch_latest_revision(
+    *, api_url: str, namespaces: Collection[int]
+) -> LatestRevision:
+    """The latest revision in `namespaces` at `api_url`
+
+    Args:
+        api_url: The instance's `api.php` endpoint.
+        namespaces: Namespaces whose revisions are read.
+
+    Raises:
+        RuntimeError: If the API returns an error or the namespaces have no
+            revisions.
+    """
+    with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+        response = client.get(
+            api_url,
+            params={
+                "action": "query",
+                "format": "json",
+                "formatversion": "2",
+                "list": "allrevisions",
+                "arvnamespace": "|".join(str(namespace) for namespace in namespaces),
+                "arvlimit": "1",
+                "arvprop": "ids|timestamp",
+            },
+        )
+    response.raise_for_status()
+    payload = response.json()
+    if "error" in payload:
+        raise RuntimeError(f"{api_url} returned an error: {payload['error']}")
+    revisions = payload["query"]["allrevisions"]
+    if not revisions:
+        raise RuntimeError(f"{api_url} has no revisions in namespaces {namespaces}")
+    [revision] = revisions[0]["revisions"]
+    return LatestRevision(
+        revision_id=revision["revid"],
+        revised_at=datetime.fromisoformat(revision["timestamp"]),
     )
 
 
