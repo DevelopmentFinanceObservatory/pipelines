@@ -1,17 +1,21 @@
+import hashlib
 import shutil
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
+from dfo_ontology.config import Config
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
+from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import landing_result
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -20,65 +24,92 @@ IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
 CODE_MAPPING_CSV = "codes.csv"
 COMPILE_REPORT = "report.txt"
+COMPILED_FILES = (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
+# The Wikibase instance the ontology is compiled from
+BENCH = Config(bench="prod")
 
 
-@dg.asset(
+def _compile(directory: Path) -> None:
+    """Compile the ontology, code mapping and report into `directory`
+
+    Raises:
+        RuntimeError: If the compile fails or leaves out a file.
+    """
+    result = run_logged(
+        [
+            "dfo-ontology",
+            "compile",
+            "--bench",
+            BENCH.bench,
+            "--output",
+            str(directory / ONTOLOGY_MCF),
+        ]
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
+    missing = [name for name in COMPILED_FILES if not (directory / name).exists()]
+    if missing:
+        raise RuntimeError(f"The DFO ontology compiled without {', '.join(missing)}")
+
+
+def _compiled_version(directory: Path) -> str:
+    """The sha256 of the compiled ontology and code mapping, leaving out the
+    report"""
+    digest = hashlib.sha256()
+    for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV):
+        digest.update(hashlib.sha256((directory / name).read_bytes()).digest())
+    return digest.hexdigest()
+
+
+@dg.observable_source_asset(
     group_name="dfo_ontology",
-    kinds={"file"},
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="mcf_not_empty", asset="dfo_ontology_landing", blocking=True
-        ),
-        dg.AssetCheckSpec(
-            name="csv_not_empty", asset="dfo_ontology_landing", blocking=True
-        ),
-    ],
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
-def dfo_ontology_landing(
-    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
-):
-    """Compiled DFO ontology MCF, code mapping and validation report"""
-    landing_directory = landing_file_store.build_date_partitioned_path("dfo/ontology")
-    landing_directory.mkdir(parents=True, exist_ok=True)
-
+def dfo_ontology_source() -> dg.ObserveResult:
+    """Observed hash of the ontology compiled from its Wikibase instance"""
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
-        result = run_logged(
-            [
-                "dfo-ontology",
-                "compile",
-                "--bench",
-                "prod",
-                "--output",
-                str(staging_path / ONTOLOGY_MCF),
-            ]
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Compiling the DFO ontology failed:\n{result.stderr}")
-        expected_files = [
-            staging_path / name
-            for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
-        ]
-        missing = [path.name for path in expected_files if not path.exists()]
-        if missing:
-            raise RuntimeError(
-                f"The DFO ontology compiled without {', '.join(missing)}"
-            )
-        for path in expected_files:
-            (landing_directory / path.name).write_bytes(path.read_bytes())
-
-    mcf_path = landing_directory / ONTOLOGY_MCF
-    file_size = mcf_path.stat().st_size
-    code_rows = len((landing_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
-    context.log.info(f"Wrote the compiled DFO ontology to {landing_directory}")
-    return landing_result(
-        landing_directory,
-        metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
-        check_results=[
-            dg.AssetCheckResult(check_name="mcf_not_empty", passed=(file_size > 0)),
-            dg.AssetCheckResult(check_name="csv_not_empty", passed=(code_rows > 0)),
-        ],
+        _compile(staging_path)
+        version = _compiled_version(staging_path)
+    return dg.ObserveResult(
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(BENCH.url),
+            "version": dg.MetadataValue.text(version),
+        },
+        data_version=dg.DataVersion(version),
     )
+
+
+def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease:
+    """Write the compiled ontology, code mapping and report to `directory`
+
+    A compile that differs from the observed one is refused, so a change made
+    after the observation is never recorded under its version.
+    """
+    with tempfile.TemporaryDirectory() as staging_dir:
+        staging_path = Path(staging_dir)
+        _compile(staging_path)
+        if _compiled_version(staging_path) != observation.data_version:
+            raise RuntimeError(
+                f"{BENCH.site} changed after it was observed: observe it again"
+            )
+        for name in COMPILED_FILES:
+            (directory / name).write_bytes((staging_path / name).read_bytes())
+
+    return FetchedRelease(
+        release_dates={"source": datetime.now(UTC).date()},
+        metadata={},
+    )
+
+
+dfo_ontology_landing = build_landing_asset(
+    group="dfo_ontology",
+    source=dfo_ontology_source,
+    dataset="ontology",
+    title="Compiled DFO ontology",
+    files=COMPILED_FILES,
+    fetch=fetch_ontology,
+)
 
 
 @dg.asset(
