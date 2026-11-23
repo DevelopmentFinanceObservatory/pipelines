@@ -107,7 +107,7 @@ dfo_ontology_landing = build_landing_asset(
     source=dfo_ontology_source,
     dataset="ontology",
     title="Compiled DFO ontology",
-    files=[ONTOLOGY_MCF, CODE_MAPPING_CSV],
+    files=COMPILED_FILES,
     fetch=fetch_ontology,
 )
 

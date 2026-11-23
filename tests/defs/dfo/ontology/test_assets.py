@@ -265,6 +265,18 @@ def test_landing_raises_when_the_compile_differs_from_the_observed_one(
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
 
 
+def test_landing_check_fails_when_the_report_is_empty(
+    tmp_path: Path, compiler: Any
+) -> None:
+    """Test the files check covers the report, which lands beside the ontology"""
+    compiler.side_effect = fake_compile(report="")
+
+    result = materialize_observed(tmp_path, compiler, raise_on_error=False)
+
+    [evaluation] = result.get_asset_check_evaluations()
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue([COMPILE_REPORT])
+
+
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
     """Test the code mapping is loaded whole, for other pipelines to resolve against"""
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
