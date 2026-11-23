@@ -1,13 +1,52 @@
+import csv
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
+from types import MappingProxyType
+from typing import Any
 
 import dagster as dg
 import pyarrow.parquet as pq
 from upath import UPath
 
+from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+
+# Dagster kind of each file extension that has one
+_FILE_KINDS = {".parquet": "parquet", ".csv": "csv"}
+
+
+@dataclass(frozen=True)
+class Observation:
+    """A source asset's observation: its data version and the plain value of each
+    metadata entry"""
+
+    data_version: str
+    metadata: Mapping[str, Any]
+
+
+def _latest_observation(
+    instance: dg.DagsterInstance, source: dg.SourceAsset
+) -> Observation:
+    """The source's latest observation
+
+    Raises:
+        ValueError: If the source has no observation with a data version.
+    """
+    record = instance.get_latest_data_version_record(source.key, is_source=True)
+    observation = record.asset_observation if record else None
+    if observation is None or observation.data_version is None:
+        raise ValueError(
+            f"{source.key.to_user_string()} has no observation; observe it first"
+        )
+    return Observation(
+        data_version=observation.data_version,
+        metadata={key: value.value for key, value in observation.metadata.items()},
+    )
 
 
 def _landing_directory(
@@ -17,6 +56,21 @@ def _landing_directory(
     return landing_file_store.build_date_partitioned_path(
         path, partition_date=downloaded_at.date()
     )
+
+
+def _count_rows(path: UPath) -> int | None:
+    """Data rows in a parquet or CSV file, nodes in an MCF file, or None otherwise"""
+    match path.suffix:
+        case ".parquet":
+            with path.open("rb") as handle:
+                return pq.read_metadata(handle).num_rows
+        case ".csv":
+            with path.open(newline="") as handle:
+                return max(sum(1 for _ in csv.reader(handle)) - 1, 0)
+        case ".mcf":
+            return count_mcf_nodes(path)
+        case _:
+            return None
 
 
 def landing_result(
@@ -33,64 +87,133 @@ def landing_result(
     )
 
 
+def _files_not_empty(
+    files: Sequence[str],
+    stems: Sequence[str],
+    *,
+    sizes: Mapping[str, int],
+    rows: Mapping[str, int],
+) -> list[dg.AssetCheckResult]:
+    """The `files_not_empty` result, naming each declared file that is empty"""
+    if not files:
+        return []
+    empty_files = [
+        file
+        for file, stem in zip(files, stems, strict=True)
+        if (rows[stem] if stem in rows else sizes[stem]) == 0
+    ]
+    return [
+        dg.AssetCheckResult(
+            check_name="files_not_empty",
+            passed=not empty_files,
+            metadata={"empty_files": dg.MetadataValue.json(empty_files)},
+        )
+    ]
+
+
 def build_landing_asset(
     *,
     group: str,
+    source: dg.SourceAsset,
     dataset: str,
     title: str,
-    fetch: Callable[[UPath], FetchedRelease],
+    files: Sequence[str],
+    fetch: Callable[[UPath, Observation], FetchedRelease],
+    checks: Mapping[str, Callable[[UPath], bool]] = MappingProxyType({}),
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
-    """The `<group>_landing` asset writing a download as `<dataset>.parquet`
+    """The `<group>_landing` asset writing a source's files to its landing directory
+
+    A blocking `files_not_empty` check passes when every declared file is not
+    empty: a parquet file has rows, a CSV file has rows after its header, an MCF
+    file declares nodes, and any other file has bytes. Its metadata names the
+    empty ones.
+
+    The asset passes its fetch the source's latest observation, and fails with
+    a ValueError when the source has none.
 
     Args:
-        group: Group of the source, naming the asset and its `<group>_source` dep.
-        dataset: Directory under the group the download is written to, and the
-            download's stem.
+        group: Group of the source, naming the asset `<group>_landing`.
+        source: The observable source asset the landing depends on.
+        dataset: Directory under the group the files are written to.
         title: Name of the source in the description and logs, such as "OECD DAC1".
-        fetch: Writes the download to the path it is given, putting any working
-            files in that path's directory and nowhere else. Each of its release
-            dates is recorded as `<name>_release_date`.
+        files: Names of the files the fetch writes to the landing directory.
+        fetch: Writes the files to the landing directory it is given, putting any
+            working files there and nowhere else, and landing the version the
+            observation it is given saw. Each of its release dates is recorded
+            as `<name>_release_date`.
+        checks: Further blocking checks on the landing directory, by name.
         retry_policy: Retry policy of the asset.
+
+    Raises:
+        ValueError: If two declared files share a stem, which names their row count.
     """
     name = f"{group}_landing"
+    stems = [PurePosixPath(file).stem for file in files]
+    if shared := sorted(stem for stem, count in Counter(stems).items() if count > 1):
+        raise ValueError(f"Declared files share the stems {shared}; give each its own")
+    file_kinds = {
+        _FILE_KINDS[suffix]
+        for file in files
+        if (suffix := PurePosixPath(file).suffix) in _FILE_KINDS
+    }
 
     @dg.asset(
         name=name,
         description=f"{title} download and its metadata",
-        deps=[dg.AssetKey(f"{group}_source")],
+        deps=[source],
         group_name=group,
-        kinds={"file", "parquet"},
+        kinds={"file", *file_kinds},
         automation_condition=EAGER_WHEN_CHECKS_PASS,
         check_specs=[
-            dg.AssetCheckSpec(name="file_not_empty", asset=name, blocking=True)
+            dg.AssetCheckSpec(name=check_name, asset=name, blocking=True)
+            for check_name in (["files_not_empty"] if files else []) + list(checks)
         ],
+        required_resource_keys={"landing_file_store"},
         retry_policy=retry_policy,
     )
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
-    def landing(
-        context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
-    ):
+    def landing(context: dg.AssetExecutionContext):
+        observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
         directory = _landing_directory(
-            landing_file_store, path=f"{group}/{dataset}", downloaded_at=downloaded_at
+            context.resources.landing_file_store,
+            path=f"{group}/{dataset}",
+            downloaded_at=downloaded_at,
         )
         directory.mkdir(parents=True, exist_ok=True)
-        file_path = directory / f"{dataset}.parquet"
-        release_dates, source_metadata = fetch(file_path)
-        with file_path.open("rb") as handle:
-            rows = pq.read_metadata(handle).num_rows
+        release_dates, source_metadata = fetch(directory, observation)
+        paths = {
+            stem: directory / file for stem, file in zip(stems, files, strict=True)
+        }
+        # Read before recording the download, so a missing or unreadable file
+        # leaves no record claiming one happened.
+        sizes = {stem: path.stat().st_size for stem, path in paths.items()}
+        rows = {
+            stem: count
+            for stem, path in paths.items()
+            if (count := _count_rows(path)) is not None
+        }
         write_extraction_metadata(
             directory, downloaded_at=downloaded_at, release_dates=release_dates
         )
-        file_size = file_path.stat().st_size
-        context.log.info(f"Wrote {title} data to {file_path}")
+        context.log.info(f"Wrote {title} data to {directory}")
+
+        metadata: dict[str, dg.MetadataValue] = {}
+        if sizes:
+            metadata["file_size"] = dg.MetadataValue.int(sum(sizes.values()))
+        if rows:
+            metadata["dagster/row_count"] = dg.MetadataValue.int(sum(rows.values()))
+        if len(rows) > 1:
+            metadata |= {
+                f"{stem}_row_count": dg.MetadataValue.int(count)
+                for stem, count in rows.items()
+            }
         return landing_result(
             directory,
             metadata={
-                "file_size": dg.MetadataValue.int(file_size),
-                "dagster/row_count": dg.MetadataValue.int(rows),
+                **metadata,
                 **source_metadata,
                 **{
                     f"{release}_release_date": dg.MetadataValue.text(
@@ -99,8 +222,10 @@ def build_landing_asset(
                     for release, release_date in release_dates.items()
                 },
             },
-            check_results=[
-                dg.AssetCheckResult(check_name="file_not_empty", passed=(rows > 0))
+            check_results=_files_not_empty(files, stems, sizes=sizes, rows=rows)
+            + [
+                dg.AssetCheckResult(check_name=check_name, passed=check(directory))
+                for check_name, check in checks.items()
             ],
         )
 

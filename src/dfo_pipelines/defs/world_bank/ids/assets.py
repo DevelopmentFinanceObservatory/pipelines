@@ -20,7 +20,7 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
@@ -134,18 +134,16 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids(
-    file_path: UPath,
-) -> FetchedRelease:
-    """Write the combined IDS bulk files to `file_path`
+def fetch_ids(directory: UPath, observation: Observation) -> FetchedRelease:
+    """Write the combined IDS bulk files to `directory`
 
     An unmodified concatenation of the World Bank's six IDS bulk XLSX files
     ("Counterpart-Area: All") into a single wide-format parquet file.
     """
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
-    download_ids_bulk_data_files(file_path.parent)
-    combine_ids_bulk_data_files(file_path.parent, file_path)
+    download_ids_bulk_data_files(directory)
+    combine_ids_bulk_data_files(directory, directory / "ids.parquet")
     return FetchedRelease(
         release_dates={"source": source_release_date}, metadata={"files": files}
     )
@@ -153,8 +151,10 @@ def fetch_ids(
 
 world_bank_ids_landing = build_landing_asset(
     group="world_bank_ids",
+    source=world_bank_ids_source,
     dataset="ids",
     title="World Bank IDS",
+    files=["ids.parquet"],
     fetch=fetch_ids,
 )
 

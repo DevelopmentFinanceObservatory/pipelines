@@ -15,6 +15,7 @@ from dfo_pipelines.defs.oecd.dac2b.assets import (
     oecd_dac2b_dc_export,
     oecd_dac2b_source,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
@@ -46,7 +47,7 @@ def test_dac2b_source_observes_the_dac2b_bulk_file() -> None:
     }
 
 
-def test_fetch_dac2b_dates_the_release_from_the_url() -> None:
+def test_fetch_dac2b_dates_the_release_from_the_url(tmp_path: Path) -> None:
     """Test the landing asset fetches the DAC2b bulk file and dates the release from its URL"""
     with (
         patch(
@@ -57,7 +58,7 @@ def test_fetch_dac2b_dates_the_release_from_the_url() -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac2b(UPath("data.parquet"))
+        fetch_dac2b(UPath(tmp_path), Observation(data_version="v1", metadata={}))
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC2B_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE

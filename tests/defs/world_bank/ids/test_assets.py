@@ -22,6 +22,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     world_bank_ids_dc_export,
     world_bank_ids_source,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
@@ -249,7 +250,7 @@ def test_fetch_ids_combines_the_downloads_unmodified(
 ) -> None:
     """Test the hook writes the six downloads as one text parquet file and returns
     the release date and the files' metadata"""
-    file_path = UPath(tmp_path / "data.parquet")
+    file_path = UPath(tmp_path / "ids.parquet")
     source_df = pd.DataFrame(
         {
             "Country Code": ["AFG", "ZMB"],
@@ -273,7 +274,9 @@ def test_fetch_ids_combines_the_downloads_unmodified(
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        release_dates, metadata = fetch_ids(file_path)
+        release_dates, metadata = fetch_ids(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     download.assert_called_once_with(file_path.parent)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
@@ -298,7 +301,7 @@ def test_fetch_ids_combines_the_downloads_unmodified(
     assert out["Counterpart-Area Code"].tolist() == ["WLD", "071"] * 6
 
     # the downloaded XLSX are removed, leaving the published parquet
-    assert [path.name for path in file_path.parent.iterdir()] == ["data.parquet"]
+    assert [path.name for path in file_path.parent.iterdir()] == ["ids.parquet"]
 
 
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
@@ -310,7 +313,7 @@ def test_fetch_ids_cleans_up_when_combine_fails(
     Parameterized with the read number to fail on so that a failure after the
     combined output file has been created can be tested.
     """
-    file_path = UPath(tmp_path / "data.parquet")
+    file_path = UPath(tmp_path / "ids.parquet")
     df = pd.DataFrame({"Country Code": ["AFG"]})
     # Capture before patching: the patch target is the pandas module attribute
     # itself, so calling pd.read_excel inside the side effect would recurse.
@@ -337,7 +340,7 @@ def test_fetch_ids_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        fetch_ids(file_path)
+        fetch_ids(UPath(tmp_path), Observation(data_version="v1", metadata={}))
 
     assert list(file_path.parent.iterdir()) == []
 

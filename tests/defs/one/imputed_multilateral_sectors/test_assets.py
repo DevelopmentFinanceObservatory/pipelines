@@ -26,6 +26,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
     resolve_bulk_versions,
     verify_release_provenance,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
@@ -677,7 +678,9 @@ def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_
         compute_patch,
         pytest.raises(ValueError, match="unexpected currencies"),
     ):
-        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
 
 def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_purpose_returns_non_current_prices(
@@ -702,7 +705,9 @@ def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_
         compute_patch,
         pytest.raises(ValueError, match="unexpected prices"),
     ):
-        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
 
 def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_flow_types(
@@ -720,7 +725,9 @@ def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_f
     )
 
     with bulk_patch, compute_patch as imputed_multilateral_by_purpose:
-        fetch_imputed_multilateral_sectors(UPath(tmp_path / "data.parquet"))
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     imputed_multilateral_by_purpose.assert_called_once_with(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True
@@ -735,7 +742,7 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     A conforming frame carries {"USD"} currency and {"current"} prices,
     with matching provenance.
     """
-    file_path = tmp_path / "data.parquet"
+    file_path = tmp_path / "imputed_multilateral_sectors.parquet"
     expected = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
@@ -748,7 +755,9 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     )
 
     with bulk_patch, compute_patch:
-        fetched = fetch_imputed_multilateral_sectors(UPath(file_path))
+        fetched = fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     written = pd.read_parquet(file_path)
     # Parquet round trip preserves the nullable Int64 columns and float/str
@@ -769,10 +778,12 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
 
 
 def _refused_and_nothing_written(tmp_path: Path, *, bulk_patch, compute_patch) -> None:
-    file_path = tmp_path / "data.parquet"
+    file_path = tmp_path / "imputed_multilateral_sectors.parquet"
 
     with bulk_patch, compute_patch, pytest.raises(ValueError):
-        fetch_imputed_multilateral_sectors(UPath(file_path))
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     assert not file_path.exists()
 
@@ -869,14 +880,16 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moves_
         autospec=True,
         return_value=frame,
     )
-    file_path = tmp_path / "data.parquet"
+    file_path = tmp_path / "imputed_multilateral_sectors.parquet"
 
     with (
         bulk_patch,
         compute_patch,
         pytest.raises(ValueError, match="CRS release moved"),
     ):
-        fetch_imputed_multilateral_sectors(UPath(file_path))
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     assert not file_path.exists()
 

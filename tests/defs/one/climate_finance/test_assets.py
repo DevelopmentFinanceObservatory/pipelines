@@ -8,6 +8,7 @@ import pytest
 from upath import UPath
 
 from dfo_pipelines.defs.one.climate_finance.assets import (
+    fetch_climate_finance,
     one_climate_finance_landing,
     one_climate_finance_source,
 )
@@ -18,6 +19,7 @@ from dfo_pipelines.extraction.climate_finance import (
     sha256_bytes,
 )
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
 )
@@ -27,6 +29,7 @@ from tests.helpers import (
     landed_directory,
     materialization,
     materialize_landing,
+    record_observation,
 )
 
 NAME = "2026a-rc9"
@@ -74,16 +77,27 @@ def _observe(root: Path) -> dg.ObserveResult:
     return result
 
 
-def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
-    """Observe the source and record the observation, as the daily tick does"""
+def _observation(root: Path) -> Observation:
+    """The source's observation of the export in `root`, as the landing asset reads
+    it"""
     result = _observe(root)
     assert result.data_version is not None
-    instance.report_runless_asset_event(
-        dg.AssetObservation(
-            asset_key=one_climate_finance_source.key,
-            metadata=result.metadata,
-            tags={"dagster/data_version": result.data_version.value},
-        )
+    assert result.metadata is not None
+    metadata = {}
+    for key, value in result.metadata.items():
+        assert isinstance(value, dg.MetadataValue)
+        metadata[key] = value.value
+    return Observation(data_version=result.data_version.value, metadata=metadata)
+
+
+def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
+    """Observe the source and record the observation, as the daily tick does"""
+    observation = _observation(root)
+    record_observation(
+        instance,
+        one_climate_finance_source,
+        data_version=observation.data_version,
+        metadata=observation.metadata,
     )
 
 
@@ -161,7 +175,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
         assert metadata[f"{stem}_row_count"] == dg.IntMetadataValue(
             manifest.tables[stem].rows
         )
-    assert check_outcomes(result) == {f"{stem}_not_empty": True for stem in STEMS}
+    assert check_outcomes(result) == {"files_not_empty": True}
     assert metadata["dagster/row_count"] == dg.IntMetadataValue(
         sum(table.rows for table in manifest.tables.values())
     )
@@ -175,7 +189,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
 def test_landing_check_fails_on_a_table_with_no_rows(
     export: Path, tmp_path: Path, stem: str
 ) -> None:
-    """Test each table's blocking check fails when its export has no rows"""
+    """Test the files check fails and names a table whose export has no rows"""
     empty = _empty_table(export / NAME / f"{stem}.parquet")
     _republish(export, tables={stem: empty})
     instance = dg.DagsterInstance.ephemeral()
@@ -185,43 +199,33 @@ def test_landing_check_fails_on_a_table_with_no_rows(
         one_climate_finance_landing, tmp_path, instance=instance, raise_on_error=False
     )
 
-    assert check_outcomes(result) == {
-        f"{other}_not_empty": other != stem for other in STEMS
-    }
+    [evaluation] = result.get_asset_check_evaluations()
+    assert not evaluation.passed
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue(
+        [f"{stem}.parquet"]
+    )
 
 
 def test_landing_refuses_an_export_replaced_after_the_observation(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing asset refuses a manifest other than the one observed"""
-    instance = dg.DagsterInstance.ephemeral()
-    _record_observation(instance, export)
+    """Test the fetch refuses a manifest other than the one observed"""
+    observation = _observation(export)
     empty = _empty_table(export / NAME / "btr_totals.parquet")
     _republish(export, tables={"btr_totals": empty})
 
     with pytest.raises(ValueError, match=r"manifest\.json has sha256"):
-        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
+        fetch_climate_finance(UPath(tmp_path), observation)
 
 
 def test_landing_refuses_a_table_its_manifest_does_not_record(
     export: Path, tmp_path: Path
 ) -> None:
-    """Test the landing asset refuses a table whose sha256 differs from the manifest's"""
-    instance = dg.DagsterInstance.ephemeral()
-    _record_observation(instance, export)
+    """Test the fetch refuses a table whose sha256 differs from the manifest's"""
+    observation = _observation(export)
     shutil.copy(
         export / NAME / "btr_totals.parquet", export / NAME / "spending.parquet"
     )
 
     with pytest.raises(ValueError, match=r"spending\.parquet has sha256"):
-        materialize_landing(one_climate_finance_landing, tmp_path, instance=instance)
-
-
-def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
-    """Test the landing asset fails when the source was never observed"""
-    with pytest.raises(ValueError, match="has no observation"):
-        materialize_landing(
-            one_climate_finance_landing,
-            tmp_path,
-            instance=dg.DagsterInstance.ephemeral(),
-        )
+        fetch_climate_finance(UPath(tmp_path), observation)

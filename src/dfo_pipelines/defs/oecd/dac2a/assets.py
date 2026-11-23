@@ -22,7 +22,7 @@ from dfo_pipelines.extraction.oecd import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 
@@ -48,10 +48,10 @@ def oecd_dac2a_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac2a(file_path: UPath) -> FetchedRelease:
-    """Write the DAC2a bulk file to `file_path`"""
+def fetch_dac2a(directory: UPath, observation: Observation) -> FetchedRelease:
+    """Write the DAC2a bulk file to `directory`"""
     return fetch_bulk_file(
-        file_path,
+        directory / "dac2a.parquet",
         flow_url=DAC2A_FLOW_URL,
         label=DAC2A_BULK_LABEL,
         download=bulk_download_dac2a,
@@ -62,8 +62,10 @@ def fetch_dac2a(file_path: UPath) -> FetchedRelease:
 
 oecd_dac2a_landing = build_landing_asset(
     group="oecd_dac2a",
+    source=oecd_dac2a_source,
     dataset="dac2a",
     title="OECD DAC2a",
+    files=["dac2a.parquet"],
     fetch=fetch_dac2a,
 )
 
