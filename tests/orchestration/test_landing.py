@@ -450,6 +450,13 @@ def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> Non
     assert asset.op.retry_policy is None
 
 
+def test_build_landing_asset_refuses_declared_files_sharing_a_stem() -> None:
+    """Test two declared files with one stem are refused when the asset is defined,
+    so neither goes uncounted"""
+    with pytest.raises(ValueError, match=r"share the stems \['table'\]"):
+        build_example(fetch_rows(1), files=("table.csv", "table.parquet"))
+
+
 def test_build_landing_asset_takes_a_retry_policy() -> None:
     """Test a given retry policy reaches the asset"""
     retry_policy = dg.RetryPolicy(max_retries=1)

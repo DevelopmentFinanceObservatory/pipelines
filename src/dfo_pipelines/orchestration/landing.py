@@ -1,4 +1,5 @@
 import csv
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -143,9 +144,14 @@ def build_landing_asset(
             as `<name>_release_date`.
         checks: Further blocking checks on the landing directory, by name.
         retry_policy: Retry policy of the asset.
+
+    Raises:
+        ValueError: If two declared files share a stem, which names their row count.
     """
     name = f"{group}_landing"
     stems = [PurePosixPath(file).stem for file in files]
+    if shared := sorted(stem for stem, count in Counter(stems).items() if count > 1):
+        raise ValueError(f"Declared files share the stems {shared}; give each its own")
     file_kinds = {
         _FILE_KINDS[suffix]
         for file in files
