@@ -49,7 +49,7 @@ def test_dac1_source_observes_the_dac1_bulk_file() -> None:
     }
 
 
-def test_fetch_dac1_dates_the_release_from_the_url() -> None:
+def test_fetch_dac1_dates_the_release_from_the_url(tmp_path: Path) -> None:
     """Test the landing asset fetches the DAC1 bulk file and dates the release from its URL"""
     with (
         patch(
@@ -60,7 +60,7 @@ def test_fetch_dac1_dates_the_release_from_the_url() -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac1(UPath("."), Observation(data_version="v1", metadata={}))
+        fetch_dac1(UPath(tmp_path), Observation(data_version="v1", metadata={}))
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC1_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE
