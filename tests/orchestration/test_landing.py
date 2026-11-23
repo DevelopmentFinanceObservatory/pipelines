@@ -12,7 +12,7 @@ from upath import UPath
 
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME, FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
@@ -21,6 +21,7 @@ from tests.helpers import (
     logged_messages,
     materialization,
     materialize_landing,
+    record_observation,
 )
 
 # Late enough in the UTC day that any zone east of UTC has moved to the next date.
@@ -44,7 +45,7 @@ def fetch_files(
 ):
     """A fetch hook writing each file in `contents` to the directory it is given"""
 
-    def fetch(context: dg.AssetExecutionContext, directory: UPath):
+    def fetch(directory: UPath, observation: Observation):
         for name, content in contents.items():
             (directory / name).write_bytes(content)
         return FetchedRelease(
@@ -65,6 +66,16 @@ def fetch_rows(rows: int, **kwargs):
 @dg.observable_source_asset(name="example_source", group_name="example")
 def example_source() -> dg.ObserveResult:
     return dg.ObserveResult(data_version=dg.DataVersion("v20260801"))
+
+
+@pytest.fixture
+def instance() -> Iterator[dg.DagsterInstance]:
+    """An instance holding an observation of the example source"""
+    with dg.DagsterInstance.ephemeral() as instance:
+        record_observation(
+            instance, example_source, data_version="v20260801", metadata={}
+        )
+        yield instance
 
 
 def build_example(
@@ -100,6 +111,7 @@ def frozen_download_clock() -> Iterator[None]:
 
 def test_build_landing_asset_writes_the_download_and_its_metadata(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test the hook's file and the extraction metadata land in the directory of the
     download's UTC date, with the standard metadata and the hook's own"""
@@ -107,7 +119,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
     )
 
-    result = materialize_landing(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path, instance=instance)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     file_path = directory / "things.parquet"
@@ -130,7 +142,9 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
     assert check_outcomes(result) == {"things_not_empty": True}
 
 
-def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
+def test_build_landing_asset_records_each_release(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
     """Test a hook naming two releases records a date for each, on disk and in the
     materialization metadata"""
     asset = build_example(
@@ -143,7 +157,7 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
         )
     )
 
-    result = materialize_landing(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path, instance=instance)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
@@ -165,10 +179,11 @@ def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
 
 def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test an empty download, which still carries a schema, fails the check"""
     result = materialize_landing(
-        build_example(fetch_rows(0)), tmp_path, raise_on_error=False
+        build_example(fetch_rows(0)), tmp_path, raise_on_error=False, instance=instance
     )
 
     assert check_outcomes(result) == {"things_not_empty": False}
@@ -176,26 +191,30 @@ def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
 
 def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a failed fetch leaves no record claiming a download happened"""
 
-    def fail(context: dg.AssetExecutionContext, directory: UPath):
+    def fail(directory: UPath, observation: Observation):
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
-        materialize_landing(build_example(fail), tmp_path)
+        materialize_landing(build_example(fail), tmp_path, instance=instance)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a hook writing a truncated file leaves no record claiming a download"""
 
     with pytest.raises(pa.ArrowInvalid):
         materialize_landing(
-            build_example(fetch_files({"things.parquet": b"PAR1"})), tmp_path
+            build_example(fetch_files({"things.parquet": b"PAR1"})),
+            tmp_path,
+            instance=instance,
         )
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
@@ -213,18 +232,26 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
     ],
 )
 def test_build_landing_asset_checks_a_file_by_its_type(
-    tmp_path: Path, file: str, content: bytes, passed: bool
+    tmp_path: Path,
+    instance: dg.DagsterInstance,
+    file: str,
+    content: bytes,
+    passed: bool,
 ) -> None:
     """Test a CSV file passes with a row after its header, an MCF file with a node,
     and any other file with a byte"""
     asset = build_example(fetch_files({file: content}), files=(file,))
 
-    result = materialize_landing(asset, tmp_path, raise_on_error=False)
+    result = materialize_landing(
+        asset, tmp_path, raise_on_error=False, instance=instance
+    )
 
     assert check_outcomes(result) == {"things_not_empty": passed}
 
 
-def test_build_landing_asset_counts_the_rows_of_each_table(tmp_path: Path) -> None:
+def test_build_landing_asset_counts_the_rows_of_each_table(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
     """Test several files record their total size, and the rows of each parquet and
     CSV file and the nodes of each MCF file with their total. A quoted line break
     does not split a CSV row"""
@@ -236,7 +263,7 @@ def test_build_landing_asset_counts_the_rows_of_each_table(tmp_path: Path) -> No
     }
     asset = build_example(fetch_files(files), files=tuple(files))
 
-    result = materialize_landing(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path, instance=instance)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     assert materialization(result).metadata == {
@@ -260,6 +287,7 @@ def test_build_landing_asset_counts_the_rows_of_each_table(tmp_path: Path) -> No
 
 def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a source declaring no files records neither a file size nor a row count"""
     asset = build_example(
@@ -268,7 +296,7 @@ def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
         checks={"ready": lambda directory: True},
     )
 
-    result = materialize_landing(asset, tmp_path)
+    result = materialize_landing(asset, tmp_path, instance=instance)
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
     assert materialization(result).metadata == {
@@ -279,6 +307,7 @@ def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
 
 def test_build_landing_asset_runs_each_named_check_on_the_directory(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a named check is evaluated on the landing directory, beside the file
     checks, and fails when its predicate is false"""
@@ -290,7 +319,9 @@ def test_build_landing_asset_runs_each_named_check_on_the_directory(
         },
     )
 
-    result = materialize_landing(asset, tmp_path, raise_on_error=False)
+    result = materialize_landing(
+        asset, tmp_path, raise_on_error=False, instance=instance
+    )
 
     assert check_outcomes(result) == {
         "things_not_empty": True,
@@ -301,52 +332,88 @@ def test_build_landing_asset_runs_each_named_check_on_the_directory(
 
 def test_build_landing_asset_fails_when_the_fetch_records_no_release(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a fetch returning no release date fails the run and records nothing"""
     with pytest.raises(ValueError, match="must name at least one source"):
-        materialize_landing(build_example(fetch_rows(1, release_dates={})), tmp_path)
+        materialize_landing(
+            build_example(fetch_rows(1, release_dates={})), tmp_path, instance=instance
+        )
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
 def test_build_landing_asset_fails_when_a_declared_file_is_missing(
     tmp_path: Path,
+    instance: dg.DagsterInstance,
 ) -> None:
     """Test a declared file the fetch did not write fails the run and records
     nothing"""
     asset = build_example(fetch_rows(1), files=("things.parquet", "more.csv"))
 
     with pytest.raises(FileNotFoundError, match=r"more\.csv"):
-        materialize_landing(asset, tmp_path)
+        materialize_landing(asset, tmp_path, instance=instance)
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
-def test_build_landing_asset_gives_the_fetch_its_resources(tmp_path: Path) -> None:
-    """Test a fetch reads a resource it requires from its context"""
+def test_build_landing_asset_gives_the_fetch_the_latest_observation(
+    tmp_path: Path,
+) -> None:
+    """Test the fetch is given the source's latest observation, with each metadata
+    entry's plain value"""
+    observations: list[Observation] = []
 
-    def fetch(context: dg.AssetExecutionContext, directory: UPath):
-        (directory / "things.parquet").write_bytes(parquet_with_rows(1))
-        return FetchedRelease(
-            release_dates={"source": RELEASE_DATE},
-            metadata={"version": dg.MetadataValue.text(context.resources.version)},
-        )
+    def fetch(directory: UPath, observation: Observation):
+        observations.append(observation)
+        return fetch_rows(1)(directory, observation)
 
-    asset = build_example(fetch, required_resource_keys={"version"})
-
-    result = materialize_landing(asset, tmp_path, resources={"version": "v20260801"})
-
-    assert materialization(result).metadata["version"] == dg.TextMetadataValue(
-        "v20260801"
+    instance = dg.DagsterInstance.ephemeral()
+    record_observation(
+        instance,
+        example_source,
+        data_version="v20260701",
+        metadata={"version": dg.MetadataValue.text("v20260701")},
+    )
+    record_observation(
+        instance,
+        example_source,
+        data_version="v20260801",
+        metadata={"version": dg.MetadataValue.text("v20260801"), "files": 2},
     )
 
+    materialize_landing(build_example(fetch), tmp_path, instance=instance)
 
-def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
+    assert observations == [
+        Observation(
+            data_version="v20260801", metadata={"version": "v20260801", "files": 2}
+        )
+    ]
+
+
+def test_build_landing_asset_fails_before_its_source_is_observed(
+    tmp_path: Path,
+) -> None:
+    """Test the asset refuses to fetch while its source has no observation, and
+    writes nothing"""
+    with pytest.raises(
+        ValueError, match="example_source has no observation; observe it first"
+    ):
+        materialize_landing(build_example(fetch_rows(1)), tmp_path)
+
+    assert not (tmp_path / "landing").exists()
+
+
+def test_build_landing_asset_logs_where_it_wrote(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
     """Test the run log names the source and the directory written"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
 
     messages = logged_messages(
-        [build_example(fetch_rows(1))], {"landing_file_store": file_store}
+        [build_example(fetch_rows(1))],
+        {"landing_file_store": file_store},
+        instance=instance,
     )
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"

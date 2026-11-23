@@ -20,7 +20,7 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 BULK_XLSX_BASE_URL = "https://datacatalogfiles.worldbank.org/ddh-published/0038015"
@@ -134,7 +134,7 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+def fetch_ids(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the combined IDS bulk files to `directory`
 
     An unmodified concatenation of the World Bank's six IDS bulk XLSX files

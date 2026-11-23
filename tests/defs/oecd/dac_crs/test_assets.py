@@ -17,6 +17,7 @@ from dfo_pipelines.defs.oecd.dac_crs.assets import (
     oecd_dac_crs_source,
     parse_crs_release_date,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
@@ -77,7 +78,7 @@ def test_fetch_dac_crs_dates_the_release_from_the_version() -> None:
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
     ) as fetch:
-        fetch_dac_crs(dg.build_asset_context(), UPath("."))
+        fetch_dac_crs(UPath("."), Observation(data_version="v1", metadata={}))
 
     arguments = dict(fetch.call_args.kwargs)
     assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (

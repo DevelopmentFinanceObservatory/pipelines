@@ -19,6 +19,7 @@ from dfo_pipelines.extraction.climate_finance import (
     sha256_bytes,
 )
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
 )
@@ -28,6 +29,7 @@ from tests.helpers import (
     landed_directory,
     materialization,
     materialize_landing,
+    record_observation,
 )
 
 NAME = "2026a-rc9"
@@ -75,16 +77,27 @@ def _observe(root: Path) -> dg.ObserveResult:
     return result
 
 
-def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
-    """Observe the source and record the observation, as the daily tick does"""
+def _observation(root: Path) -> Observation:
+    """The source's observation of the export in `root`, as the landing asset reads
+    it"""
     result = _observe(root)
     assert result.data_version is not None
-    instance.report_runless_asset_event(
-        dg.AssetObservation(
-            asset_key=one_climate_finance_source.key,
-            metadata=result.metadata,
-            tags={"dagster/data_version": result.data_version.value},
-        )
+    assert result.metadata is not None
+    metadata = {}
+    for key, value in result.metadata.items():
+        assert isinstance(value, dg.MetadataValue)
+        metadata[key] = value.value
+    return Observation(data_version=result.data_version.value, metadata=metadata)
+
+
+def _record_observation(instance: dg.DagsterInstance, root: Path) -> None:
+    """Observe the source and record the observation, as the daily tick does"""
+    observation = _observation(root)
+    record_observation(
+        instance,
+        one_climate_finance_source,
+        data_version=observation.data_version,
+        metadata=observation.metadata,
     )
 
 
@@ -195,37 +208,22 @@ def test_landing_refuses_an_export_replaced_after_the_observation(
     export: Path, tmp_path: Path
 ) -> None:
     """Test the fetch refuses a manifest other than the one observed"""
-    instance = dg.DagsterInstance.ephemeral()
-    _record_observation(instance, export)
+    observation = _observation(export)
     empty = _empty_table(export / NAME / "btr_totals.parquet")
     _republish(export, tables={"btr_totals": empty})
 
     with pytest.raises(ValueError, match=r"manifest\.json has sha256"):
-        fetch_climate_finance(
-            dg.build_asset_context(instance=instance), UPath(tmp_path)
-        )
+        fetch_climate_finance(UPath(tmp_path), observation)
 
 
 def test_landing_refuses_a_table_its_manifest_does_not_record(
     export: Path, tmp_path: Path
 ) -> None:
     """Test the fetch refuses a table whose sha256 differs from the manifest's"""
-    instance = dg.DagsterInstance.ephemeral()
-    _record_observation(instance, export)
+    observation = _observation(export)
     shutil.copy(
         export / NAME / "btr_totals.parquet", export / NAME / "spending.parquet"
     )
 
     with pytest.raises(ValueError, match=r"spending\.parquet has sha256"):
-        fetch_climate_finance(
-            dg.build_asset_context(instance=instance), UPath(tmp_path)
-        )
-
-
-def test_landing_refuses_to_run_before_an_observation(tmp_path: Path) -> None:
-    """Test the fetch fails when the source was never observed"""
-    with pytest.raises(ValueError, match="has no observation"):
-        fetch_climate_finance(
-            dg.build_asset_context(instance=dg.DagsterInstance.ephemeral()),
-            UPath(tmp_path),
-        )
+        fetch_climate_finance(UPath(tmp_path), observation)

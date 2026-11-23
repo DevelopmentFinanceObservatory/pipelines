@@ -1,8 +1,10 @@
 import csv
-from collections.abc import Callable, Mapping, Sequence, Set
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from types import MappingProxyType
+from typing import Any
 
 import dagster as dg
 import pyarrow.parquet as pq
@@ -15,6 +17,35 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # Dagster kind of each file extension that has one
 _FILE_KINDS = {".parquet": "parquet", ".csv": "csv"}
+
+
+@dataclass(frozen=True)
+class Observation:
+    """A source asset's observation: its data version and the plain value of each
+    metadata entry"""
+
+    data_version: str
+    metadata: Mapping[str, Any]
+
+
+def _latest_observation(
+    instance: dg.DagsterInstance, source: dg.SourceAsset
+) -> Observation:
+    """The source's latest observation
+
+    Raises:
+        ValueError: If the source has no observation with a data version.
+    """
+    record = instance.get_latest_data_version_record(source.key, is_source=True)
+    observation = record.asset_observation if record else None
+    if observation is None or observation.data_version is None:
+        raise ValueError(
+            f"{source.key.to_user_string()} has no observation; observe it first"
+        )
+    return Observation(
+        data_version=observation.data_version,
+        metadata={key: value.value for key, value in observation.metadata.items()},
+    )
 
 
 def _landing_directory(
@@ -62,9 +93,8 @@ def build_landing_asset(
     dataset: str,
     title: str,
     files: Sequence[str],
-    fetch: Callable[[dg.AssetExecutionContext, UPath], FetchedRelease],
+    fetch: Callable[[UPath, Observation], FetchedRelease],
     checks: Mapping[str, Callable[[UPath], bool]] = MappingProxyType({}),
-    required_resource_keys: Set[str] = frozenset(),
     retry_policy: dg.RetryPolicy | None = None,
 ) -> dg.AssetsDefinition:
     """The `<group>_landing` asset writing a source's files to its landing directory
@@ -73,6 +103,9 @@ def build_landing_asset(
     has rows, a CSV file has rows after its header, an MCF file declares nodes,
     and any other file has bytes.
 
+    The asset passes its fetch the source's latest observation, and fails with
+    a ValueError when the source has none.
+
     Args:
         group: Group of the source, naming the asset `<group>_landing`.
         source: The observable source asset the landing depends on.
@@ -80,10 +113,10 @@ def build_landing_asset(
         title: Name of the source in the description and logs, such as "OECD DAC1".
         files: Names of the files the fetch writes to the landing directory.
         fetch: Writes the files to the landing directory it is given, putting any
-            working files there and nowhere else. Each of its release dates is
-            recorded as `<name>_release_date`.
+            working files there and nowhere else, and landing the version the
+            observation it is given saw. Each of its release dates is recorded
+            as `<name>_release_date`.
         checks: Further blocking checks on the landing directory, by name.
-        required_resource_keys: Resources the fetch reads from its context.
         retry_policy: Retry policy of the asset.
     """
     name = f"{group}_landing"
@@ -105,12 +138,13 @@ def build_landing_asset(
             dg.AssetCheckSpec(name=check_name, asset=name, blocking=True)
             for check_name in [f"{stem}_not_empty" for stem in stems] + list(checks)
         ],
-        required_resource_keys={"landing_file_store", *required_resource_keys},
+        required_resource_keys={"landing_file_store"},
         retry_policy=retry_policy,
     )
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
     def landing(context: dg.AssetExecutionContext):
+        observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
         directory = _landing_directory(
             context.resources.landing_file_store,
@@ -118,7 +152,7 @@ def build_landing_asset(
             downloaded_at=downloaded_at,
         )
         directory.mkdir(parents=True, exist_ok=True)
-        release_dates, source_metadata = fetch(context, directory)
+        release_dates, source_metadata = fetch(directory, observation)
         paths = {
             stem: directory / file for stem, file in zip(stems, files, strict=True)
         }

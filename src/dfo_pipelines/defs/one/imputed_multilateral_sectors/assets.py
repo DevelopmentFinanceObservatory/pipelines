@@ -23,7 +23,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 CRS_BULK_LABEL = "CRS-Parquet"
@@ -294,7 +294,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
 
 def fetch_imputed_multilateral_sectors(
-    context: dg.AssetExecutionContext, directory: UPath
+    directory: UPath, observation: Observation
 ) -> FetchedRelease:
     """Compute the imputation between two release observations and write it
 

@@ -19,6 +19,7 @@ from dfo_pipelines.defs.imf.weo.assets import (
     imf_weo_dc_export,
     imf_weo_source,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -51,7 +52,9 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo(dg.build_asset_context(), UPath(tmp_path))
+        release_dates, metadata = fetch_weo(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
@@ -77,7 +80,7 @@ def test_fetch_weo_raises_when_the_release_cannot_be_served(
         ),
         pytest.raises(NoDataError, match="no data for April;2026"),
     ):
-        fetch_weo(dg.build_asset_context(), UPath(tmp_path))
+        fetch_weo(UPath(tmp_path), Observation(data_version="v1", metadata={}))
 
     assert not file_path.exists()
 

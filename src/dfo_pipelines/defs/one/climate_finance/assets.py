@@ -20,7 +20,7 @@ from dfo_pipelines.extraction.climate_finance import (
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import ClimateFinanceExportResource
 
@@ -79,25 +79,7 @@ def one_climate_finance_source(
     )
 
 
-def latest_observation(context: dg.AssetExecutionContext) -> tuple[UPath, str]:
-    """The export directory the source asset last observed, and the sha256 of its
-    manifest.
-
-    Raises:
-        ValueError: If the source has no observation with a data version.
-    """
-    key = one_climate_finance_source.key
-    record = context.instance.get_latest_data_version_record(key, is_source=True)
-    observation = record.asset_observation if record else None
-    if observation is None or observation.data_version is None:
-        raise ValueError(f"{key.to_user_string()} has no observation; observe it first")
-    metadata = observation.metadata
-    return UPath(str(metadata["dagster/uri"].value)), str(metadata["sha256"].value)
-
-
-def fetch_climate_finance(
-    context: dg.AssetExecutionContext, directory: UPath
-) -> FetchedRelease:
+def fetch_climate_finance(directory: UPath, observation: Observation) -> FetchedRelease:
     """Copy the climate finance tables of the observed release to `directory`, as
     exported, one parquet file per raw table.
 
@@ -105,8 +87,8 @@ def fetch_climate_finance(
         ValueError: If the export's manifest or a table differs from the sha256
             the observation or the manifest recorded.
     """
-    export, manifest_sha256 = latest_observation(context)
-    manifest = read_manifest(export, sha256=manifest_sha256)
+    export = UPath(observation.metadata["dagster/uri"])
+    manifest = read_manifest(export, sha256=observation.metadata["sha256"])
     for stem in EXPORT_TABLES:
         source = export / f"{stem}.parquet"
         data = source.read_bytes()
@@ -115,7 +97,7 @@ def fetch_climate_finance(
                 f"{source} has sha256 {actual}, its manifest records {expected}"
             )
         (directory / f"{stem}.parquet").write_bytes(data)
-    context.log.info(
+    dg.get_dagster_logger().info(
         f"Copied climate finance release {manifest.release} to {directory}"
     )
     return FetchedRelease(

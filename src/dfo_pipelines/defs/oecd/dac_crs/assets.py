@@ -18,7 +18,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.extraction.oecd import fetch_bulk_file, resolve_bulk_file
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 
@@ -67,9 +67,7 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac_crs(
-    context: dg.AssetExecutionContext, directory: UPath
-) -> FetchedRelease:
+def fetch_dac_crs(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the CRS bulk file to `directory`"""
     return fetch_bulk_file(
         directory / "dac_crs.parquet",

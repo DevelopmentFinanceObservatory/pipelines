@@ -22,6 +22,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     world_bank_ids_dc_export,
     world_bank_ids_source,
 )
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
@@ -273,7 +274,9 @@ def test_fetch_ids_combines_the_downloads_unmodified(
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        release_dates, metadata = fetch_ids(dg.build_asset_context(), UPath(tmp_path))
+        release_dates, metadata = fetch_ids(
+            UPath(tmp_path), Observation(data_version="v1", metadata={})
+        )
 
     download.assert_called_once_with(file_path.parent)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
@@ -337,7 +340,7 @@ def test_fetch_ids_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        fetch_ids(dg.build_asset_context(), UPath(tmp_path))
+        fetch_ids(UPath(tmp_path), Observation(data_version="v1", metadata={}))
 
     assert list(file_path.parent.iterdir()) == []
 

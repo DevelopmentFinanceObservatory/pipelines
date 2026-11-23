@@ -49,6 +49,23 @@ def materialize_landing(
     )
 
 
+def record_observation(
+    instance: dg.DagsterInstance,
+    source: dg.SourceAsset,
+    *,
+    data_version: str,
+    metadata: Mapping[str, Any],
+) -> None:
+    """Record an observation of the source, as its daily tick does"""
+    instance.report_runless_asset_event(
+        dg.AssetObservation(
+            asset_key=source.key,
+            metadata=metadata,
+            tags={"dagster/data_version": data_version},
+        )
+    )
+
+
 def materialization(result: dg.ExecuteInProcessResult) -> dg.AssetMaterialization:
     """The one asset materialization the run recorded"""
     [event] = result.get_asset_materialization_events()
@@ -82,10 +99,13 @@ def column_list(duckdb: DuckDBResource, table: str) -> list:
 
 
 def logged_messages(
-    assets: list[dg.AssetsDefinition], resources: dict[str, object]
+    assets: list[dg.AssetsDefinition],
+    resources: dict[str, object],
+    *,
+    instance: dg.DagsterInstance | None = None,
 ) -> list[str]:
     """The run log's messages from materializing the assets, other than event records"""
-    instance = dg.DagsterInstance.ephemeral()
+    instance = instance or dg.DagsterInstance.ephemeral()
     result = dg.materialize(assets, resources=resources, instance=instance)
     assert result.success
     return [

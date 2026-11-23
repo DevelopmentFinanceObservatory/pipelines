@@ -22,7 +22,7 @@ from dfo_pipelines.extraction.oecd import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 
@@ -48,7 +48,7 @@ def oecd_dac1_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac1(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+def fetch_dac1(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the DAC1 bulk file to `directory`"""
     return fetch_bulk_file(
         directory / "dac1.parquet",

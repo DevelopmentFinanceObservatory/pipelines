@@ -19,7 +19,7 @@ from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 
 # One observation of one series, with the dataflow's attributes, which include
@@ -51,7 +51,7 @@ def imf_weo_source() -> dg.ObserveResult:
     )
 
 
-def fetch_weo(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+def fetch_weo(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the latest WEO release to `directory`"""
     # 'version' is resolved and passed explicitly because with version=None,
     # imf_reader rolls back up to three releases when the newest one is listed
