@@ -82,7 +82,9 @@ def build_raw_table_assets(
         release_names: Names of the releases the metadata records a date for.
 
     Raises:
-        ValueError: If a release name is not a SQL identifier.
+        ValueError: If a release name is not lowercase letters, digits and
+            underscores, starting with a letter, since it names a column in the
+            metadata table.
     """
     for name in release_names:
         if not _RELEASE_NAME_PATTERN.fullmatch(name):
