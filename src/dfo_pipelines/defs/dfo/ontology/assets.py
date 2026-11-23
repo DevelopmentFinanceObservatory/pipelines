@@ -29,25 +29,6 @@ COMPILED_FILES = (ONTOLOGY_MCF, CODE_MAPPING_CSV, COMPILE_REPORT)
 BENCH = Config(bench="prod")
 
 
-@dg.observable_source_asset(
-    group_name="dfo_ontology",
-    automation_condition=dg.AutomationCondition.on_cron("@daily"),
-)
-def dfo_ontology_source() -> dg.ObserveResult:
-    """Observed hash of the ontology compiled from its Wikibase instance"""
-    with tempfile.TemporaryDirectory() as staging_dir:
-        staging_path = Path(staging_dir)
-        _compile(staging_path)
-        version = _compiled_version(staging_path)
-    return dg.ObserveResult(
-        metadata={
-            "dagster/uri": dg.MetadataValue.text(BENCH.url),
-            "version": dg.MetadataValue.text(version),
-        },
-        data_version=dg.DataVersion(version),
-    )
-
-
 def _compile(directory: Path) -> None:
     """Compile the ontology, code mapping and report into `directory`
 
@@ -78,6 +59,25 @@ def _compiled_version(directory: Path) -> str:
     for name in (ONTOLOGY_MCF, CODE_MAPPING_CSV):
         digest.update(hashlib.sha256((directory / name).read_bytes()).digest())
     return digest.hexdigest()
+
+
+@dg.observable_source_asset(
+    group_name="dfo_ontology",
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
+)
+def dfo_ontology_source() -> dg.ObserveResult:
+    """Observed hash of the ontology compiled from its Wikibase instance"""
+    with tempfile.TemporaryDirectory() as staging_dir:
+        staging_path = Path(staging_dir)
+        _compile(staging_path)
+        version = _compiled_version(staging_path)
+    return dg.ObserveResult(
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(BENCH.url),
+            "version": dg.MetadataValue.text(version),
+        },
+        data_version=dg.DataVersion(version),
+    )
 
 
 def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease:
