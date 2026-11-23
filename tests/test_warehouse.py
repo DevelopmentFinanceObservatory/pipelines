@@ -4,13 +4,8 @@ from pathlib import Path
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
-import pytest
-from upath import UPath
 
-from dfo_pipelines.extraction.metadata import (
-    METADATA_FILE_NAME,
-    write_extraction_metadata,
-)
+from dfo_pipelines.extraction.metadata import ExtractionMetadata
 from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
 
 COLUMNS = ("code", "name", "value")
@@ -102,31 +97,27 @@ def test_load_parquet_aliases_columns_by_position(tmp_path: Path) -> None:
     ]
 
 
-def test_load_extraction_metadata_replaces_the_previous_row(tmp_path: Path) -> None:
-    """Test a rerun leaves one row, holding what it recorded"""
+def test_load_extraction_metadata_replaces_the_previous_row() -> None:
+    """Test a rerun leaves one row, holding what it was given"""
     connection = duckdb.connect()
-    write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
-    )
     load_extraction_metadata(
         connection,
-        directory=UPath(tmp_path),
+        metadata=ExtractionMetadata(
+            downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
+        ),
         schema="raw",
         table="metadata",
-        release_names=("crs", "multisystem"),
     )
 
     later = datetime(2026, 9, 8, 11, 2, tzinfo=UTC)
     later_release_dates = {"crs": date(2026, 9, 7), "multisystem": date(2026, 9, 1)}
-    write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=later, release_dates=later_release_dates
-    )
     rows = load_extraction_metadata(
         connection,
-        directory=UPath(tmp_path),
+        metadata=ExtractionMetadata(
+            downloaded_at=later, release_dates=later_release_dates
+        ),
         schema="raw",
         table="metadata",
-        release_names=("crs", "multisystem"),
     )
 
     assert rows == 1
@@ -138,61 +129,29 @@ def test_load_extraction_metadata_replaces_the_previous_row(tmp_path: Path) -> N
     ]
 
 
-def test_load_extraction_metadata_creates_columns_in_the_given_order(
-    tmp_path: Path,
-) -> None:
-    """Test the release date columns follow the order release_names is given in"""
+def test_load_extraction_metadata_creates_columns_in_the_order_of_the_releases() -> (
+    None
+):
+    """Test the release date columns follow the order of the metadata's releases"""
     connection = duckdb.connect()
-    write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
-    )
     load_extraction_metadata(
         connection,
-        directory=UPath(tmp_path),
+        metadata=ExtractionMetadata(
+            downloaded_at=DOWNLOADED_AT,
+            release_dates={
+                "multisystem": RELEASE_DATES["multisystem"],
+                "crs": RELEASE_DATES["crs"],
+            },
+        ),
         schema="raw",
         table="metadata",
-        release_names=("multisystem", "crs"),
     )
 
+    assert connection.sql("select * from raw.metadata").fetchall() == [
+        (DOWNLOADED_AT, RELEASE_DATES["multisystem"], RELEASE_DATES["crs"])
+    ]
     assert [row[0] for row in connection.sql("describe raw.metadata").fetchall()] == [
         "downloaded_at",
         "multisystem_release_date",
         "crs_release_date",
     ]
-
-
-def test_load_extraction_metadata_raises_when_nothing_was_recorded(
-    tmp_path: Path,
-) -> None:
-    """Test an unrecorded extraction fails rather than loading an empty table"""
-    connection = duckdb.connect()
-
-    with pytest.raises(FileNotFoundError, match=METADATA_FILE_NAME):
-        load_extraction_metadata(
-            connection,
-            directory=UPath(tmp_path),
-            schema="raw",
-            table="metadata",
-            release_names=("source",),
-        )
-
-
-def test_load_extraction_metadata_raises_on_an_invalid_release_name(
-    tmp_path: Path,
-) -> None:
-    """Test a release name that is not a safe SQL identifier is refused"""
-    connection = duckdb.connect()
-    write_extraction_metadata(
-        UPath(tmp_path),
-        downloaded_at=DOWNLOADED_AT,
-        release_dates={"Crs Source": date(2026, 8, 3)},
-    )
-
-    with pytest.raises(ValueError, match="Crs Source"):
-        load_extraction_metadata(
-            connection,
-            directory=UPath(tmp_path),
-            schema="raw",
-            table="metadata",
-            release_names=("Crs Source",),
-        )
