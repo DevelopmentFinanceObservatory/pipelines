@@ -35,7 +35,7 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
     tmp_path: Path,
 ) -> None:
     """Test the download names its release, so imf_reader cannot roll back to an older one"""
-    file_path = UPath(tmp_path / "data.parquet")
+    file_path = UPath(tmp_path / "weo.parquet")
 
     with (
         patch(
@@ -51,7 +51,7 @@ def test_fetch_weo_pins_the_download_to_the_resolved_release(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo(file_path)
+        release_dates, metadata = fetch_weo(dg.build_asset_context(), UPath(tmp_path))
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
@@ -64,7 +64,7 @@ def test_fetch_weo_raises_when_the_release_cannot_be_served(
     tmp_path: Path,
 ) -> None:
     """Test an unservable release surfaces rather than rolling back to an older one"""
-    file_path = UPath(tmp_path / "data.parquet")
+    file_path = UPath(tmp_path / "weo.parquet")
 
     with (
         patch(
@@ -77,7 +77,7 @@ def test_fetch_weo_raises_when_the_release_cannot_be_served(
         ),
         pytest.raises(NoDataError, match="no data for April;2026"),
     ):
-        fetch_weo(file_path)
+        fetch_weo(dg.build_asset_context(), UPath(tmp_path))
 
     assert not file_path.exists()
 

@@ -51,10 +51,8 @@ def imf_weo_source() -> dg.ObserveResult:
     )
 
 
-def fetch_weo(
-    file_path: UPath,
-) -> FetchedRelease:
-    """Write the latest WEO release to `file_path`"""
+def fetch_weo(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+    """Write the latest WEO release to `directory`"""
     # 'version' is resolved and passed explicitly because with version=None,
     # imf_reader rolls back up to three releases when the newest one is listed
     # in the dataflow catalogue but not yet servable (reader.py:160). This would
@@ -62,7 +60,7 @@ def fetch_weo(
     # release under the new release's data version until the next publication.
     version = weo.get_weo_versions()[0]
     dataframe = weo.fetch_data_with_metadata(version=version)
-    dataframe.to_parquet(file_path, compression="gzip")
+    dataframe.to_parquet(directory / "weo.parquet", compression="gzip")
     return FetchedRelease(
         release_dates={"source": fetch_weo_publication_date(version)},
         metadata={"version": f"{version[0]} {version[1]}"},
@@ -71,8 +69,10 @@ def fetch_weo(
 
 imf_weo_landing = build_landing_asset(
     group="imf_weo",
+    source=imf_weo_source,
     dataset="weo",
     title="IMF WEO",
+    files=["weo.parquet"],
     fetch=fetch_weo,
     retry_policy=dg.RetryPolicy(max_retries=1),
 )

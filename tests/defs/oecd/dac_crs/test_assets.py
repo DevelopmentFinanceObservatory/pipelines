@@ -77,7 +77,7 @@ def test_fetch_dac_crs_dates_the_release_from_the_version() -> None:
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
     ) as fetch:
-        fetch_dac_crs(UPath("data.parquet"))
+        fetch_dac_crs(dg.build_asset_context(), UPath("."))
 
     arguments = dict(fetch.call_args.kwargs)
     assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (

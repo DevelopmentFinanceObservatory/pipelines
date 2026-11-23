@@ -47,10 +47,10 @@ def oecd_dac2b_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac2b(file_path: UPath) -> FetchedRelease:
-    """Write the DAC2b bulk file to `file_path`"""
+def fetch_dac2b(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+    """Write the DAC2b bulk file to `directory`"""
     return fetch_bulk_file(
-        file_path,
+        directory / "dac2b.parquet",
         flow_url=DAC2B_FLOW_URL,
         label=DAC2B_BULK_LABEL,
         download=bulk_download_dac2b,
@@ -61,8 +61,10 @@ def fetch_dac2b(file_path: UPath) -> FetchedRelease:
 
 oecd_dac2b_landing = build_landing_asset(
     group="oecd_dac2b",
+    source=oecd_dac2b_source,
     dataset="dac2b",
     title="OECD DAC2b",
+    files=["dac2b.parquet"],
     fetch=fetch_dac2b,
 )
 

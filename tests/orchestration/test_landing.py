@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import UTC, date, datetime, tzinfo
 from pathlib import Path
 from unittest.mock import patch
@@ -29,27 +29,59 @@ DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 RELEASE_DATE = date(2026, 7, 7)
 
 
-def fetch_rows(
-    rows: int,
+def parquet_with_rows(rows: int) -> bytes:
+    """A parquet file of `rows` rows"""
+    sink = pa.BufferOutputStream()
+    pq.write_table(pa.table({"code": list(range(rows))}), sink)
+    return sink.getvalue().to_pybytes()
+
+
+def fetch_files(
+    contents: Mapping[str, bytes],
     *,
     release_dates: dict[str, date] | None = None,
     metadata: dict[str, dg.MetadataValue] | None = None,
 ):
-    """A fetch hook writing a parquet file of `rows` rows to the path it is given"""
+    """A fetch hook writing each file in `contents` to the directory it is given"""
 
-    def fetch(file_path: UPath):
-        pq.write_table(pa.table({"code": list(range(rows))}), file_path)
+    def fetch(context: dg.AssetExecutionContext, directory: UPath):
+        for name, content in contents.items():
+            (directory / name).write_bytes(content)
         return FetchedRelease(
-            release_dates=release_dates or {"source": RELEASE_DATE},
+            release_dates={"source": RELEASE_DATE}
+            if release_dates is None
+            else release_dates,
             metadata=metadata or {},
         )
 
     return fetch
 
 
-def build_example(fetch, **kwargs) -> dg.AssetsDefinition:
+def fetch_rows(rows: int, **kwargs):
+    """A fetch hook writing `things.parquet` with `rows` rows"""
+    return fetch_files({"things.parquet": parquet_with_rows(rows)}, **kwargs)
+
+
+@dg.observable_source_asset(name="example_source", group_name="example")
+def example_source() -> dg.ObserveResult:
+    return dg.ObserveResult(data_version=dg.DataVersion("v20260801"))
+
+
+def build_example(
+    fetch,
+    *,
+    files: tuple[str, ...] = ("things.parquet",),
+    source: dg.SourceAsset = example_source,
+    **kwargs,
+) -> dg.AssetsDefinition:
     return build_landing_asset(
-        group="example", dataset="things", title="Example", fetch=fetch, **kwargs
+        group="example",
+        source=source,
+        dataset="things",
+        title="Example",
+        files=files,
+        fetch=fetch,
+        **kwargs,
     )
 
 
@@ -95,7 +127,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "version": dg.TextMetadataValue("v20260801"),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    assert check_outcomes(result) == {"file_not_empty": True}
+    assert check_outcomes(result) == {"things_not_empty": True}
 
 
 def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
@@ -139,7 +171,7 @@ def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
         build_example(fetch_rows(0)), tmp_path, raise_on_error=False
     )
 
-    assert check_outcomes(result) == {"file_not_empty": False}
+    assert check_outcomes(result) == {"things_not_empty": False}
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
@@ -147,7 +179,7 @@ def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
 ) -> None:
     """Test a failed fetch leaves no record claiming a download happened"""
 
-    def fail(file_path: UPath):
+    def fail(context: dg.AssetExecutionContext, directory: UPath):
         raise RuntimeError("download refused")
 
     with pytest.raises(RuntimeError, match="download refused"):
@@ -161,18 +193,156 @@ def test_build_landing_asset_writes_no_metadata_when_the_file_is_unreadable(
 ) -> None:
     """Test a hook writing a truncated file leaves no record claiming a download"""
 
-    def truncate(file_path: UPath):
-        file_path.write_bytes(b"PAR1")
-        return FetchedRelease(release_dates={"source": RELEASE_DATE}, metadata={})
-
     with pytest.raises(pa.ArrowInvalid):
-        materialize_landing(build_example(truncate), tmp_path)
+        materialize_landing(
+            build_example(fetch_files({"things.parquet": b"PAR1"})), tmp_path
+        )
 
     assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
 
 
+@pytest.mark.parametrize(
+    ("file", "content", "passed"),
+    [
+        ("things.csv", b"code\n1\n", True),
+        ("things.csv", b"code\n", False),
+        ("things.mcf", b"Node: dcid:thing\ntypeOf: dcs:Thing\n", True),
+        ("things.mcf", b"# Compiled from the bench\n", False),
+        ("things.txt", b"x", True),
+        ("things.txt", b"", False),
+    ],
+)
+def test_build_landing_asset_checks_a_file_by_its_type(
+    tmp_path: Path, file: str, content: bytes, passed: bool
+) -> None:
+    """Test a CSV file passes with a row after its header, an MCF file with a node,
+    and any other file with a byte"""
+    asset = build_example(fetch_files({file: content}), files=(file,))
+
+    result = materialize_landing(asset, tmp_path, raise_on_error=False)
+
+    assert check_outcomes(result) == {"things_not_empty": passed}
+
+
+def test_build_landing_asset_counts_the_rows_of_each_table(tmp_path: Path) -> None:
+    """Test several files record their total size, and the rows of each parquet and
+    CSV file and the nodes of each MCF file with their total. A quoted line break
+    does not split a CSV row"""
+    files = {
+        "first.parquet": parquet_with_rows(2),
+        "second.csv": b'code,note\n1,"two\nlines"\n2,x\n3,y\n',
+        "third.mcf": b"Node: dcid:first\n\nNode: dcid:second\n",
+        "notes.txt": b"notes",
+    }
+    asset = build_example(fetch_files(files), files=tuple(files))
+
+    result = materialize_landing(asset, tmp_path)
+
+    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    assert materialization(result).metadata == {
+        "dagster/uri": dg.TextMetadataValue(str(directory)),
+        "file_size": dg.IntMetadataValue(
+            sum(len(content) for content in files.values())
+        ),
+        "dagster/row_count": dg.IntMetadataValue(7),
+        "first_row_count": dg.IntMetadataValue(2),
+        "second_row_count": dg.IntMetadataValue(3),
+        "third_row_count": dg.IntMetadataValue(2),
+        "source_release_date": dg.TextMetadataValue("2026-07-07"),
+    }
+    assert check_outcomes(result) == {
+        "first_not_empty": True,
+        "second_not_empty": True,
+        "third_not_empty": True,
+        "notes_not_empty": True,
+    }
+
+
+def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
+    tmp_path: Path,
+) -> None:
+    """Test a source declaring no files records neither a file size nor a row count"""
+    asset = build_example(
+        fetch_files({"things.parquet": parquet_with_rows(1)}),
+        files=(),
+        checks={"ready": lambda directory: True},
+    )
+
+    result = materialize_landing(asset, tmp_path)
+
+    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    assert materialization(result).metadata == {
+        "dagster/uri": dg.TextMetadataValue(str(directory)),
+        "source_release_date": dg.TextMetadataValue("2026-07-07"),
+    }
+
+
+def test_build_landing_asset_runs_each_named_check_on_the_directory(
+    tmp_path: Path,
+) -> None:
+    """Test a named check is evaluated on the landing directory, beside the file
+    checks, and fails when its predicate is false"""
+    asset = build_example(
+        fetch_rows(1),
+        checks={
+            "things_landed": lambda directory: (directory / "things.parquet").exists(),
+            "never": lambda directory: False,
+        },
+    )
+
+    result = materialize_landing(asset, tmp_path, raise_on_error=False)
+
+    assert check_outcomes(result) == {
+        "things_not_empty": True,
+        "things_landed": True,
+        "never": False,
+    }
+
+
+def test_build_landing_asset_fails_when_the_fetch_records_no_release(
+    tmp_path: Path,
+) -> None:
+    """Test a fetch returning no release date fails the run and records nothing"""
+    with pytest.raises(ValueError, match="must name at least one source"):
+        materialize_landing(build_example(fetch_rows(1, release_dates={})), tmp_path)
+
+    assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
+
+
+def test_build_landing_asset_fails_when_a_declared_file_is_missing(
+    tmp_path: Path,
+) -> None:
+    """Test a declared file the fetch did not write fails the run and records
+    nothing"""
+    asset = build_example(fetch_rows(1), files=("things.parquet", "more.csv"))
+
+    with pytest.raises(FileNotFoundError, match=r"more\.csv"):
+        materialize_landing(asset, tmp_path)
+
+    assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
+
+
+def test_build_landing_asset_gives_the_fetch_its_resources(tmp_path: Path) -> None:
+    """Test a fetch reads a resource it requires from its context"""
+
+    def fetch(context: dg.AssetExecutionContext, directory: UPath):
+        (directory / "things.parquet").write_bytes(parquet_with_rows(1))
+        return FetchedRelease(
+            release_dates={"source": RELEASE_DATE},
+            metadata={"version": dg.MetadataValue.text(context.resources.version)},
+        )
+
+    asset = build_example(fetch, required_resource_keys={"version"})
+
+    result = materialize_landing(asset, tmp_path, resources={"version": "v20260801"})
+
+    assert materialization(result).metadata["version"] == dg.TextMetadataValue(
+        "v20260801"
+    )
+
+
 def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
-    """Test the run log names the source and the file written"""
+    """Test the run log names the source and the directory written"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
 
     messages = logged_messages(
@@ -180,7 +350,7 @@ def test_build_landing_asset_logs_where_it_wrote(tmp_path: Path) -> None:
     )
 
     directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
-    assert f"Wrote Example data to {directory / 'things.parquet'}" in messages
+    assert f"Wrote Example data to {directory}" in messages
 
 
 def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> None:
@@ -196,10 +366,30 @@ def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> Non
     assert spec.automation_condition == EAGER_WHEN_CHECKS_PASS
     assert spec.description == "Example download and its metadata"
     [check_spec] = asset.check_specs
-    assert check_spec.name == "file_not_empty"
+    assert check_spec.name == "things_not_empty"
     assert check_spec.asset_key == key
     assert check_spec.blocking
     assert asset.op.retry_policy is None
+
+
+def test_build_landing_asset_declares_a_blocking_check_per_file_and_named_check() -> (
+    None
+):
+    """Test each declared file adds its kind and a `<stem>_not_empty` check, and
+    each named check its own, all blocking"""
+    asset = build_example(
+        fetch_rows(1),
+        files=("first.parquet", "second.csv", "notes.txt"),
+        checks={"ready": lambda directory: True},
+    )
+
+    assert asset.specs_by_key[asset.key].kinds == {"file", "parquet", "csv"}
+    assert {spec.name: spec.blocking for spec in asset.check_specs} == {
+        "first_not_empty": True,
+        "second_not_empty": True,
+        "notes_not_empty": True,
+        "ready": True,
+    }
 
 
 def test_build_landing_asset_takes_a_retry_policy() -> None:
@@ -221,10 +411,10 @@ class _ExampleAutomation(AutomationHarness):
         self.version = "v20260801"
 
         @dg.observable_source_asset(name="example_source", group_name="example")
-        def example_source() -> dg.ObserveResult:
+        def versioned_source() -> dg.ObserveResult:
             return dg.ObserveResult(data_version=dg.DataVersion(self.version))
 
-        self.landing = build_example(fetch_rows(1))
+        self.landing = build_example(fetch_rows(1), source=versioned_source)
         self.raw_tables = build_raw_table_assets(
             group="example",
             title="Example",
@@ -237,7 +427,7 @@ class _ExampleAutomation(AutomationHarness):
         )
         super().__init__(
             tmp_path,
-            source=example_source,
+            source=versioned_source,
             raw_assets=[self.landing, self.raw_tables],
         )
 

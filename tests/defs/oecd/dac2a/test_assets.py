@@ -59,7 +59,7 @@ def test_fetch_dac2a_dates_the_release_from_the_url() -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac2a(UPath("data.parquet"))
+        fetch_dac2a(dg.build_asset_context(), UPath("."))
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC2A_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE

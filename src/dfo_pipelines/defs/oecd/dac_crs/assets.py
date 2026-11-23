@@ -67,10 +67,12 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac_crs(file_path: UPath) -> FetchedRelease:
-    """Write the CRS bulk file to `file_path`"""
+def fetch_dac_crs(
+    context: dg.AssetExecutionContext, directory: UPath
+) -> FetchedRelease:
+    """Write the CRS bulk file to `directory`"""
     return fetch_bulk_file(
-        file_path,
+        directory / "dac_crs.parquet",
         flow_url=CRS_FLOW_URL,
         label=CRS_BULK_LABEL,
         download=bulk_download_crs,
@@ -81,8 +83,10 @@ def fetch_dac_crs(file_path: UPath) -> FetchedRelease:
 
 oecd_dac_crs_landing = build_landing_asset(
     group="oecd_dac_crs",
+    source=oecd_dac_crs_source,
     dataset="dac_crs",
     title="OECD DAC CRS",
+    files=["dac_crs.parquet"],
     fetch=fetch_dac_crs,
 )
 

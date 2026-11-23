@@ -294,7 +294,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 
 
 def fetch_imputed_multilateral_sectors(
-    file_path: UPath,
+    context: dg.AssetExecutionContext, directory: UPath
 ) -> FetchedRelease:
     """Compute the imputation between two release observations and write it
 
@@ -349,7 +349,7 @@ def fetch_imputed_multilateral_sectors(
             f"{prices}, expected {{'current'}} for base_year=None"
         )
 
-    data.to_parquet(file_path, index=False)
+    data.to_parquet(directory / "imputed_multilateral_sectors.parquet", index=False)
 
     return FetchedRelease(
         release_dates=release_dates,
@@ -363,8 +363,10 @@ def fetch_imputed_multilateral_sectors(
 
 one_imputed_multilateral_sectors_landing = build_landing_asset(
     group="one_imputed_multilateral_sectors",
+    source=one_imputed_multilateral_sectors_source,
     dataset="imputed_multilateral_sectors",
     title="imputed multilateral spending by purpose",
+    files=["imputed_multilateral_sectors.parquet"],
     fetch=fetch_imputed_multilateral_sectors,
 )
 

@@ -134,18 +134,16 @@ def world_bank_ids_source() -> dg.ObserveResult:
     )
 
 
-def fetch_ids(
-    file_path: UPath,
-) -> FetchedRelease:
-    """Write the combined IDS bulk files to `file_path`
+def fetch_ids(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+    """Write the combined IDS bulk files to `directory`
 
     An unmodified concatenation of the World Bank's six IDS bulk XLSX files
     ("Counterpart-Area: All") into a single wide-format parquet file.
     """
     source_release_date = fetch_ids_release_date()
     files = fetch_ids_bulk_file_metadata()
-    download_ids_bulk_data_files(file_path.parent)
-    combine_ids_bulk_data_files(file_path.parent, file_path)
+    download_ids_bulk_data_files(directory)
+    combine_ids_bulk_data_files(directory, directory / "ids.parquet")
     return FetchedRelease(
         release_dates={"source": source_release_date}, metadata={"files": files}
     )
@@ -153,8 +151,10 @@ def fetch_ids(
 
 world_bank_ids_landing = build_landing_asset(
     group="world_bank_ids",
+    source=world_bank_ids_source,
     dataset="ids",
     title="World Bank IDS",
+    files=["ids.parquet"],
     fetch=fetch_ids,
 )
 

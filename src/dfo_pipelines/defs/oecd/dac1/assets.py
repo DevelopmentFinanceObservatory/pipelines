@@ -48,10 +48,10 @@ def oecd_dac1_source() -> dg.ObserveResult:
     )
 
 
-def fetch_dac1(file_path: UPath) -> FetchedRelease:
-    """Write the DAC1 bulk file to `file_path`"""
+def fetch_dac1(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
+    """Write the DAC1 bulk file to `directory`"""
     return fetch_bulk_file(
-        file_path,
+        directory / "dac1.parquet",
         flow_url=DAC1_FLOW_URL,
         label=DAC1_BULK_LABEL,
         download=bulk_download_dac1,
@@ -61,7 +61,12 @@ def fetch_dac1(file_path: UPath) -> FetchedRelease:
 
 
 oecd_dac1_landing = build_landing_asset(
-    group="oecd_dac1", dataset="dac1", title="OECD DAC1", fetch=fetch_dac1
+    group="oecd_dac1",
+    source=oecd_dac1_source,
+    dataset="dac1",
+    title="OECD DAC1",
+    files=["dac1.parquet"],
+    fetch=fetch_dac1,
 )
 
 
