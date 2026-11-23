@@ -175,7 +175,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
         assert metadata[f"{stem}_row_count"] == dg.IntMetadataValue(
             manifest.tables[stem].rows
         )
-    assert check_outcomes(result) == {f"{stem}_not_empty": True for stem in STEMS}
+    assert check_outcomes(result) == {"files_not_empty": True}
     assert metadata["dagster/row_count"] == dg.IntMetadataValue(
         sum(table.rows for table in manifest.tables.values())
     )
@@ -189,7 +189,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
 def test_landing_check_fails_on_a_table_with_no_rows(
     export: Path, tmp_path: Path, stem: str
 ) -> None:
-    """Test each table's blocking check fails when its export has no rows"""
+    """Test the files check fails and names a table whose export has no rows"""
     empty = _empty_table(export / NAME / f"{stem}.parquet")
     _republish(export, tables={stem: empty})
     instance = dg.DagsterInstance.ephemeral()
@@ -199,9 +199,11 @@ def test_landing_check_fails_on_a_table_with_no_rows(
         one_climate_finance_landing, tmp_path, instance=instance, raise_on_error=False
     )
 
-    assert check_outcomes(result) == {
-        f"{other}_not_empty": other != stem for other in STEMS
-    }
+    [evaluation] = result.get_asset_check_evaluations()
+    assert not evaluation.passed
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue(
+        [f"{stem}.parquet"]
+    )
 
 
 def test_landing_refuses_an_export_replaced_after_the_observation(

@@ -86,6 +86,30 @@ def landing_result(
     )
 
 
+def _files_not_empty(
+    files: Sequence[str],
+    stems: Sequence[str],
+    *,
+    sizes: Mapping[str, int],
+    rows: Mapping[str, int],
+) -> list[dg.AssetCheckResult]:
+    """The `files_not_empty` result, naming each declared file that is empty"""
+    if not files:
+        return []
+    empty_files = [
+        file
+        for file, stem in zip(files, stems, strict=True)
+        if (rows[stem] if stem in rows else sizes[stem]) == 0
+    ]
+    return [
+        dg.AssetCheckResult(
+            check_name="files_not_empty",
+            passed=not empty_files,
+            metadata={"empty_files": dg.MetadataValue.json(empty_files)},
+        )
+    ]
+
+
 def build_landing_asset(
     *,
     group: str,
@@ -99,9 +123,10 @@ def build_landing_asset(
 ) -> dg.AssetsDefinition:
     """The `<group>_landing` asset writing a source's files to its landing directory
 
-    Each declared file gets a blocking `<stem>_not_empty` check: a parquet file
-    has rows, a CSV file has rows after its header, an MCF file declares nodes,
-    and any other file has bytes.
+    A blocking `files_not_empty` check passes when every declared file is not
+    empty: a parquet file has rows, a CSV file has rows after its header, an MCF
+    file declares nodes, and any other file has bytes. Its metadata names the
+    empty ones.
 
     The asset passes its fetch the source's latest observation, and fails with
     a ValueError when the source has none.
@@ -136,7 +161,7 @@ def build_landing_asset(
         automation_condition=EAGER_WHEN_CHECKS_PASS,
         check_specs=[
             dg.AssetCheckSpec(name=check_name, asset=name, blocking=True)
-            for check_name in [f"{stem}_not_empty" for stem in stems] + list(checks)
+            for check_name in (["files_not_empty"] if files else []) + list(checks)
         ],
         required_resource_keys={"landing_file_store"},
         retry_policy=retry_policy,
@@ -191,13 +216,7 @@ def build_landing_asset(
                     for release, release_date in release_dates.items()
                 },
             },
-            check_results=[
-                dg.AssetCheckResult(
-                    check_name=f"{stem}_not_empty",
-                    passed=rows[stem] > 0 if stem in rows else size > 0,
-                )
-                for stem, size in sizes.items()
-            ]
+            check_results=_files_not_empty(files, stems, sizes=sizes, rows=rows)
             + [
                 dg.AssetCheckResult(check_name=check_name, passed=check(directory))
                 for check_name, check in checks.items()

@@ -139,7 +139,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "version": dg.TextMetadataValue("v20260801"),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    assert check_outcomes(result) == {"things_not_empty": True}
+    assert check_outcomes(result) == {"files_not_empty": True}
 
 
 def test_build_landing_asset_records_each_release(
@@ -186,7 +186,7 @@ def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
         build_example(fetch_rows(0)), tmp_path, raise_on_error=False, instance=instance
     )
 
-    assert check_outcomes(result) == {"things_not_empty": False}
+    assert check_outcomes(result) == {"files_not_empty": False}
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(
@@ -246,7 +246,32 @@ def test_build_landing_asset_checks_a_file_by_its_type(
         asset, tmp_path, raise_on_error=False, instance=instance
     )
 
-    assert check_outcomes(result) == {"things_not_empty": passed}
+    assert check_outcomes(result) == {"files_not_empty": passed}
+
+
+def test_build_landing_asset_check_names_each_empty_file(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
+    """Test one empty file among several fails the check, which names only the empty
+    ones"""
+    files = {
+        "first.parquet": parquet_with_rows(2),
+        "second.csv": b"code\n",
+        "third.mcf": b"# header only\n",
+        "notes.txt": b"notes",
+    }
+    asset = build_example(fetch_files(files), files=tuple(files))
+
+    result = materialize_landing(
+        asset, tmp_path, instance=instance, raise_on_error=False
+    )
+
+    [evaluation] = result.get_asset_check_evaluations()
+    assert evaluation.check_name == "files_not_empty"
+    assert not evaluation.passed
+    assert evaluation.metadata["empty_files"] == dg.JsonMetadataValue(
+        ["second.csv", "third.mcf"]
+    )
 
 
 def test_build_landing_asset_counts_the_rows_of_each_table(
@@ -277,12 +302,7 @@ def test_build_landing_asset_counts_the_rows_of_each_table(
         "third_row_count": dg.IntMetadataValue(2),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    assert check_outcomes(result) == {
-        "first_not_empty": True,
-        "second_not_empty": True,
-        "third_not_empty": True,
-        "notes_not_empty": True,
-    }
+    assert check_outcomes(result) == {"files_not_empty": True}
 
 
 def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
@@ -324,7 +344,7 @@ def test_build_landing_asset_runs_each_named_check_on_the_directory(
     )
 
     assert check_outcomes(result) == {
-        "things_not_empty": True,
+        "files_not_empty": True,
         "things_landed": True,
         "never": False,
     }
@@ -433,16 +453,16 @@ def test_build_landing_asset_defines_the_asset_downstream_of_its_source() -> Non
     assert spec.automation_condition == EAGER_WHEN_CHECKS_PASS
     assert spec.description == "Example download and its metadata"
     [check_spec] = asset.check_specs
-    assert check_spec.name == "things_not_empty"
+    assert check_spec.name == "files_not_empty"
     assert check_spec.asset_key == key
     assert check_spec.blocking
     assert asset.op.retry_policy is None
 
 
-def test_build_landing_asset_declares_a_blocking_check_per_file_and_named_check() -> (
+def test_build_landing_asset_declares_one_check_for_its_files_and_each_named_check() -> (
     None
 ):
-    """Test each declared file adds its kind and a `<stem>_not_empty` check, and
+    """Test the declared files add their kinds and one `files_not_empty` check, and
     each named check its own, all blocking"""
     asset = build_example(
         fetch_rows(1),
@@ -452,9 +472,7 @@ def test_build_landing_asset_declares_a_blocking_check_per_file_and_named_check(
 
     assert asset.specs_by_key[asset.key].kinds == {"file", "parquet", "csv"}
     assert {spec.name: spec.blocking for spec in asset.check_specs} == {
-        "first_not_empty": True,
-        "second_not_empty": True,
-        "notes_not_empty": True,
+        "files_not_empty": True,
         "ready": True,
     }
 

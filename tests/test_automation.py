@@ -842,7 +842,7 @@ def test_dbt_translation_predicate_matches_intended_schemas() -> None:
 @pytest.mark.parametrize(
     ("parent", "check_name", "child"),
     [
-        ("oecd_dac_crs_landing", "dac_crs_not_empty", "oecd_dac_crs_raw_table"),
+        ("oecd_dac_crs_landing", "files_not_empty", "oecd_dac_crs_raw_table"),
         ("oecd_dac_crs_raw_table", "table_not_empty", "oecd_dac_crs/stg_dac_crs"),
         (
             "oecd_dac_crs_raw_table",
