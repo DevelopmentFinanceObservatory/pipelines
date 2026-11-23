@@ -24,6 +24,7 @@ from dfo_pipelines.defs.dfo.skills.assets import (
 )
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -36,6 +37,7 @@ from tests.helpers import (
     materialize_landing,
     meta,
     project_definitions,
+    record_observation,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -107,12 +109,37 @@ def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return repository
 
 
-def materialize_skills(tmp_path: Path) -> dg.ExecuteInProcessResult:
-    """Run the landing asset against a file store under tmp_path"""
+def head(repository: Path) -> str:
+    """The commit at the head of a repository's checked-out branch"""
+    return git(repository, "rev-parse", "HEAD")
+
+
+def observation_of(commit: str) -> Observation:
+    """The source's observation of a commit of the skills repository"""
+    return Observation(
+        data_version=commit,
+        metadata={"dagster/uri": REPOSITORY_URL, "version": commit},
+    )
+
+
+def observed_instance(commit: str) -> dg.DagsterInstance:
+    """An ephemeral instance on which the source has observed a commit"""
+    instance = dg.DagsterInstance.ephemeral()
+    observation = observation_of(commit)
+    record_observation(
+        instance,
+        dfo_skills_source,
+        data_version=observation.data_version,
+        metadata=observation.metadata,
+    )
+    return instance
+
+
+def materialize_skills(tmp_path: Path, commit: str) -> dg.ExecuteInProcessResult:
+    """Run the landing asset on an observation of a commit, against a file store
+    under tmp_path"""
     return materialize_landing(
-        dfo_skills_landing,
-        tmp_path,
-        resources={"skills_repository": SKILLS_REPOSITORY},
+        dfo_skills_landing, tmp_path, instance=observed_instance(commit)
     )
 
 
@@ -138,13 +165,32 @@ def test_landing_copies_the_skills_at_the_head_of_main(
     tmp_path: Path, upstream: Path
 ) -> None:
     """Test the published skills arrive unchanged, traced to their commit"""
-    head = git(upstream, "rev-parse", "HEAD")
+    observed = head(upstream)
 
-    result = materialize_skills(tmp_path)
+    result = materialize_skills(tmp_path, observed)
 
     assert files_under(landed_directory(result)) == landing_files(SKILLS)
-    assert materialization(result).metadata["version"] == dg.TextMetadataValue(head)
+    assert materialization(result).metadata["version"] == dg.TextMetadataValue(observed)
     assert check_outcomes(result) == {"skills_not_empty": True}
+
+
+def test_landing_copies_the_observed_commit_not_one_pushed_after_it(
+    tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test the landing lands and dates the version the source saw"""
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-01-02T12:00:00+00:00")
+    observed = commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-02-03T12:00:00+00:00")
+    commit(upstream, SKILLS)
+
+    result = materialize_skills(tmp_path, observed)
+
+    assert files_under(landed_directory(result)) == landing_files(
+        SKILLS, INTERNAL_SKILLS
+    )
+    metadata = materialization(result).metadata
+    assert metadata["version"] == dg.TextMetadataValue(observed)
+    assert metadata["source_release_date"] == dg.TextMetadataValue("2026-01-02")
 
 
 @pytest.mark.parametrize(
@@ -168,7 +214,7 @@ def test_landing_release_date_is_the_last_commit_touching_a_skill_root(
     git(upstream, "add", "README.md")
     git(upstream, "commit", "-qm", "add a readme")
 
-    result = materialize_skills(tmp_path)
+    result = materialize_skills(tmp_path, head(upstream))
 
     expected = "2026-01-02" if internal is None else "2026-02-03"
     assert materialization(result).metadata[
@@ -187,7 +233,7 @@ def test_landing_release_date_is_when_a_merge_reached_main(
     monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-02-03T12:00:00+00:00")
     git(upstream, "merge", "-q", "--no-ff", "-m", "merge feature", "feature")
 
-    result = materialize_skills(tmp_path)
+    result = materialize_skills(tmp_path, head(upstream))
 
     assert materialization(result).metadata[
         "source_release_date"
@@ -207,7 +253,7 @@ def test_landing_fails_on_a_repository_that_never_had_a_skills_root(
     redirect_repository(monkeypatch, repository.as_uri())
 
     with pytest.raises(RuntimeError, match="has no skills/ directory"):
-        materialize_skills(tmp_path)
+        materialize_skills(tmp_path, head(repository))
 
 
 def test_fetch_writes_to_a_directory_that_does_not_exist_yet(
@@ -216,9 +262,8 @@ def test_fetch_writes_to_a_directory_that_does_not_exist_yet(
     """Test the fetch creates its directory, as an object store does not until a
     file is written to it"""
     directory = tmp_path / "landing"
-    context = dg.build_asset_context(resources={"skills_repository": SKILLS_REPOSITORY})
 
-    fetch_skills(context, UPath(directory))
+    fetch_skills(UPath(directory), observation_of(head(upstream)))
 
     assert files_under(directory) == landing_files(SKILLS)
 
@@ -237,6 +282,7 @@ def test_landing_check_fails_when_only_the_template_exists(
 
     result = dg.materialize(
         [dfo_skills_landing, dfo_skills_dc_export, _stub_ontology_landing],
+        instance=observed_instance(head(upstream)),
         resources={
             "landing_file_store": UPathFileStoreResource(
                 base_path=str(tmp_path / "landing")
@@ -259,11 +305,11 @@ def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
 ) -> None:
     """Test a rerun replaces the day's copy rather than adding to it"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
-    materialize_skills(tmp_path)
+    materialize_skills(tmp_path, head(upstream))
     replaced = {"oda-channels/SKILL.md": "---\nname: oda-channels\n---\n"}
     commit(upstream, replaced)
 
-    result = materialize_skills(tmp_path)
+    result = materialize_skills(tmp_path, head(upstream))
 
     assert files_under(landed_directory(result)) == landing_files(replaced)
 
@@ -272,11 +318,11 @@ def test_landing_keeps_the_previous_copy_when_the_clone_fails(
     tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test a failed fetch leaves the day's earlier copy in place"""
-    published = landed_directory(materialize_skills(tmp_path))
+    published = landed_directory(materialize_skills(tmp_path, head(upstream)))
 
     redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
     with pytest.raises(RuntimeError, match="git clone failed"):
-        materialize_skills(tmp_path)
+        materialize_skills(tmp_path, head(upstream))
 
     assert files_under(published) == landing_files(SKILLS)
 
@@ -293,7 +339,7 @@ def test_landing_fails_when_git_stalls(
             patch("dfo_pipelines.defs.dfo.skills.assets.GIT_TIMEOUT_SECONDS", 1),
             pytest.raises(RuntimeError, match="git clone timed out after 1 seconds"),
         ):
-            materialize_skills(tmp_path)
+            materialize_skills(tmp_path, "0" * 40)
 
 
 @pytest.mark.parametrize(
@@ -323,7 +369,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
 ) -> None:
     """Test a committed symlink fails the fetch rather than copying its target"""
-    published = landed_directory(materialize_skills(tmp_path))
+    published = landed_directory(materialize_skills(tmp_path, head(upstream)))
     secret = tmp_path / "secret"
     secret.mkdir()
     (secret / "SKILL.md").write_text("not for the graph")
@@ -334,7 +380,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     git(upstream, "commit", "-qm", "add a symlink")
 
     with pytest.raises(RuntimeError, match=re.escape(error)):
-        materialize_skills(tmp_path)
+        materialize_skills(tmp_path, head(upstream))
 
     assert files_under(published) == landing_files(SKILLS)
 
@@ -503,7 +549,7 @@ def test_landing_and_export_carry_a_skill_from_each_root(
     """Test both roots reach the landing directory and each skill links to its own"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
 
-    raw_result = materialize_skills(tmp_path)
+    raw_result = materialize_skills(tmp_path, head(upstream))
 
     landing_directory = landed_directory(raw_result)
     assert files_under(landing_directory) == landing_files(SKILLS, INTERNAL_SKILLS)
@@ -622,7 +668,7 @@ def test_landing_and_export_skip_a_draft_with_only_a_readme(
     """Test a `_draft/README.md`-only directory is skipped by both, without raising"""
     commit(upstream, SKILLS | {"_draft/README.md": "Notes for a draft skill.\n"})
 
-    raw_result = materialize_skills(tmp_path)
+    raw_result = materialize_skills(tmp_path, head(upstream))
     assert materialization(raw_result).metadata["skill_count"] == dg.IntMetadataValue(1)
 
     export_result, _ = export_skills(
@@ -640,7 +686,7 @@ def test_landing_and_export_skip_a_draft_with_a_skill_file(
         SKILLS | {"_draft/SKILL.md": "---\nname: draft-skill\n---\n"},
     )
 
-    raw_result = materialize_skills(tmp_path)
+    raw_result = materialize_skills(tmp_path, head(upstream))
     assert materialization(raw_result).metadata["skill_count"] == dg.IntMetadataValue(1)
 
     export_result, _ = export_skills(

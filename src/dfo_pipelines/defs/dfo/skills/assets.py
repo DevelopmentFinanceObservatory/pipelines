@@ -24,7 +24,7 @@ from dfo_pipelines.extraction.metadata import FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
@@ -475,29 +475,24 @@ def _has_skills(landing_directory: UPath) -> bool:
     return _skill_count(landing_directory) > 0
 
 
-def fetch_skills(context: dg.AssetExecutionContext, directory: UPath) -> FetchedRelease:
-    """Copy the skills on the skills repository's branch to `directory`
+def fetch_skills(directory: UPath, observation: Observation) -> FetchedRelease:
+    """Copy the skills at the observed commit of the skills repository to `directory`
 
     The landing directory mirrors the repository's skill roots: `skills/<name>/`,
     and `internal/skills/<name>/` where the repository has one. The release date
     is that of the last commit touching either root. A private repository needs
     git to hold GitHub credentials wherever this runs.
     """
-    skills_repository: SkillsRepositoryResource = context.resources.skills_repository
-    url = skills_repository.url
+    url = observation.metadata["dagster/uri"]
 
     with tempfile.TemporaryDirectory() as staging_dir:
         clone_path = Path(staging_dir) / "repository"
         # Blobless rather than shallow, so the history shows which commit last
-        # touched the roots.
-        _run_git(
-            "clone",
-            "--filter=blob:none",
-            f"--branch={skills_repository.branch}",
-            url,
-            str(clone_path),
-        )
-        commit = _run_git("rev-parse", "HEAD", cwd=clone_path)
+        # touched the roots. The observed commit is checked out, whichever
+        # branch the source watches.
+        _run_git("clone", "--filter=blob:none", "--no-checkout", url, str(clone_path))
+        commit = observation.metadata["version"]
+        _run_git("checkout", "--quiet", "--detach", commit, cwd=clone_path)
         files: list[Path] = []
         for root in SKILL_ROOTS:
             root_path = clone_path / root
@@ -545,13 +540,11 @@ def fetch_skills(context: dg.AssetExecutionContext, directory: UPath) -> Fetched
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
 
-    skill_count = _skill_count(directory)
-    context.log.info(f"Wrote {skill_count} skills from {url} {commit} to {directory}")
     return FetchedRelease(
         release_dates={"source": release_date},
         metadata={
             "version": dg.MetadataValue.text(commit),
-            "skill_count": dg.MetadataValue.int(skill_count),
+            "skill_count": dg.MetadataValue.int(_skill_count(directory)),
         },
     )
 
@@ -564,7 +557,6 @@ dfo_skills_landing = build_landing_asset(
     files=(),
     fetch=fetch_skills,
     checks={"skills_not_empty": _has_skills},
-    required_resource_keys={"skills_repository"},
 )
 
 
