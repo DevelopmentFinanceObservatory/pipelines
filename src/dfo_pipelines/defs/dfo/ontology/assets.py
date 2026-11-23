@@ -15,7 +15,7 @@ from dfo_pipelines.extraction.wikibase import LatestEdit, fetch_latest_edit
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import build_landing_asset
+from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -40,6 +40,18 @@ def dfo_ontology_source() -> dg.ObserveResult:
         metadata={
             "dagster/uri": dg.MetadataValue.text(BENCH.url),
             "version": dg.MetadataValue.text(version),
+            "revision_id": dg.MetadataValue.int(edit.revision_id),
+            "revised_at": dg.MetadataValue.text(edit.revised_at.isoformat()),
+            "deletion_log_id": (
+                dg.MetadataValue.null()
+                if edit.deletion_log_id is None
+                else dg.MetadataValue.int(edit.deletion_log_id)
+            ),
+            "deleted_at": (
+                dg.MetadataValue.null()
+                if edit.deleted_at is None
+                else dg.MetadataValue.text(edit.deleted_at.isoformat())
+            ),
         },
         data_version=dg.DataVersion(version),
     )
@@ -50,6 +62,17 @@ def _fetch_latest_edit() -> LatestEdit:
     return fetch_latest_edit(api_url=BENCH.url, namespaces=BENCH.namespaces)
 
 
+def _observed_edit(observation: Observation) -> LatestEdit:
+    """The latest edit `dfo_ontology_source` recorded in its observation"""
+    deleted_at = observation.metadata["deleted_at"]
+    return LatestEdit(
+        revision_id=observation.metadata["revision_id"],
+        revised_at=datetime.fromisoformat(observation.metadata["revised_at"]),
+        deletion_log_id=observation.metadata["deletion_log_id"],
+        deleted_at=None if deleted_at is None else datetime.fromisoformat(deleted_at),
+    )
+
+
 def _edited_at(edit: LatestEdit) -> datetime:
     """When the instance last changed: its latest revision or deletion"""
     if edit.deleted_at is None:
@@ -57,15 +80,13 @@ def _edited_at(edit: LatestEdit) -> datetime:
     return max(edit.revised_at, edit.deleted_at)
 
 
-def fetch_ontology(
-    context: dg.AssetExecutionContext, directory: UPath
-) -> FetchedRelease:
+def fetch_ontology(directory: UPath, observation: Observation) -> FetchedRelease:
     """Write the compiled ontology, code mapping and report to `directory`
 
     The instance is read again after the compile, so a compile is never
-    recorded under an edit older than one it may have read.
+    recorded under an edit other than the observed one.
     """
-    edit = _fetch_latest_edit()
+    edit = _observed_edit(observation)
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
         result = run_logged(
@@ -91,7 +112,7 @@ def fetch_ontology(
             )
         if _fetch_latest_edit() != edit:
             raise RuntimeError(
-                f"{BENCH.site} was edited during the compile: materialize again"
+                f"{BENCH.site} was edited after it was observed: observe it again"
             )
         for path in expected_files:
             (directory / path.name).write_bytes(path.read_bytes())

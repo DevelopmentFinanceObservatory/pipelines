@@ -12,6 +12,7 @@ from unittest.mock import patch
 import dagster as dg
 import pytest
 from dagster_duckdb import DuckDBResource
+from upath import UPath
 
 from dfo_pipelines.defs.dfo.ontology.assets import (
     BENCH,
@@ -22,9 +23,11 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_landing,
     dfo_ontology_raw_code_mapping_table,
     dfo_ontology_source,
+    fetch_ontology,
 )
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.extraction.wikibase import LatestEdit
+from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     check_outcomes,
@@ -33,6 +36,7 @@ from tests.helpers import (
     materialization,
     materialize_landing,
     meta,
+    record_observation,
     row_count,
 )
 
@@ -134,6 +138,46 @@ def wikibase() -> Iterator[Any]:
         yield mock
 
 
+def observe() -> Observation:
+    """The source's observation of the instance, as the landing asset reads it"""
+    observe_fn = dfo_ontology_source.observe_fn
+    assert observe_fn is not None
+    result = observe_fn()
+    assert isinstance(result, dg.ObserveResult)
+    assert result.data_version is not None
+    assert result.metadata is not None
+    metadata = {}
+    for key, value in result.metadata.items():
+        assert isinstance(value, dg.MetadataValue)
+        metadata[key] = value.value
+    return Observation(data_version=result.data_version.value, metadata=metadata)
+
+
+def observed_instance() -> dg.DagsterInstance:
+    """An instance holding the source's observation, as the daily tick records it"""
+    instance = dg.DagsterInstance.ephemeral()
+    observation = observe()
+    record_observation(
+        instance,
+        dfo_ontology_source,
+        data_version=observation.data_version,
+        metadata=observation.metadata,
+    )
+    return instance
+
+
+def materialize_observed(
+    tmp_path: Path, *, raise_on_error: bool = True
+) -> dg.ExecuteInProcessResult:
+    """Observe the source, then materialize the landing asset"""
+    return materialize_landing(
+        dfo_ontology_landing,
+        tmp_path,
+        instance=observed_instance(),
+        raise_on_error=raise_on_error,
+    )
+
+
 def checks(result: dg.MaterializeResult) -> dict[str, bool]:
     """The asset's checks, keyed on name"""
     return {str(check.check_name): bool(check.passed) for check in result.check_results}
@@ -143,7 +187,7 @@ def test_landing_counts_the_nodes_the_mcf_declares(
     tmp_path: Path, compiler: Any
 ) -> None:
     """Test the node count counts nodes, not the blocks the file separates into"""
-    result = materialize_landing(dfo_ontology_landing, tmp_path)
+    result = materialize_observed(tmp_path)
 
     assert materialization(result).metadata["node_count"] == dg.IntMetadataValue(
         STUB_MCF.count("Node: ")
@@ -159,7 +203,7 @@ def test_landing_raises_when_the_compiler_fails(tmp_path: Path, compiler: Any) -
     compiler.side_effect = fake_compile(returncode=1)
 
     with pytest.raises(RuntimeError, match=STUB_REPORT.strip()):
-        materialize_landing(dfo_ontology_landing, tmp_path)
+        materialize_observed(tmp_path)
 
 
 def test_landing_publishes_nothing_when_an_output_is_missing(
@@ -171,19 +215,20 @@ def test_landing_publishes_nothing_when_an_output_is_missing(
     one by one would leave the ontology of one compile beside the mapping of
     another, with no materialization recording that it happened.
     """
-    published = landed_directory(materialize_landing(dfo_ontology_landing, tmp_path))
+    published = landed_directory(materialize_observed(tmp_path))
     compiler.side_effect = fake_compile(
         mcf="Node: dcid:Replaced\n", omit=(CODE_MAPPING_CSV,)
     )
 
     with pytest.raises(RuntimeError, match=re.escape(CODE_MAPPING_CSV)):
-        materialize_landing(dfo_ontology_landing, tmp_path)
+        materialize_observed(tmp_path)
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
 
 
 def test_source_versions_the_latest_revision_and_deletion() -> None:
-    """Test the source versions the revision and deletion ids, and reports the API"""
+    """Test the source versions the revision and deletion ids, and reports the API
+    and the edit"""
     observe = dfo_ontology_source.observe_fn
     assert observe is not None
 
@@ -194,6 +239,10 @@ def test_source_versions_the_latest_revision_and_deletion() -> None:
     assert result.metadata == {
         "dagster/uri": dg.TextMetadataValue(BENCH.url),
         "version": dg.TextMetadataValue("2982-1700"),
+        "revision_id": dg.IntMetadataValue(2982),
+        "revised_at": dg.TextMetadataValue("2026-11-10T13:08:34+00:00"),
+        "deletion_log_id": dg.IntMetadataValue(1700),
+        "deleted_at": dg.TextMetadataValue("2026-10-08T14:08:33+00:00"),
     }
 
 
@@ -221,7 +270,7 @@ def test_landing_records_the_date_of_the_latest_change_as_the_release_date(
     so a deletion alone moves the release date"""
     wikibase.return_value = edit
 
-    result = materialize_landing(dfo_ontology_landing, tmp_path)
+    result = materialize_observed(tmp_path)
 
     landed = landed_directory(result)
     assert (
@@ -231,7 +280,7 @@ def test_landing_records_the_date_of_the_latest_change_as_the_release_date(
 
 
 @pytest.mark.parametrize(
-    "edit_during_compile",
+    "edit_after_observation",
     [
         dataclasses.replace(LATEST_EDIT, revision_id=LATEST_EDIT.revision_id + 1),
         dataclasses.replace(
@@ -240,22 +289,36 @@ def test_landing_records_the_date_of_the_latest_change_as_the_release_date(
     ],
     ids=["revision", "deletion"],
 )
-def test_landing_raises_when_the_instance_is_edited_during_the_compile(
-    tmp_path: Path, compiler: Any, wikibase: Any, edit_during_compile: LatestEdit
+def test_landing_raises_when_the_instance_is_edited_after_the_observation(
+    tmp_path: Path, compiler: Any, wikibase: Any, edit_after_observation: LatestEdit
 ) -> None:
-    """Test a compile is refused when the instance changed while it ran
+    """Test a compile is refused when the instance changed after it was observed
 
     The compile may have read the edit, which would then be recorded under the
-    release date of the edit before it. What an earlier run landed stays.
+    observed version and its release date. What an earlier run landed stays.
     """
-    published = landed_directory(materialize_landing(dfo_ontology_landing, tmp_path))
-    wikibase.side_effect = [LATEST_EDIT, edit_during_compile]
+    published = landed_directory(materialize_observed(tmp_path))
+    wikibase.side_effect = [LATEST_EDIT, edit_after_observation]
     compiler.side_effect = fake_compile(mcf="Node: dcid:Replaced\n")
 
-    with pytest.raises(RuntimeError, match="edited during the compile"):
-        materialize_landing(dfo_ontology_landing, tmp_path)
+    with pytest.raises(RuntimeError, match="edited after it was observed"):
+        materialize_observed(tmp_path)
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
+
+
+def test_fetch_raises_when_the_instance_was_edited_before_the_compile(
+    tmp_path: Path, compiler: Any, wikibase: Any
+) -> None:
+    """Test the fetch compares against the observed edit, so an edit made between
+    the observation and the compile is refused too"""
+    observation = observe()
+    wikibase.return_value = dataclasses.replace(
+        LATEST_EDIT, revision_id=LATEST_EDIT.revision_id + 1
+    )
+
+    with pytest.raises(RuntimeError, match="edited after it was observed"):
+        fetch_ontology(UPath(tmp_path), observation)
 
 
 @pytest.mark.parametrize(
@@ -268,7 +331,7 @@ def test_landing_check_fails_when_the_mcf_declares_no_nodes(
     header comment it writes"""
     compiler.side_effect = fake_compile(mcf=mcf)
 
-    result = materialize_landing(dfo_ontology_landing, tmp_path, raise_on_error=False)
+    result = materialize_observed(tmp_path, raise_on_error=False)
 
     assert check_outcomes(result) == {"dfo_not_empty": False, "codes_not_empty": True}
 
@@ -282,7 +345,7 @@ def test_landing_check_fails_when_the_code_mapping_has_no_rows(
     """
     compiler.side_effect = fake_compile(rows=[])
 
-    result = materialize_landing(dfo_ontology_landing, tmp_path, raise_on_error=False)
+    result = materialize_observed(tmp_path, raise_on_error=False)
 
     assert check_outcomes(result) == {"dfo_not_empty": True, "codes_not_empty": False}
 
@@ -409,6 +472,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
             "export_file_store": export_file_store,
             "duckdb": duckdb,
         },
+        instance=observed_instance(),
     )
 
     assert result.success

@@ -73,7 +73,7 @@ def _count_rows(path: UPath) -> int | None:
             return None
 
 
-def landing_result(
+def _landing_result(
     path: UPath,
     *,
     metadata: Mapping[str, dg.MetadataValue],
@@ -210,7 +210,7 @@ def build_landing_asset(
                 f"{stem}_row_count": dg.MetadataValue.int(count)
                 for stem, count in rows.items()
             }
-        return landing_result(
+        return _landing_result(
             directory,
             metadata={
                 **metadata,
