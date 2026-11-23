@@ -1,5 +1,4 @@
 import csv
-import dataclasses
 import json
 import re
 import subprocess
@@ -20,12 +19,11 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     CODE_MAPPING_CSV,
     COMPILE_REPORT,
     ONTOLOGY_MCF,
-    LatestRevision,
+    _latest_revision,
     dfo_ontology_dc_export,
     dfo_ontology_landing,
     dfo_ontology_raw_code_mapping_table,
     dfo_ontology_source,
-    fetch_latest_revision,
     fetch_ontology,
 )
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
@@ -56,9 +54,7 @@ name: "CRS purpose"
 
 STUB_REPORT = "G1 identity: 2 nodes carry no dcid\n"
 
-LATEST_REVISION = LatestRevision(
-    revision_id=2982, revised_at=datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC)
-)
+LATEST_REVISION = (2982, datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC))
 
 
 def mapping_rows(path: Path = FIXTURES / CODE_MAPPING_CSV) -> list[dict[str, str]]:
@@ -130,7 +126,7 @@ def wikibase() -> Iterator[Any]:
     A test that needs the instance edited reassigns `side_effect`.
     """
     with patch(
-        "dfo_pipelines.defs.dfo.ontology.assets.fetch_latest_revision",
+        "dfo_pipelines.defs.dfo.ontology.assets._latest_revision",
         return_value=LATEST_REVISION,
     ) as mock:
         yield mock
@@ -265,9 +261,7 @@ def test_landing_raises_when_the_instance_is_edited_after_the_observation(
     published = landed_directory(materialize_observed(tmp_path))
     wikibase.side_effect = [
         LATEST_REVISION,
-        dataclasses.replace(
-            LATEST_REVISION, revision_id=LATEST_REVISION.revision_id + 1
-        ),
+        (LATEST_REVISION[0] + 1, LATEST_REVISION[1]),
     ]
     compiler.side_effect = fake_compile(mcf="Node: dcid:Replaced\n")
 
@@ -283,9 +277,7 @@ def test_fetch_raises_when_the_instance_was_edited_before_the_compile(
     """Test the fetch compares against the observed revision, so an edit made
     between the observation and the compile is refused too"""
     observation = observe()
-    wikibase.return_value = dataclasses.replace(
-        LATEST_REVISION, revision_id=LATEST_REVISION.revision_id + 1
-    )
+    wikibase.return_value = (LATEST_REVISION[0] + 1, LATEST_REVISION[1])
 
     with pytest.raises(RuntimeError, match="edited after it was observed"):
         fetch_ontology(UPath(tmp_path), observation)
@@ -458,8 +450,6 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(mapping_rows())
 
 
-API_URL = "https://wikibase.example/w/api.php"
-
 REVISIONS = [
     {
         "pageid": 1341,
@@ -500,15 +490,14 @@ def api(
 def test_reads_the_latest_revision() -> None:
     """Test the lookup returns the id and timestamp of the latest revision"""
     with mock_http(api()):
-        revision = fetch_latest_revision(api_url=API_URL, namespaces=(120, 122))
+        revision = _latest_revision()
 
-    assert revision == LatestRevision(
-        revision_id=2982, revised_at=datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC)
-    )
+    assert revision == (2982, datetime(2026, 11, 10, 13, 8, 34, tzinfo=UTC))
 
 
-def test_reads_revisions_in_the_given_namespaces_only() -> None:
-    """Test the revision query is limited to the namespaces asked for"""
+def test_reads_revisions_in_the_compiled_namespaces_only() -> None:
+    """Test the revision query is limited to the Item and Property namespaces the
+    compiler reads"""
     namespaces: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -516,7 +505,7 @@ def test_reads_revisions_in_the_given_namespaces_only() -> None:
         return api()(request)
 
     with mock_http(handler):
-        fetch_latest_revision(api_url=API_URL, namespaces=(120, 122))
+        _latest_revision()
 
     assert namespaces == ["120|122"]
 
@@ -524,7 +513,7 @@ def test_reads_revisions_in_the_given_namespaces_only() -> None:
 def test_raises_when_the_namespaces_have_no_revisions() -> None:
     """Test namespaces with no revisions fail, since they leave nothing to compile"""
     with mock_http(api(revisions=[])), pytest.raises(RuntimeError, match="revisions"):
-        fetch_latest_revision(api_url=API_URL, namespaces=(120, 122))
+        _latest_revision()
 
 
 def test_raises_on_an_api_error() -> None:
@@ -536,7 +525,7 @@ def test_raises_on_an_api_error() -> None:
         )
 
     with mock_http(handler), pytest.raises(RuntimeError, match="badvalue"):
-        fetch_latest_revision(api_url=API_URL, namespaces=(120, 122))
+        _latest_revision()
 
 
 def test_raises_on_an_http_error() -> None:
@@ -545,4 +534,4 @@ def test_raises_on_an_http_error() -> None:
         mock_http(lambda request: httpx.Response(503)),
         pytest.raises(httpx.HTTPStatusError),
     ):
-        fetch_latest_revision(api_url=API_URL, namespaces=(120, 122))
+        _latest_revision()
