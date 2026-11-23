@@ -20,7 +20,17 @@ SHARED_MAPPING_KEYS = {
     STAT_TYPE_MAPPING_KEY,
 }
 
+ONTOLOGY_SOURCE_KEY = dg.AssetKey("dfo_ontology_source")
+ONTOLOGY_LANDING_KEY = dg.AssetKey("dfo_ontology_landing")
 ONTOLOGY_RAW_TABLE_KEY = dg.AssetKey("dfo_ontology_raw_code_mapping_table")
+ONTOLOGY_EXPORT_KEY = dg.AssetKey("dfo_ontology_dc_export")
+
+DFO_ONTOLOGY_ASSET_KEYS = {
+    ONTOLOGY_SOURCE_KEY,
+    ONTOLOGY_LANDING_KEY,
+    ONTOLOGY_RAW_TABLE_KEY,
+    ONTOLOGY_EXPORT_KEY,
+}
 
 # What code_mapping waits on: the compiled export, now loaded as a table, and
 # the two seeds holding the mappings the ontology has not adopted yet and the
@@ -559,6 +569,7 @@ def test_automation_sensor_runs_by_default(
         DAC1_ASSET_KEYS,
         DAC2A_ASSET_KEYS,
         DAC2B_ASSET_KEYS,
+        DFO_ONTOLOGY_ASSET_KEYS,
         DFO_SKILLS_ASSET_KEYS,
         DFO_SHARED_ASSET_KEYS,
         CONVERSION_TABLES_ASSET_KEYS,
@@ -572,6 +583,7 @@ def test_automation_sensor_runs_by_default(
         "dac1",
         "dac2a",
         "dac2b",
+        "dfo_ontology",
         "dfo_skills",
         "dfo_shared",
         "conversion_tables",
@@ -660,10 +672,8 @@ def test_ims_source_cascades_through_dbt_models_to_the_export() -> None:
     `one_imputed_multilateral_sectors_dc_export` requested too. The two shared
     mapping models, `code_mapping` and `stat_type_mapping`, are materialized
     here as a precondition rather than as part of the cascade under test: they
-    come from the ontology pipeline, whose root asset
-    `dfo_ontology_landing` carries no automation condition, so a
-    deployment materializes it once by hand before any pipeline's dbt models
-    can run.
+    come from other pipelines, and the ontology's cascade into `code_mapping` is
+    tested on its own.
 
     `_first_requested_ticks` walks the cascade tick by tick rather than
     reporting every materialization up front, so it can record, for every
@@ -806,6 +816,17 @@ def test_code_mapping_is_requested_once_its_parents_are_materialized() -> None:
     requested_counts = _requested_counts({CODE_MAPPING_KEY}, CODE_MAPPING_PARENT_KEYS)
 
     assert requested_counts == {CODE_MAPPING_KEY.to_user_string(): 1}
+
+
+def test_ontology_source_cascades_to_the_code_mapping() -> None:
+    """Test an edit to the ontology rebuilds the code mapping every pipeline resolves against"""
+    first_requested_tick = _first_requested_ticks(
+        {ONTOLOGY_LANDING_KEY, ONTOLOGY_RAW_TABLE_KEY, CODE_MAPPING_KEY},
+        {ONTOLOGY_SOURCE_KEY} | (CODE_MAPPING_PARENT_KEYS - {ONTOLOGY_RAW_TABLE_KEY}),
+        max_ticks=5,
+    )
+
+    assert CODE_MAPPING_KEY in first_requested_tick
 
 
 def test_shared_export_is_requested_when_its_seeds_update() -> None:

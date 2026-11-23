@@ -1,17 +1,21 @@
 import shutil
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
+from dfo_ontology.config import Config
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
+from dfo_pipelines.extraction.metadata import FetchedRelease
+from dfo_pipelines.extraction.wikibase import LatestEdit, fetch_latest_edit
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.landing import landing_result
+from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
@@ -20,27 +24,48 @@ IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
 CODE_MAPPING_CSV = "codes.csv"
 COMPILE_REPORT = "report.txt"
+# The Wikibase instance the ontology is compiled from
+BENCH = Config(bench="prod")
 
 
-@dg.asset(
+@dg.observable_source_asset(
     group_name="dfo_ontology",
-    kinds={"file"},
-    check_specs=[
-        dg.AssetCheckSpec(
-            name="mcf_not_empty", asset="dfo_ontology_landing", blocking=True
-        ),
-        dg.AssetCheckSpec(
-            name="csv_not_empty", asset="dfo_ontology_landing", blocking=True
-        ),
-    ],
+    automation_condition=dg.AutomationCondition.on_cron("@daily"),
 )
-def dfo_ontology_landing(
-    context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
-):
-    """Compiled DFO ontology MCF, code mapping and validation report"""
-    landing_directory = landing_file_store.build_date_partitioned_path("dfo/ontology")
-    landing_directory.mkdir(parents=True, exist_ok=True)
+def dfo_ontology_source() -> dg.ObserveResult:
+    """Observed latest edit to the ontology's Wikibase instance"""
+    edit = _fetch_latest_edit()
+    version = f"{edit.revision_id}-{edit.deletion_log_id}"
+    return dg.ObserveResult(
+        metadata={
+            "dagster/uri": dg.MetadataValue.text(BENCH.url),
+            "version": dg.MetadataValue.text(version),
+        },
+        data_version=dg.DataVersion(version),
+    )
 
+
+def _fetch_latest_edit() -> LatestEdit:
+    """The latest edit to the namespaces the compiler reads from its bench"""
+    return fetch_latest_edit(api_url=BENCH.url, namespaces=BENCH.namespaces)
+
+
+def _edited_at(edit: LatestEdit) -> datetime:
+    """When the instance last changed: its latest revision or deletion"""
+    if edit.deleted_at is None:
+        return edit.revised_at
+    return max(edit.revised_at, edit.deleted_at)
+
+
+def fetch_ontology(
+    context: dg.AssetExecutionContext, directory: UPath
+) -> FetchedRelease:
+    """Write the compiled ontology, code mapping and report to `directory`
+
+    The instance is read again after the compile, so a compile is never
+    recorded under an edit older than one it may have read.
+    """
+    edit = _fetch_latest_edit()
     with tempfile.TemporaryDirectory() as staging_dir:
         staging_path = Path(staging_dir)
         result = run_logged(
@@ -48,7 +73,7 @@ def dfo_ontology_landing(
                 "dfo-ontology",
                 "compile",
                 "--bench",
-                "prod",
+                BENCH.bench,
                 "--output",
                 str(staging_path / ONTOLOGY_MCF),
             ]
@@ -64,21 +89,31 @@ def dfo_ontology_landing(
             raise RuntimeError(
                 f"The DFO ontology compiled without {', '.join(missing)}"
             )
+        if _fetch_latest_edit() != edit:
+            raise RuntimeError(
+                f"{BENCH.site} was edited during the compile: materialize again"
+            )
         for path in expected_files:
-            (landing_directory / path.name).write_bytes(path.read_bytes())
+            (directory / path.name).write_bytes(path.read_bytes())
 
-    mcf_path = landing_directory / ONTOLOGY_MCF
-    file_size = mcf_path.stat().st_size
-    code_rows = len((landing_directory / CODE_MAPPING_CSV).read_text().splitlines()) - 1
-    context.log.info(f"Wrote the compiled DFO ontology to {landing_directory}")
-    return landing_result(
-        landing_directory,
-        metadata={"node_count": dg.MetadataValue.int(count_mcf_nodes(mcf_path))},
-        check_results=[
-            dg.AssetCheckResult(check_name="mcf_not_empty", passed=(file_size > 0)),
-            dg.AssetCheckResult(check_name="csv_not_empty", passed=(code_rows > 0)),
-        ],
+    return FetchedRelease(
+        release_dates={"source": _edited_at(edit).date()},
+        metadata={
+            "node_count": dg.MetadataValue.int(
+                count_mcf_nodes(directory / ONTOLOGY_MCF)
+            )
+        },
     )
+
+
+dfo_ontology_landing = build_landing_asset(
+    group="dfo_ontology",
+    source=dfo_ontology_source,
+    dataset="ontology",
+    title="Compiled DFO ontology",
+    files=[ONTOLOGY_MCF, CODE_MAPPING_CSV],
+    fetch=fetch_ontology,
+)
 
 
 @dg.asset(
