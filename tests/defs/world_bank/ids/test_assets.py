@@ -1,5 +1,5 @@
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -36,14 +36,28 @@ def patch_release_date():
     )
 
 
-BULK_FILE_METADATA = {"A_D.xlsx": {"etag": "etag-A_D.xlsx-v1"}}
+# Each bulk file's metadata as its source observed it
+OBSERVED_FILES: dict[str, dict[str, str | int | None]] = {
+    filename: {"etag": f'"etag-{filename}-v1"'} for filename in BULK_XLSX_URLS
+}
+
+OBSERVATION = Observation(data_version="v1", metadata={"files": OBSERVED_FILES})
 
 
-def patch_bulk_file_metadata():
-    """Serve the bulk files' HEAD metadata without a network call"""
-    return patch(
-        "dfo_pipelines.defs.world_bank.ids.assets.fetch_ids_bulk_file_metadata",
-        return_value=BULK_FILE_METADATA,
+def _bulk_file_response(
+    request: httpx.Request,
+    *,
+    version: str = "v1",
+    content: Iterable[bytes] | None = None,
+) -> httpx.Response:
+    """A bulk file download at `version`, its body the request path by default"""
+    filename = request.url.path.rsplit("/", 1)[1]
+    return httpx.Response(
+        200,
+        headers={"etag": f'"etag-{filename}-{version}"'},
+        content=f"payload for {request.url.path}".encode()
+        if content is None
+        else content,
     )
 
 
@@ -53,8 +67,8 @@ def _write_fake_downloads(folder: UPath, df: pd.DataFrame) -> None:
         df.to_excel(folder / filename, index=False, engine="openpyxl")
 
 
-def _fake_download(df: pd.DataFrame) -> Callable[[UPath], None]:
-    return lambda folder: _write_fake_downloads(folder, df)
+def _fake_download(df: pd.DataFrame) -> Callable[..., None]:
+    return lambda folder, observed_files: _write_fake_downloads(folder, df)
 
 
 def _mock_http(handler: Callable[[httpx.Request], httpx.Response]):
@@ -268,19 +282,16 @@ def test_fetch_ids_combines_the_downloads_unmodified(
     )
     with (
         patch_release_date(),
-        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(source_df),
         ) as download,
     ):
-        release_dates, metadata = fetch_ids(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        release_dates, metadata = fetch_ids(UPath(tmp_path), OBSERVATION)
 
-    download.assert_called_once_with(file_path.parent)
+    download.assert_called_once_with(file_path.parent, observed_files=OBSERVED_FILES)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
-    assert metadata == {"files": BULK_FILE_METADATA}
+    assert metadata == {"files": OBSERVED_FILES}
 
     # files are combined unmodified: 2 rows x 6 files, original columns, year
     # headers carried through as strings
@@ -329,7 +340,6 @@ def test_fetch_ids_cleans_up_when_combine_fails(
 
     with (
         patch_release_date(),
-        patch_bulk_file_metadata(),
         patch(
             "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
             side_effect=_fake_download(df),
@@ -340,7 +350,7 @@ def test_fetch_ids_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        fetch_ids(UPath(tmp_path), Observation(data_version="v1", metadata={}))
+        fetch_ids(UPath(tmp_path), OBSERVATION)
 
     assert list(file_path.parent.iterdir()) == []
 
@@ -351,10 +361,10 @@ def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         requested.append(str(request.url))
-        return httpx.Response(200, content=f"payload for {request.url.path}".encode())
+        return _bulk_file_response(request)
 
     with _mock_http(handler):
-        download_ids_bulk_data_files(UPath(tmp_path))
+        download_ids_bulk_data_files(UPath(tmp_path), observed_files=OBSERVED_FILES)
 
     assert requested == list(BULK_XLSX_URLS.values())
     for filename, url in BULK_XLSX_URLS.items():
@@ -369,7 +379,7 @@ def test_download_ids_bulk_data_files_raises_on_http_error(tmp_path: Path) -> No
         return httpx.Response(404)
 
     with _mock_http(handler), pytest.raises(httpx.HTTPStatusError):
-        download_ids_bulk_data_files(UPath(tmp_path))
+        download_ids_bulk_data_files(UPath(tmp_path), observed_files=OBSERVED_FILES)
 
 
 def test_download_ids_bulk_data_files_cleans_up_on_http_failure(tmp_path: Path) -> None:
@@ -383,10 +393,10 @@ def test_download_ids_bulk_data_files_cleans_up_on_http_failure(tmp_path: Path) 
         download_number += 1
         if download_number == download_to_fail_on:
             return httpx.Response(404)
-        return httpx.Response(200, content=f"payload for {request.url.path}".encode())
+        return _bulk_file_response(request)
 
     with _mock_http(handler), pytest.raises(httpx.HTTPStatusError):
-        download_ids_bulk_data_files(UPath(tmp_path))
+        download_ids_bulk_data_files(UPath(tmp_path), observed_files=OBSERVED_FILES)
 
     for filename in BULK_XLSX_URLS:
         assert not (tmp_path / filename).exists(), (
@@ -411,15 +421,38 @@ def test_download_ids_bulk_data_files_cleans_up_on_interrupted_download(
             raise httpx.ReadError("connection reset")
 
         if download_number == download_to_fail_on:
-            return httpx.Response(200, content=send_chunk_then_fail())
+            return _bulk_file_response(request, content=send_chunk_then_fail())
 
-        return httpx.Response(200, content=f"payload for {request.url.path}".encode())
+        return _bulk_file_response(request)
 
     with _mock_http(handler), pytest.raises(httpx.ReadError):
-        download_ids_bulk_data_files(UPath(tmp_path))
+        download_ids_bulk_data_files(UPath(tmp_path), observed_files=OBSERVED_FILES)
 
     for filename in BULK_XLSX_URLS:
         assert not (tmp_path / filename).exists()
+
+
+@pytest.mark.parametrize("download_that_moved", [1, 4])
+def test_download_ids_bulk_data_files_refuses_a_file_that_moved_after_the_observation(
+    tmp_path: Path, download_that_moved: int
+) -> None:
+    """Test a bulk file republished since its source was observed stops the download
+    and leaves no file behind"""
+    download_number = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal download_number
+        download_number += 1
+        version = "v2" if download_number == download_that_moved else "v1"
+        return _bulk_file_response(request, version=version)
+
+    with (
+        _mock_http(handler),
+        pytest.raises(ValueError, match="after it was observed: observe it again"),
+    ):
+        download_ids_bulk_data_files(UPath(tmp_path), observed_files=OBSERVED_FILES)
+
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_fetch_ids_release_date_reads_the_source_record() -> None:

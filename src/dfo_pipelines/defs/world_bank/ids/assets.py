@@ -1,5 +1,6 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
+from collections.abc import Mapping
 from datetime import date
 
 import dagster as dg
@@ -63,18 +64,23 @@ def fetch_ids_bulk_file_metadata() -> dict[str, dict[str, str | int | None]]:
         for filename, url in BULK_XLSX_URLS.items():
             response = client.head(url)
             response.raise_for_status()
-            content_length = response.headers.get("content-length")
-            files[filename] = {
-                "etag": response.headers.get("etag"),
-                "last_modified": response.headers.get("last-modified"),
-                "content_length": (
-                    int(content_length) if content_length is not None else None
-                ),
-                "version_id": response.headers.get("x-ms-version-id"),
-                "url": url,
-            }
+            files[filename] = _bulk_file_metadata(url, response.headers)
 
     return files
+
+
+def _bulk_file_metadata(
+    url: str, headers: httpx.Headers
+) -> dict[str, str | int | None]:
+    """The metadata recorded for an IDS bulk file, from its response headers"""
+    content_length = headers.get("content-length")
+    return {
+        "etag": headers.get("etag"),
+        "last_modified": headers.get("last-modified"),
+        "content_length": int(content_length) if content_length is not None else None,
+        "version_id": headers.get("x-ms-version-id"),
+        "url": url,
+    }
 
 
 def get_ids_bulk_download_version(
@@ -135,14 +141,14 @@ def world_bank_ids_source() -> dg.ObserveResult:
 
 
 def fetch_ids(directory: UPath, observation: Observation) -> FetchedRelease:
-    """Write the combined IDS bulk files to `directory`
+    """Write the combined IDS bulk files the observation saw to `directory`
 
     An unmodified concatenation of the World Bank's six IDS bulk XLSX files
     ("Counterpart-Area: All") into a single wide-format parquet file.
     """
     source_release_date = fetch_ids_release_date()
-    files = fetch_ids_bulk_file_metadata()
-    download_ids_bulk_data_files(directory)
+    files = observation.metadata["files"]
+    download_ids_bulk_data_files(directory, observed_files=files)
     combine_ids_bulk_data_files(directory, directory / "ids.parquet")
     return FetchedRelease(
         release_dates={"source": source_release_date}, metadata={"files": files}
@@ -182,13 +188,37 @@ def fetch_ids_release_date() -> date:
     return date.fromisoformat(source["lastupdated"])
 
 
-def download_ids_bulk_data_files(output_folder: UPath) -> None:
-    """Download the six IDS bulk XLSX files into folder."""
+def download_ids_bulk_data_files(
+    output_folder: UPath,
+    *,
+    observed_files: Mapping[str, dict[str, str | int | None]],
+) -> None:
+    """Download the six IDS bulk XLSX files into folder, as observed
+
+    Args:
+        output_folder: Folder the files are written to.
+        observed_files: Each file's metadata when the source was observed.
+
+    Raises:
+        ValueError: If a file's version differs from the observed one.
+    """
     try:
         with httpx.Client(follow_redirects=True, timeout=600) as client:
             for filename, url in BULK_XLSX_URLS.items():
                 with client.stream("GET", url) as resp:
                     resp.raise_for_status()
+                    observed = get_ids_bulk_download_version(
+                        filename, observed_files[filename]
+                    )
+                    version = get_ids_bulk_download_version(
+                        filename, _bulk_file_metadata(url, resp.headers)
+                    )
+                    if version != observed:
+                        raise ValueError(
+                            f"World Bank IDS bulk file {filename} moved from "
+                            f"{observed} to {version} after it was observed: "
+                            "observe it again"
+                        )
                     with (output_folder / filename).open("wb") as f:
                         for chunk in resp.iter_bytes(chunk_size=DOWNLOAD_CHUNK_SIZE):
                             f.write(chunk)

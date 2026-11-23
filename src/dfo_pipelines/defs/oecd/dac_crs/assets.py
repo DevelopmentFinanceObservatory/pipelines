@@ -68,11 +68,13 @@ def oecd_dac_crs_source() -> dg.ObserveResult:
 
 
 def fetch_dac_crs(directory: UPath, observation: Observation) -> FetchedRelease:
-    """Write the CRS bulk file to `directory`"""
+    """Write the CRS bulk file the observation saw to `directory`"""
     return fetch_bulk_file(
         directory / "dac_crs.parquet",
         flow_url=CRS_FLOW_URL,
         label=CRS_BULK_LABEL,
+        observed_url=observation.metadata["dagster/uri"],
+        observed_version=observation.metadata["version"],
         download=bulk_download_crs,
         downloaded_name="CRS.parquet",
         release_date=lambda _, version: parse_crs_release_date(version),

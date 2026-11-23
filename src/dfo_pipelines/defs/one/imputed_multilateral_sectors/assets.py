@@ -117,29 +117,28 @@ def verify_release_provenance(
     """Refuse a result whose provenance disagrees with the observed releases.
 
     `imputed_multilateral_by_purpose` resolves its own release token through
-    `oda_reader`'s 7-day HTTP annotation cache in the same process, so it can
-    lag `resolve_bulk_versions()`'s bypassing lookup even when both run
-    back-to-back. This checks the token `result.attrs["provenance"]` reports
-    against the token observed immediately before the compute, then checks
-    that same token again against one observed immediately after: the bulk
-    file's URL stays stable across a republish, so a mid-compute republish
-    would otherwise be invisible to the first check alone.
+    `oda_reader`'s 7-day HTTP annotation cache, so it can lag the source's
+    bypassing lookup, or read a release published since the observation. This
+    checks the token `result.attrs["provenance"]` reports against the token
+    observed, then checks that same token again against one looked up
+    immediately after the compute: the bulk file's URL stays stable across a
+    republish, so a mid-compute republish would otherwise be invisible to the
+    first check alone.
 
     Args:
         provenance: `result.attrs.get("provenance")` from
             `imputed_multilateral_by_purpose`, read before any further
             transformation of the result frame.
         observed_before: `{"crs": ..., "multisystem": ...}` version tokens
-            from `resolve_bulk_versions()`, called immediately before the
-            compute.
+            the source observed.
         observed_after: The same tokens, from `resolve_bulk_versions()`
             called immediately after the compute.
 
     Raises:
         ValueError: If `provenance` is missing, a source's release is `None`
             or `"supplied"`, a source's reported `release_id` differs from
-            the token observed before the compute, or a source's token moved
-            between the two observations.
+            the token observed, or a source's token moved between the
+            observation and the lookup after the compute.
     """
     if provenance is None:
         raise ValueError(
@@ -159,14 +158,14 @@ def verify_release_provenance(
         if release_id != before:
             raise ValueError(
                 f"{label} release provenance reports release_id {release_id!r}, "
-                f"but {before!r} was observed immediately before the compute"
+                f"but {before!r} was observed: observe it again"
             )
         after = observed_after[name]
         if after != before:
             raise ValueError(
-                f"{label} release moved from {before!r} to {after!r} while "
-                "imputed_multilateral_by_purpose was running; refusing a "
-                "result that may span two releases"
+                f"{label} release moved from {before!r} to {after!r} after it "
+                "was observed; refusing a result that may span two releases: "
+                "observe it again"
             )
 
 
@@ -296,7 +295,7 @@ def one_imputed_multilateral_sectors_source() -> dg.ObserveResult:
 def fetch_imputed_multilateral_sectors(
     directory: UPath, observation: Observation
 ) -> FetchedRelease:
-    """Compute the imputation between two release observations and write it
+    """Compute the imputation from the releases the observation saw and write it
 
     Computes `imputed_multilateral_by_purpose` for every provider and year
     `oda-data` has, gross disbursements at current USD prices, sector shares
@@ -309,12 +308,22 @@ def fetch_imputed_multilateral_sectors(
     `purpose_code` null).
 
     The CRS and Members' Total Use releases the compute reads are verified
-    against the releases observed immediately before and after it; a
-    disagreement, or a republish mid-compute, refuses the run rather than
+    against the releases the observation saw and those looked up after the
+    compute; a disagreement, a republish since the observation, or an
+    `oda-data` other than the observed one refuses the run rather than
     writing a result that may not match what was observed.
     """
-    (_, crs_before), (_, multi_before) = resolve_bulk_versions()
-    observed_before = {"crs": crs_before, "multisystem": multi_before}
+    oda_data_version = installed_version("oda-data")
+    if oda_data_version != observation.metadata["oda_data_version"]:
+        raise ValueError(
+            f"oda-data {oda_data_version} is installed, but "
+            f"{observation.metadata['oda_data_version']} was observed: observe "
+            "one_imputed_multilateral_sectors_source again"
+        )
+    observed_before = {
+        "crs": observation.metadata["crs_version"],
+        "multisystem": observation.metadata["multisystem_version"],
+    }
 
     data = sector_imputations.imputed_multilateral_by_purpose(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True

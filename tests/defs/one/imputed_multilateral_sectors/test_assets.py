@@ -1,5 +1,6 @@
 import json
 from datetime import date
+from importlib.metadata import version as installed_version
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,6 +42,21 @@ CRS_VERSION = "v20260801"
 MULTI_VERSION = "v20260715"
 
 OBSERVED_TOKENS = {"crs": CRS_VERSION, "multisystem": MULTI_VERSION}
+
+
+def _observation(
+    *, crs_version: str = CRS_VERSION, oda_data_version: str | None = None
+) -> Observation:
+    """The source's observation of the releases, with the installed oda-data by default"""
+    return Observation(
+        data_version="v1",
+        metadata={
+            "crs_version": crs_version,
+            "multisystem_version": MULTI_VERSION,
+            "oda_data_version": oda_data_version or installed_version("oda-data"),
+        },
+    )
+
 
 CRS_RELEASE_RECORD = {
     "dataset": "CRSData",
@@ -497,18 +513,10 @@ def test_build_quality_metadata_reports_hand_computed_values() -> None:
     assert metadata["multisystem_release_id"] == dg.MetadataValue.text(MULTI_VERSION)
 
 
-def _patched_bulk_versions(*results: tuple[tuple[str, str], tuple[str, str]]):
-    """Stand in for resolve_bulk_versions, returning the given (crs, multi) pairs in order"""
-    if len(results) == 1:
-        return patch(
-            f"{ASSETS_MODULE}.resolve_bulk_versions",
-            autospec=True,
-            return_value=results[0],
-        )
+def _patched_bulk_versions(result: tuple[tuple[str, str], tuple[str, str]]):
+    """Stand in for resolve_bulk_versions, returning the given (crs, multi) pair"""
     return patch(
-        f"{ASSETS_MODULE}.resolve_bulk_versions",
-        autospec=True,
-        side_effect=list(results),
+        f"{ASSETS_MODULE}.resolve_bulk_versions", autospec=True, return_value=result
     )
 
 
@@ -642,10 +650,9 @@ CONFORMING_ROWS = [
 
 
 def _matching_bulk_and_frame(rows: list[dict], *, provenance: dict | None):
-    """Context managers patching resolve_bulk_versions (twice, matching) and the compute"""
+    """Context managers patching resolve_bulk_versions (matching) and the compute"""
     frame = _result_frame(rows, provenance=provenance)
     bulk_patch = _patched_bulk_versions(
-        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
     )
     compute_patch = patch(
@@ -678,9 +685,7 @@ def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_
         compute_patch,
         pytest.raises(ValueError, match="unexpected currencies"),
     ):
-        fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
 
 
 def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_purpose_returns_non_current_prices(
@@ -705,9 +710,7 @@ def test_fetch_imputed_multilateral_sectors_raises_when_imputed_multilateral_by_
         compute_patch,
         pytest.raises(ValueError, match="unexpected prices"),
     ):
-        fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
 
 
 def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_flow_types(
@@ -725,9 +728,7 @@ def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_f
     )
 
     with bulk_patch, compute_patch as imputed_multilateral_by_purpose:
-        fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
 
     imputed_multilateral_by_purpose.assert_called_once_with(
         currency=CURRENCY, base_year=None, flow_types=FLOW_TYPES, refresh=True
@@ -746,7 +747,6 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     expected = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
-        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
     )
     compute_patch = patch(
         f"{ASSETS_MODULE}.sector_imputations.imputed_multilateral_by_purpose",
@@ -755,9 +755,7 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     )
 
     with bulk_patch, compute_patch:
-        fetched = fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        fetched = fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
 
     written = pd.read_parquet(file_path)
     # Parquet round trip preserves the nullable Int64 columns and float/str
@@ -777,12 +775,19 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     assert metadata["value_share_status_imputed"] == dg.MetadataValue.float(1.0)
 
 
-def _refused_and_nothing_written(tmp_path: Path, *, bulk_patch, compute_patch) -> None:
+def _refused_and_nothing_written(
+    tmp_path: Path,
+    *,
+    bulk_patch,
+    compute_patch,
+    observation: Observation | None = None,
+    match: str | None = None,
+) -> None:
     file_path = tmp_path / "imputed_multilateral_sectors.parquet"
 
-    with bulk_patch, compute_patch, pytest.raises(ValueError):
+    with bulk_patch, compute_patch, pytest.raises(ValueError, match=match):
         fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
+            UPath(tmp_path), observation or _observation()
         )
 
     assert not file_path.exists()
@@ -864,15 +869,14 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_the_multisystem_
 def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moves_mid_compute(
     tmp_path: Path,
 ) -> None:
-    """Test a republish observed between the pre- and post-compute checks refuses
+    """Test a republish between the observation and the post-compute lookup refuses
 
     The bulk file's URL stays stable across a republish, so oda_data can
     download the new file under the old token; only comparing the token
-    observed before the compute to one observed after can catch this.
+    observed to one looked up after the compute can catch this.
     """
     frame = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
-        ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
         ((CRS_TEST_URL, "v20260901"), (MULTI_TEST_URL, MULTI_VERSION)),
     )
     compute_patch = patch(
@@ -887,9 +891,7 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moves_
         compute_patch,
         pytest.raises(ValueError, match="CRS release moved"),
     ):
-        fetch_imputed_multilateral_sectors(
-            UPath(tmp_path), Observation(data_version="v1", metadata={})
-        )
+        fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
 
     assert not file_path.exists()
 
@@ -900,9 +902,9 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_token_
     """Test a non-date release token refuses before any file is written
 
     resolve_bulk_versions already refuses a token like this itself; this
-    covers the asset's own write ordering directly, by patching
-    resolve_bulk_versions to return an ETag-shaped token that agrees with
-    provenance and so clears verify_release_provenance, in case that guard
+    covers the asset's own write ordering directly, with an observed
+    ETag-shaped token that agrees with provenance and with the lookup after
+    the compute, and so clears verify_release_provenance, in case that guard
     is ever bypassed.
     """
     provenance = {
@@ -912,7 +914,6 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_token_
     frame = _result_frame(CONFORMING_ROWS, provenance=provenance)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, ETAG_TOKEN), (MULTI_TEST_URL, MULTI_VERSION)),
-        ((CRS_TEST_URL, ETAG_TOKEN), (MULTI_TEST_URL, MULTI_VERSION)),
     )
     compute_patch = patch(
         f"{ASSETS_MODULE}.sector_imputations.imputed_multilateral_by_purpose",
@@ -920,8 +921,59 @@ def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_token_
         return_value=frame,
     )
     _refused_and_nothing_written(
-        tmp_path, bulk_patch=bulk_patch, compute_patch=compute_patch
+        tmp_path,
+        bulk_patch=bulk_patch,
+        compute_patch=compute_patch,
+        observation=_observation(crs_version=ETAG_TOKEN),
     )
+
+
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_a_release_moved_before_the_compute(
+    tmp_path: Path,
+) -> None:
+    """Test a republish between the observation and the compute refuses, though the
+    compute and the lookup after it agree on the new release"""
+    republished = "v20260901"
+    provenance = {
+        **VALID_PROVENANCE,
+        "crs_release": {**CRS_RELEASE_RECORD, "release_id": republished},
+    }
+    frame = _result_frame(CONFORMING_ROWS, provenance=provenance)
+    bulk_patch = _patched_bulk_versions(
+        ((CRS_TEST_URL, republished), (MULTI_TEST_URL, MULTI_VERSION)),
+    )
+    compute_patch = patch(
+        f"{ASSETS_MODULE}.sector_imputations.imputed_multilateral_by_purpose",
+        autospec=True,
+        return_value=frame,
+    )
+    _refused_and_nothing_written(
+        tmp_path,
+        bulk_patch=bulk_patch,
+        compute_patch=compute_patch,
+        match="was observed: observe it again",
+    )
+
+
+def test_fetch_imputed_multilateral_sectors_writes_nothing_when_oda_data_differs_from_the_observed(
+    tmp_path: Path,
+) -> None:
+    """Test an oda-data other than the one observed refuses before computing"""
+    _, compute_patch = _matching_bulk_and_frame(
+        CONFORMING_ROWS, provenance=VALID_PROVENANCE
+    )
+
+    with (
+        compute_patch as imputed_multilateral_by_purpose,
+        pytest.raises(
+            ValueError, match="observe one_imputed_multilateral_sectors_source again"
+        ),
+    ):
+        fetch_imputed_multilateral_sectors(
+            UPath(tmp_path), _observation(oda_data_version="0.0.1")
+        )
+
+    imputed_multilateral_by_purpose.assert_not_called()
 
 
 IMPUTED_STATVAR_DCID = (

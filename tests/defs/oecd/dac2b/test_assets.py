@@ -47,8 +47,14 @@ def test_dac2b_source_observes_the_dac2b_bulk_file() -> None:
     }
 
 
+OBSERVATION = Observation(
+    data_version="v1", metadata={"dagster/uri": DAC2B_TEST_URL, "version": "v20260801"}
+)
+
+
 def test_fetch_dac2b_dates_the_release_from_the_url(tmp_path: Path) -> None:
-    """Test the landing asset fetches the DAC2b bulk file and dates the release from its URL"""
+    """Test the landing asset fetches the DAC2b bulk file its source observed and dates
+    the release from its URL"""
     with (
         patch(
             "dfo_pipelines.defs.oecd.dac2b.assets.fetch_bulk_file", autospec=True
@@ -58,7 +64,7 @@ def test_fetch_dac2b_dates_the_release_from_the_url(tmp_path: Path) -> None:
             return_value=SOURCE_RELEASE_DATE,
         ) as dating,
     ):
-        fetch_dac2b(UPath(tmp_path), Observation(data_version="v1", metadata={}))
+        fetch_dac2b(UPath(tmp_path), OBSERVATION)
         arguments = dict(fetch.call_args.kwargs)
         assert arguments.pop("release_date")(DAC2B_TEST_URL, "v20260801") == (
             SOURCE_RELEASE_DATE
@@ -68,6 +74,8 @@ def test_fetch_dac2b_dates_the_release_from_the_url(tmp_path: Path) -> None:
     assert arguments == {
         "flow_url": DAC2B_FLOW_URL,
         "label": DAC2B_BULK_LABEL,
+        "observed_url": DAC2B_TEST_URL,
+        "observed_version": "v20260801",
         "download": bulk_download_dac2b,
         "downloaded_name": "table2b_data.parquet",
     }
