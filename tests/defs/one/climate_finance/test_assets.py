@@ -23,6 +23,7 @@ from dfo_pipelines.orchestration.resources import (
     UPathFileStoreResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT
+from tests.helpers import check_outcomes
 
 NAME = "2026a-rc9"
 STEMS = ["spending", "crdf_commitments", "btr_totals"]
@@ -175,9 +176,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
         assert metadata[f"{stem}_row_count"] == dg.IntMetadataValue(
             manifest.tables[stem].rows
         )
-    assert {
-        check.check_name: check.passed for check in result.get_asset_check_evaluations()
-    } == {f"{stem}_not_empty": True for stem in STEMS}
+    assert check_outcomes(result) == {f"{stem}_not_empty": True for stem in STEMS}
     assert metadata["dagster/row_count"] == dg.IntMetadataValue(
         sum(table.rows for table in manifest.tables.values())
     )
@@ -199,12 +198,9 @@ def test_landing_check_fails_on_a_table_with_no_rows(
 
     result = _materialize(instance, tmp_path, raise_on_error=False)
 
-    failed = {
-        check.check_name
-        for check in result.get_asset_check_evaluations()
-        if not check.passed
+    assert check_outcomes(result) == {
+        f"{other}_not_empty": other != stem for other in STEMS
     }
-    assert failed == {f"{stem}_not_empty"}
 
 
 def test_landing_refuses_an_export_replaced_after_the_observation(

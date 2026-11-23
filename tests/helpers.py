@@ -24,6 +24,13 @@ def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:
     return value
 
 
+def check_outcomes(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
+    """Whether each check the run evaluated passed, keyed on its name"""
+    return {
+        check.check_name: check.passed for check in result.get_asset_check_evaluations()
+    }
+
+
 def row_count(duckdb: DuckDBResource, table: str) -> int:
     """Number of rows in a database table"""
     with duckdb.get_connection() as connection:

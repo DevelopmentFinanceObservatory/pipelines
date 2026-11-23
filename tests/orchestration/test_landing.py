@@ -16,7 +16,7 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.landing import build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import AutomationHarness, logged_messages
+from tests.helpers import AutomationHarness, check_outcomes, logged_messages
 
 # Late enough in the UTC day that any zone east of UTC has moved to the next date.
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
@@ -114,9 +114,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "version": dg.TextMetadataValue("v20260801"),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
     }
-    [check] = result.get_asset_check_evaluations()
-    assert check.check_name == "file_not_empty"
-    assert check.passed
+    assert check_outcomes(result) == {"file_not_empty": True}
 
 
 def test_build_landing_asset_records_each_release(tmp_path: Path) -> None:
@@ -160,9 +158,7 @@ def test_build_landing_asset_check_fails_when_the_file_holds_no_rows(
         build_example(fetch_rows(0)), tmp_path, raise_on_error=False
     )
 
-    [check] = result.get_asset_check_evaluations()
-    assert check.check_name == "file_not_empty"
-    assert not check.passed
+    assert check_outcomes(result) == {"file_not_empty": False}
 
 
 def test_build_landing_asset_writes_no_metadata_when_the_fetch_fails(

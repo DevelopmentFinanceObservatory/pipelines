@@ -26,7 +26,7 @@ from dfo_pipelines.orchestration.resources import (
     SkillsRepositoryResource,
     UPathFileStoreResource,
 )
-from tests.helpers import AutomationHarness, meta, project_definitions
+from tests.helpers import AutomationHarness, check_outcomes, meta, project_definitions
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -120,10 +120,7 @@ def materialize_landing(tmp_path: Path) -> LandingRun:
     return LandingRun(
         directory=Path(result.output_for_node("dfo_skills_landing")),
         materialization=materialization,
-        checks={
-            check.check_name: check.passed
-            for check in result.get_asset_check_evaluations()
-        },
+        checks=check_outcomes(result),
     )
 
 

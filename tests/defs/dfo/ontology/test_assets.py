@@ -19,7 +19,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     dfo_ontology_raw_code_mapping_table,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import column_list, meta, row_count
+from tests.helpers import check_outcomes, column_list, meta, row_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -116,13 +116,6 @@ def checks(result: dg.MaterializeResult) -> dict[str, bool]:
     return {str(check.check_name): bool(check.passed) for check in result.check_results}
 
 
-def run_checks(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
-    """The checks the run evaluated, keyed on name"""
-    return {
-        check.check_name: check.passed for check in result.get_asset_check_evaluations()
-    }
-
-
 def test_landing_counts_the_nodes_the_mcf_declares(
     tmp_path: Path, compiler: Any
 ) -> None:
@@ -177,7 +170,7 @@ def test_landing_check_fails_when_the_mcf_is_empty(
 
     result = materialize_landing(tmp_path, raise_on_error=False)
 
-    assert run_checks(result) == {"mcf_not_empty": False, "csv_not_empty": True}
+    assert check_outcomes(result) == {"mcf_not_empty": False, "csv_not_empty": True}
 
 
 def test_landing_check_fails_when_the_code_mapping_has_no_rows(
@@ -191,7 +184,7 @@ def test_landing_check_fails_when_the_code_mapping_has_no_rows(
 
     result = materialize_landing(tmp_path, raise_on_error=False)
 
-    assert run_checks(result) == {"mcf_not_empty": True, "csv_not_empty": False}
+    assert check_outcomes(result) == {"mcf_not_empty": True, "csv_not_empty": False}
 
 
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
