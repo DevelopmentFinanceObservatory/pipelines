@@ -7,6 +7,7 @@ import dagster as dg
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
@@ -214,6 +215,21 @@ def test_build_raw_table_assets_failed_table_load_records_no_metadata(
             "example_raw_tables"
         )
     }
+
+
+def test_build_raw_table_assets_refuses_a_release_name_that_is_not_an_identifier() -> (
+    None
+):
+    """Test a release name that is not a safe SQL identifier is refused when the
+    assets are defined"""
+    with pytest.raises(ValueError, match="Crs Source"):
+        build_raw_table_assets(
+            group="example",
+            title="Example",
+            tables=TABLES,
+            metadata_table="raw_example_metadata",
+            release_names=("crs", "Crs Source"),
+        )
 
 
 def test_build_raw_table_assets_mismatched_release_names_load_no_table(

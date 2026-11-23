@@ -1,3 +1,4 @@
+import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -8,6 +9,8 @@ from upath import UPath
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
+
+_RELEASE_NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 
 
 def raw_table_result(
@@ -77,7 +80,16 @@ def build_raw_table_assets(
         tables: The landing directory's files and the tables they load into.
         metadata_table: Name of the extraction metadata's database table.
         release_names: Names of the releases the metadata records a date for.
+
+    Raises:
+        ValueError: If a release name is not a SQL identifier.
     """
+    for name in release_names:
+        if not _RELEASE_NAME_PATTERN.fullmatch(name):
+            raise ValueError(
+                f"Invalid release name {name!r}: must match "
+                f"{_RELEASE_NAME_PATTERN.pattern!r}"
+            )
     landing_key = dg.AssetKey(f"{group}_landing")
     metadata_key = dg.AssetKey(f"{group}_raw_metadata")
 
@@ -115,7 +127,7 @@ def build_raw_table_assets(
     def raw_tables(duckdb: DuckDBResource, landing_directory: str):
         directory = UPath(landing_directory)
         with duckdb.get_connection() as connection:
-            read_extraction_metadata(directory, release_names=release_names)
+            metadata = read_extraction_metadata(directory, release_names=release_names)
             for raw_table in tables:
                 rows = load_parquet(
                     connection,
@@ -131,10 +143,9 @@ def build_raw_table_assets(
                 )
             rows = load_extraction_metadata(
                 connection,
-                directory=directory,
+                metadata=metadata,
                 schema=group,
                 table=metadata_table,
-                release_names=release_names,
             )
             yield metadata_table_result(
                 f"{group}.{metadata_table}", rows, asset_key=metadata_key
