@@ -97,9 +97,6 @@ def fetch_climate_finance(directory: UPath, observation: Observation) -> Fetched
                 f"{source} has sha256 {actual}, its manifest records {expected}"
             )
         (directory / f"{stem}.parquet").write_bytes(data)
-    dg.get_dagster_logger().info(
-        f"Copied climate finance release {manifest.release} to {directory}"
-    )
     return FetchedRelease(
         release_dates={"source": manifest.created_at.date()},
         metadata={"version": dg.MetadataValue.text(manifest.release)},
