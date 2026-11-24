@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
@@ -33,7 +35,6 @@ def dfo_shared_dc_export(
     A node belongs here when more than one pipeline links to it and the ontology
     does not define it.
     """
-    out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
     provenance_dcid = "dcid:provenance/DFOShared"
 
     manager = CustomDataManager()
@@ -75,16 +76,22 @@ def dfo_shared_dc_export(
         )
 
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
-    manager.export_all(str(out_dir))
+    with export_file_store.write_once_directory(
+        IMPORT_NAME, created_at=datetime.now(UTC), log=context.log
+    ) as out_dir:
+        manager.export_all(str(out_dir))
 
-    context.log.info(
-        f"Exported {len(license_types)} licence types and {len(properties)}"
-        f" properties to {out_dir}"
-    )
-    return export_directory_result(
-        out_dir,
-        {"license_type_count": len(license_types), "property_count": len(properties)},
-    )
+        context.log.info(
+            f"Exported {len(license_types)} licence types and {len(properties)}"
+            f" properties to {out_dir}"
+        )
+        return export_directory_result(
+            out_dir,
+            {
+                "license_type_count": len(license_types),
+                "property_count": len(properties),
+            },
+        )
 
 
 dfo_shared_dc_ingestion = build_dc_ingestion_asset(

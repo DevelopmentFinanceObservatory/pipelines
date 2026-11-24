@@ -28,6 +28,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import exported_directory
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -1090,18 +1091,12 @@ def _run_export(tmp_path: Path) -> Path:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 8, 3)
-        out_dir = file_store.build_date_partitioned_path(
-            IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC.import_name
-        )
-        one_imputed_multilateral_sectors_dc_export(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return Path(str(out_dir))
+    result = one_imputed_multilateral_sectors_dc_export(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    return exported_directory(result)
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(

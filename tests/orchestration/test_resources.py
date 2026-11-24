@@ -1,7 +1,6 @@
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
 
 import dagster as dg
 import pytest
@@ -20,16 +19,6 @@ DEFAULTED_SETTINGS = {
     "GCS_INPUT_FOLDER_PATH": "elsewhere/input",
     "GCS_OUTPUT_FOLDER_PATH": "elsewhere/output",
 }
-
-
-def test_upath_file_store_build_date_partitioned_path(tmp_path: Path) -> None:
-    """Test the built path joins the base path, the given path and today's date"""
-    file_store = UPathFileStoreResource(base_path=str(tmp_path))
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 8, 3)
-        path = file_store.build_date_partitioned_path("oecd_dac_crs/dac_crs")
-
-    assert str(path) == f"{tmp_path}/oecd_dac_crs/dac_crs/2026/08/03"
 
 
 def test_upath_file_store_names_a_write_once_directory_by_its_utc_instant(

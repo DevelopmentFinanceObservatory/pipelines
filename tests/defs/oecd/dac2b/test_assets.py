@@ -17,6 +17,7 @@ from dfo_pipelines.defs.oecd.dac2b.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import exported_directory
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2B_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2b/DAC2b.parquet"
@@ -161,15 +162,12 @@ def _run_dc_export(tmp_path: Path) -> Path:
         connection.execute(DC_MODELS_SQL)
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 10, 7)
-        oecd_dac2b_dc_export(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return tmp_path / "processed" / "oecd_dac2b" / "2026" / "10" / "07"
+    result = oecd_dac2b_dc_export(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    return exported_directory(result)
 
 
 def test_oecd_dac2b_dc_export_writes_the_import_config(tmp_path: Path) -> None:

@@ -18,6 +18,7 @@ from dfo_pipelines.defs.oecd.dac_crs.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import exported_directory
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
@@ -188,16 +189,12 @@ def run_export(tmp_path: Path) -> Path:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 8, 3)
-        out_dir = file_store.build_date_partitioned_path("oecd_dac_crs")
-        oecd_dac_crs_dc_export(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return Path(str(out_dir))
+    result = oecd_dac_crs_dc_export(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    return exported_directory(result)
 
 
 def test_dac_crs_dc_export_writes_the_import_config(tmp_path: Path) -> None:

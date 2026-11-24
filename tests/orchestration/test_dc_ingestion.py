@@ -21,7 +21,7 @@ def test_build_dc_ingestion_asset_ingests_the_bundle_the_export_wrote(
 ) -> None:
     """Test the ingestion hands the export's directory to `ingest_bundle` under its
     import name, and reports where the bundle was staged"""
-    bundle = "data/processed/example/2026/01/01"
+    bundle = "data/exports/example/20260101T000000Z"
     destination = "gs://test-bucket/ingestion/input/example"
 
     @dg.asset(group_name="example")

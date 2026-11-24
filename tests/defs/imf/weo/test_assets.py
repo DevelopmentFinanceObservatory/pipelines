@@ -21,6 +21,7 @@ from dfo_pipelines.defs.imf.weo.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import exported_directory
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
@@ -220,15 +221,12 @@ def _run_dc_export(tmp_path: Path) -> Path:
         connection.execute(DC_MODELS_SQL)
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 10, 1)
-        imf_weo_dc_export(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return tmp_path / "processed" / "imf_weo" / "2026" / "10" / "01"
+    result = imf_weo_dc_export(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    return exported_directory(result)
 
 
 def test_imf_weo_dc_export_writes_the_import_config(tmp_path: Path) -> None:
