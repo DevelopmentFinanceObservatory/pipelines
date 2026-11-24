@@ -670,7 +670,10 @@ def dfo_skills_dc_export(
 
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
     with export_file_store.write_once_directory(
-        IMPORT_NAME, created_at=datetime.now(UTC), log=context.log
+        IMPORT_NAME,
+        created_at=datetime.now(UTC),
+        run_id=context.run.run_id,
+        log=context.log,
     ) as out_dir:
         manager.export_all(str(out_dir))
         context.log.info(

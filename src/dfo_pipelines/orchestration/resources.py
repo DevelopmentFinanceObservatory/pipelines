@@ -25,10 +25,13 @@ class UPathFileStoreResource(StrictConfigurableResource):
 
     @contextmanager
     def write_once_directory(
-        self, path: str, *, created_at: datetime, log: logging.Logger
+        self, path: str, *, created_at: datetime, run_id: str, log: logging.Logger
     ) -> Iterator[UPath]:
-        """Create `<base_path>/<path>/<created_at in UTC>` for the block to write,
-        and remove it if the block raises
+        """Create `<base_path>/<path>/<created_at in UTC>_<run_id>` for the block to
+        write, and remove it if the block raises
+
+        The run ID keeps runs that start in the same second out of each other's
+        directory, since `mkdir` reserves nothing on GCS.
 
         Raises:
             FileExistsError: If the directory exists, since each is written once.
@@ -36,7 +39,7 @@ class UPathFileStoreResource(StrictConfigurableResource):
         directory = (
             UPath(self.base_path)
             / path
-            / created_at.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+            / f"{created_at.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}_{run_id}"
         )
         if directory.exists():
             raise FileExistsError(

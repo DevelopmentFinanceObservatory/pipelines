@@ -175,8 +175,8 @@ def build_landing_asset(
     The asset passes its fetch the source's latest observation, and fails with
     a ValueError when the source has none.
 
-    Each download is written once, to a directory named for its UTC instant, with
-    the extraction metadata written last.
+    Each download is written once, to a directory named for its UTC instant and run
+    ID, with the extraction metadata written last.
 
     Args:
         group: Group of the source, naming the asset `<group>_landing`.
@@ -225,7 +225,10 @@ def build_landing_asset(
         observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
         with landing_file_store.write_once_directory(
-            f"{group}/{dataset}", created_at=downloaded_at, log=context.log
+            f"{group}/{dataset}",
+            created_at=downloaded_at,
+            run_id=context.run.run_id,
+            log=context.log,
         ) as directory:
             release_dates, source_metadata = fetch(directory, observation)
             paths = {

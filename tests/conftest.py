@@ -1,9 +1,11 @@
 from collections.abc import Iterator
 from datetime import datetime, timedelta, tzinfo
 from itertools import count
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
+import dagster as dg
 import pytest
+from dagster._core.execution.context.invocation import DirectOpExecutionContext
 
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 from tests.helpers import DOWNLOADED_AT
@@ -18,6 +20,18 @@ def knowledge_graph() -> KnowledgeGraphResource:
         bucket_name="test-bucket",
         workflow_name="test-workflow",
     )
+
+
+@pytest.fixture(autouse=True)
+def direct_invocation_run() -> Iterator[None]:
+    """Give a directly invoked asset a run, as `build_asset_context` sets none"""
+    with patch.object(
+        DirectOpExecutionContext,
+        "dagster_run",
+        new_callable=PropertyMock,
+        return_value=dg.DagsterRun(job_name="direct", run_id="direct-run"),
+    ):
+        yield
 
 
 @pytest.fixture
