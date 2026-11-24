@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
+import pytest
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import (
@@ -153,11 +154,14 @@ def test_build_dc_export_asset_removes_the_bundle_of_a_failed_run(
         (out_dir / "config.json").write_text("{}")
         raise RuntimeError("export failed")
 
-    with patch(
-        "dfo_pipelines.orchestration.dc_export.export_bundle",
-        side_effect=write_part_of_the_bundle,
+    with (
+        patch(
+            "dfo_pipelines.orchestration.dc_export.export_bundle",
+            side_effect=write_part_of_the_bundle,
+        ),
+        pytest.raises(RuntimeError, match="export failed"),
     ):
-        result = dg.materialize(
+        dg.materialize(
             [asset],
             resources={
                 "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
@@ -165,10 +169,8 @@ def test_build_dc_export_asset_removes_the_bundle_of_a_failed_run(
                     base_path=str(tmp_path / "processed")
                 ),
             },
-            raise_on_error=False,
         )
 
-    assert not result.success
     assert list((tmp_path / "processed" / "example").iterdir()) == []
 
 
