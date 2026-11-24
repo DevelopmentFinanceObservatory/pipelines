@@ -20,14 +20,12 @@ class UPathFileStoreResource(StrictConfigurableResource):
 
     base_path: str
 
-    def build_date_partitioned_path(
-        self, path: str, *, partition_date: date | None = None
-    ) -> UPath:
+    def build_date_partitioned_path(self, path: str) -> UPath:
         """Builds a path in the format `<base_path>/<path>/<YYYY>/<MM>/<DD>`.
 
-        The date partition is today's unless partition_date is given.
+        The date partition is today's.
         """
-        partition = (partition_date or date.today()).strftime("%Y/%m/%d")
+        partition = date.today().strftime("%Y/%m/%d")
         return UPath(self.base_path) / path / partition
 
 

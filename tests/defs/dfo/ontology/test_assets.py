@@ -177,15 +177,11 @@ def test_landing_raises_when_the_compiler_fails(tmp_path: Path, compiler: Any) -
         )
 
 
+@pytest.mark.usefixtures("download_clock")
 def test_landing_publishes_nothing_when_an_output_is_missing(
     tmp_path: Path, compiler: Any
 ) -> None:
-    """Test a compile missing an output leaves what an earlier one published
-
-    Runs on the same day write into the same directory, so replacing its files
-    one by one would leave the ontology of one compile beside the mapping of
-    another, with no materialization recording that it happened.
-    """
+    """Test a compile missing an output leaves what an earlier one published"""
     published = landed_directory(materialize_observed(tmp_path, compiler))
 
     with pytest.raises(RuntimeError, match=re.escape(CODE_MAPPING_CSV)):
@@ -198,6 +194,7 @@ def test_landing_publishes_nothing_when_an_output_is_missing(
         )
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
+    assert list(published.parent.iterdir()) == [published]
 
 
 def test_source_versions_the_compile(compiler: Any) -> None:
@@ -245,6 +242,7 @@ def test_landing_records_the_day_it_compiled_as_the_release_date(
     assert recorded["downloaded_at"].startswith(recorded["source_release_date"])
 
 
+@pytest.mark.usefixtures("download_clock")
 def test_landing_raises_when_the_compile_differs_from_the_observed_one(
     tmp_path: Path, compiler: Any
 ) -> None:
@@ -263,6 +261,7 @@ def test_landing_raises_when_the_compile_differs_from_the_observed_one(
         )
 
     assert (published / ONTOLOGY_MCF).read_text() == STUB_MCF
+    assert list(published.parent.iterdir()) == [published]
 
 
 def test_landing_check_fails_when_the_report_is_empty(

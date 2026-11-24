@@ -53,8 +53,10 @@ def _landing_directory(
     landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
 ) -> UPath:
     """Directory a download at `downloaded_at` is written to"""
-    return landing_file_store.build_date_partitioned_path(
-        path, partition_date=downloaded_at.date()
+    return (
+        UPath(landing_file_store.base_path)
+        / path
+        / downloaded_at.strftime("%Y%m%dT%H%M%SZ")
     )
 
 
@@ -132,6 +134,11 @@ def build_landing_asset(
     The asset passes its fetch the source's latest observation, and fails with
     a ValueError when the source has none.
 
+    Each download is written once, to a new directory named for its UTC instant. The
+    extraction metadata is written last, after the files are read and checked,
+    marking the directory complete, and a download that fails before then has its
+    directory removed.
+
     Args:
         group: Group of the source, naming the asset `<group>_landing`.
         source: The observable source asset the landing depends on.
@@ -182,22 +189,41 @@ def build_landing_asset(
             path=f"{group}/{dataset}",
             downloaded_at=downloaded_at,
         )
-        directory.mkdir(parents=True, exist_ok=True)
-        release_dates, source_metadata = fetch(directory, observation)
-        paths = {
-            stem: directory / file for stem, file in zip(stems, files, strict=True)
-        }
-        # Read before recording the download, so a missing or unreadable file
-        # leaves no record claiming one happened.
-        sizes = {stem: path.stat().st_size for stem, path in paths.items()}
-        rows = {
-            stem: count
-            for stem, path in paths.items()
-            if (count := _count_rows(path)) is not None
-        }
-        write_extraction_metadata(
-            directory, downloaded_at=downloaded_at, release_dates=release_dates
-        )
+        if directory.exists():
+            raise FileExistsError(
+                f"{directory} exists, and a landing directory is written once"
+            )
+        directory.mkdir(parents=True)
+        try:
+            release_dates, source_metadata = fetch(directory, observation)
+            paths = {
+                stem: directory / file for stem, file in zip(stems, files, strict=True)
+            }
+            sizes = {stem: path.stat().st_size for stem, path in paths.items()}
+            rows = {
+                stem: count
+                for stem, path in paths.items()
+                if (count := _count_rows(path)) is not None
+            }
+            check_results = _files_not_empty(files, stems, sizes=sizes, rows=rows) + [
+                dg.AssetCheckResult(check_name=check_name, passed=check(directory))
+                for check_name, check in checks.items()
+            ]
+            write_extraction_metadata(
+                directory,
+                downloaded_at=downloaded_at,
+                run_id=context.run.run_id,
+                release_dates=release_dates,
+            )
+        except BaseException:
+            # Raise the failure that stopped the write, not one from cleaning up.
+            try:
+                # An empty prefix on GCS does not exist, and removing it raises.
+                if directory.exists():
+                    directory.rmdir(recursive=True)
+            except Exception as error:
+                context.log.warning(f"Could not remove {directory}: {error}")
+            raise
         context.log.info(f"Wrote {title} data to {directory}")
 
         metadata: dict[str, dg.MetadataValue] = {}
@@ -222,11 +248,7 @@ def build_landing_asset(
                     for release, release_date in release_dates.items()
                 },
             },
-            check_results=_files_not_empty(files, stems, sizes=sizes, rows=rows)
-            + [
-                dg.AssetCheckResult(check_name=check_name, passed=check(directory))
-                for check_name, check in checks.items()
-            ],
+            check_results=check_results,
         )
 
     return landing

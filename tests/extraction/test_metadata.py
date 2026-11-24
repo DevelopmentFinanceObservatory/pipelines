@@ -13,12 +13,16 @@ from dfo_pipelines.extraction.metadata import (
 
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 RELEASE_DATES = {"crs": date(2026, 8, 3), "multisystem": date(2026, 7, 15)}
+RUN_ID = "example-run"
 
 
 def test_extraction_metadata_round_trips(tmp_path: Path) -> None:
     """Test what was recorded reads back equal"""
     write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
+        UPath(tmp_path),
+        downloaded_at=DOWNLOADED_AT,
+        run_id=RUN_ID,
+        release_dates=RELEASE_DATES,
     )
     assert read_extraction_metadata(
         UPath(tmp_path), release_names=RELEASE_DATES.keys()
@@ -29,7 +33,10 @@ def test_write_extraction_metadata_refuses_an_empty_mapping(tmp_path: Path) -> N
     """Test an extraction cannot record zero release dates"""
     with pytest.raises(ValueError, match="release_dates"):
         write_extraction_metadata(
-            UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates={}
+            UPath(tmp_path),
+            downloaded_at=DOWNLOADED_AT,
+            run_id=RUN_ID,
+            release_dates={},
         )
 
 
@@ -46,7 +53,10 @@ def test_read_extraction_metadata_raises_when_a_release_name_is_missing(
 ) -> None:
     """Test a name recorded elsewhere but not requested here is refused"""
     write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
+        UPath(tmp_path),
+        downloaded_at=DOWNLOADED_AT,
+        run_id=RUN_ID,
+        release_dates=RELEASE_DATES,
     )
     with pytest.raises(ValueError, match="crs_release_date"):
         read_extraction_metadata(UPath(tmp_path), release_names=("multisystem",))
@@ -57,7 +67,10 @@ def test_read_extraction_metadata_raises_when_a_release_name_is_unexpected(
 ) -> None:
     """Test a requested name that was never recorded is refused"""
     write_extraction_metadata(
-        UPath(tmp_path), downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
+        UPath(tmp_path),
+        downloaded_at=DOWNLOADED_AT,
+        run_id=RUN_ID,
+        release_dates=RELEASE_DATES,
     )
     with pytest.raises(ValueError, match="unmapped_release_date"):
         read_extraction_metadata(
