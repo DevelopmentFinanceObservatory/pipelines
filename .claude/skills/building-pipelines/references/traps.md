@@ -30,7 +30,7 @@ A downstream asset reads its upstream's path from the value the upstream returne
 
 ### An export directory is written once
 
-Each export writes its bundle to a new directory through `write_once_directory`, which removes it if the run raises or is cancelled. Ingestion reads only the directory a successful materialization recorded, so one left by a crash is never ingested. Enter the `with` just before the first write, so a run that fails validation creates nothing, and keep every read of the bundle inside it.
+Each export writes its bundle to a new directory through `write_once_directory`, which removes it if the run raises or is cancelled. Ingestion reads only the directory a successful materialization recorded, so one left by a crash is never ingested. Enter the `with` just before the first write, and keep every write and read of the bundle inside it.
 
 ## dbt
 
