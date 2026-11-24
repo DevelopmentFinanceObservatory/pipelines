@@ -24,6 +24,14 @@ def knowledge_graph() -> KnowledgeGraphResource:
     )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def local_environment() -> Iterator[None]:
+    """Load definitions for the local environment, whatever the shell holds"""
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setenv("DFO_ENVIRONMENT", "local")
+        yield
+
+
 @pytest.fixture(autouse=True)
 def direct_invocation_run() -> Iterator[None]:
     """Give a directly invoked asset a run, as `build_asset_context` sets none"""

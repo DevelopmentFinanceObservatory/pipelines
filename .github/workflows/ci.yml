@@ -137,6 +137,7 @@ jobs:
       - name: Check Dagster definitions load
         env:
           DUCKDB_PATH: /tmp/ci.duckdb
+          DFO_ENVIRONMENT: local
         run: uv run dg check defs
 
       # Dagster's dbt build skips these, since it runs only tests attached to its assets.

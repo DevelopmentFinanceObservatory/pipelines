@@ -3,6 +3,7 @@ from pathlib import Path
 import dagster as dg
 from dagster_duckdb import DuckDBResource
 
+from dfo_pipelines.orchestration.environment import Environment, dfo_environment
 from dfo_pipelines.orchestration.resources import (
     ClimateFinanceExportResource,
     KnowledgeGraphResource,
@@ -13,6 +14,7 @@ from dfo_pipelines.orchestration.resources import (
 
 @dg.definitions
 def defs():
+    environment = dfo_environment()
     loaded = dg.load_from_defs_folder(path_within_project=Path(__file__).parent)
     return dg.Definitions.merge(
         loaded,
@@ -20,7 +22,11 @@ def defs():
             # One step at a time, since DuckDB allows one read-write process.
             executor=dg.multiprocess_executor.configured({"max_concurrent": 1}),
             resources={
-                "landing_file_store": UPathFileStoreResource(base_path="data/landing"),
+                "landing_file_store": UPathFileStoreResource(
+                    base_path="data/landing"
+                    if environment is Environment.LOCAL
+                    else dg.EnvVar("LANDING_STORE_URI")
+                ),
                 "export_file_store": UPathFileStoreResource(base_path="data/exports"),
                 "duckdb": DuckDBResource(database=dg.EnvVar("DUCKDB_PATH")),
                 "knowledge_graph": KnowledgeGraphResource(
