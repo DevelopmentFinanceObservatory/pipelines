@@ -178,10 +178,11 @@ def dfo_ontology_dc_export(
         IMPORT_NAME, created_at=datetime.now(UTC), log=context.log
     ) as out_dir:
         manager.export_all(str(out_dir), validate_data=True)
-        shutil.copyfileobj(
-            (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb"),
-            (out_dir / ONTOLOGY_MCF).open("wb"),
-        )
+        with (
+            (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb") as source,
+            (out_dir / ONTOLOGY_MCF).open("wb") as destination,
+        ):
+            shutil.copyfileobj(source, destination)
         context.log.info(f"Exported the DFO ontology to {out_dir}")
         return export_directory_result(
             out_dir, {"node_count": count_mcf_nodes(out_dir / ONTOLOGY_MCF)}
