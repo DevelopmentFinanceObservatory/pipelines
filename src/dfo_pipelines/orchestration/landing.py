@@ -163,7 +163,7 @@ def _named_check_results(
     ]
 
 
-def _download_metadata(
+def _size_and_row_count_metadata(
     sizes: Mapping[str, int], rows: Mapping[str, int]
 ) -> dict[str, dg.MetadataValue]:
     """Total size and row count of the files, and each file's row count when several
@@ -285,7 +285,7 @@ def build_landing_asset(
         return _landing_result(
             directory,
             metadata={
-                **_download_metadata(sizes, rows),
+                **_size_and_row_count_metadata(sizes, rows),
                 **source_metadata,
                 **_release_date_metadata(release_dates),
             },
