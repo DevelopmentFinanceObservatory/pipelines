@@ -10,23 +10,22 @@ import pytest
 from dagster_duckdb import DuckDBResource
 from oda_data.clean_data.schema import ODASchema
 from oda_reader.download.download_tools import CRS_FLOW_URL, MULTI_FLOW_URL
+from oda_reader.multisystem import MULTISYSTEM_BULK_LABEL
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES
 from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
-    CRS_BULK_LABEL,
     CURRENCY,
     FLOW_TYPES,
     IMPUTED_MULTILATERAL_SECTORS_EXPORT_SPEC,
-    MULTISYSTEM_BULK_LABEL,
     build_quality_metadata,
     fetch_imputed_multilateral_sectors,
     one_imputed_multilateral_sectors_dc_export,
     one_imputed_multilateral_sectors_source,
-    parse_release_date,
     resolve_bulk_versions,
     verify_release_provenance,
 )
+from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
@@ -180,34 +179,6 @@ def test_resolve_bulk_versions_raises_when_the_multisystem_token_carries_no_date
         ),
     ):
         resolve_bulk_versions()
-
-
-def test_parse_release_date_reads_the_date_from_the_version_token() -> None:
-    """Test the publication date is read out of a vYYYYMMDD token"""
-    assert parse_release_date("v20260801", label="CRS") == date(2026, 8, 1)
-
-
-def test_parse_release_date_reads_the_date_from_a_same_day_republish_token() -> None:
-    """Test a vYYYYMMDD-N same-day republish token resolves to the bare date
-
-    oda_reader appends a within-day sequence number when OECD republishes a
-    bulk file twice in the same day; it carries no date information of its
-    own, so it must resolve to the same date as the bare token.
-    """
-    assert parse_release_date("v20260801-1", label="CRS") == date(2026, 8, 1)
-
-
-@pytest.mark.parametrize(
-    "version",
-    ["20260801", "v2026080", "vYYYYMMDD", "v20260801\n"],
-    ids=["no prefix", "wrong length", "not digits", "trailing newline"],
-)
-def test_parse_release_date_raises_when_the_token_carries_no_date(
-    version: str,
-) -> None:
-    """Test a changed token format fails rather than recording a wrong release date"""
-    with pytest.raises(ValueError, match="Members' Total Use version token"):
-        parse_release_date(version, label="Members' Total Use")
 
 
 def test_verify_release_provenance_accepts_matching_tokens() -> None:

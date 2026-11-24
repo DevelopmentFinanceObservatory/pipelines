@@ -1,6 +1,4 @@
-import re
 from collections.abc import Mapping
-from datetime import date
 from importlib.metadata import version as installed_version
 
 import dagster as dg
@@ -9,6 +7,7 @@ from oda_data import sector_imputations
 from oda_data.clean_data.schema import ODASchema
 from oda_data.indicators.research.imputation_quality import imputation_quality_report
 from oda_reader.download.download_tools import CRS_FLOW_URL, MULTI_FLOW_URL
+from oda_reader.multisystem import MULTISYSTEM_BULK_LABEL
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
@@ -20,14 +19,15 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
-from dfo_pipelines.extraction.oecd import resolve_bulk_file
+from dfo_pipelines.extraction.oecd import (
+    CRS_BULK_LABEL,
+    parse_release_date,
+    resolve_bulk_file,
+)
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
-
-CRS_BULK_LABEL = "CRS-Parquet"
-MULTISYSTEM_BULK_LABEL = "Entire dataset (dotStat format)"
 
 # Gross disbursements, current USD prices: base_year stays unset so
 # imputed_multilateral_by_purpose reports prices="current" instead of
@@ -79,33 +79,6 @@ def resolve_bulk_versions() -> tuple[tuple[str, str], tuple[str, str]]:
     )
     parse_release_date(multi_version, label="Members' Total Use")
     return (crs_url, crs_version), (multi_url, multi_version)
-
-
-def parse_release_date(version: str, *, label: str) -> date:
-    """Parse the date out of a `vYYYYMMDD` or `vYYYYMMDD-N` version token.
-
-    The optional `-N` suffix is `oda_reader`'s within-day sequence number for
-    a same-day republish; it carries no date information, so it is dropped.
-
-    Args:
-        version: Version token as `oda_reader` resolved it.
-        label: What the token is for, used only in the error message.
-
-    Returns:
-        date: The parsed date.
-
-    Raises:
-        ValueError: If the token does not carry a date.
-    """
-    matched = re.fullmatch(
-        r"v(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})(?:-\d+)?", version
-    )
-    if matched is None:
-        raise ValueError(
-            f"{label} version token carries no release date, expected "
-            f"vYYYYMMDD or vYYYYMMDD-N: {version}"
-        )
-    return date(int(matched["year"]), int(matched["month"]), int(matched["day"]))
 
 
 def verify_releases_unmoved(

@@ -14,6 +14,7 @@ from dfo_pipelines.extraction.oecd import (
     DAC_COLUMN_RENAMES,
     fetch_bulk_file,
     fetch_bulk_file_release_date,
+    parse_release_date,
     resolve_bulk_file,
 )
 from dfo_pipelines.warehouse import load_parquet
@@ -35,6 +36,34 @@ def _release_date_response(headers: dict[str, str], status_code: int = 206):
             request=httpx.Request("GET", BULK_FILE_URL),
         ),
     )
+
+
+def test_parse_release_date_reads_the_date_from_the_version_token() -> None:
+    """Test the publication date is read out of a vYYYYMMDD token"""
+    assert parse_release_date("v20260801", label="CRS") == date(2026, 8, 1)
+
+
+def test_parse_release_date_reads_the_date_from_a_same_day_republish_token() -> None:
+    """Test a vYYYYMMDD-N same-day republish token resolves to the bare date
+
+    oda_reader appends a within-day sequence number when OECD republishes a
+    bulk file twice in the same day; it carries no date information of its
+    own, so it must resolve to the same date as the bare token.
+    """
+    assert parse_release_date("v20260801-1", label="CRS") == date(2026, 8, 1)
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["20260801", "v2026080", "vYYYYMMDD", "v20260801\n"],
+    ids=["no prefix", "wrong length", "not digits", "trailing newline"],
+)
+def test_parse_release_date_raises_when_the_token_carries_no_date(
+    version: str,
+) -> None:
+    """Test a changed token format fails rather than recording a wrong release date"""
+    with pytest.raises(ValueError, match="CRS version token carries no release date"):
+        parse_release_date(version, label="CRS")
 
 
 def test_fetch_bulk_file_release_date_reads_the_last_modified_date() -> None:

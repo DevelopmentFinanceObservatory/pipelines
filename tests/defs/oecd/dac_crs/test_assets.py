@@ -11,12 +11,11 @@ from oda_reader.download.download_tools import CRS_FLOW_URL
 from upath import UPath
 
 from dfo_pipelines.defs.oecd.dac_crs.assets import (
-    CRS_BULK_LABEL,
     fetch_dac_crs,
     oecd_dac_crs_dc_export,
     oecd_dac_crs_source,
-    parse_crs_release_date,
 )
+from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
@@ -25,28 +24,6 @@ CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
 
 SOURCE_VERSION = "v20260801"
 SOURCE_RELEASE_DATE = date(2026, 8, 1)
-
-
-def test_parse_crs_release_date_reads_the_date_from_the_version_token() -> None:
-    """Test the publication date is read out of a vYYYYMMDD token"""
-    assert parse_crs_release_date(SOURCE_VERSION) == SOURCE_RELEASE_DATE
-
-
-@pytest.mark.parametrize(
-    "version",
-    ["20260801", "v2026080", "vYYYYMMDD", "v20260801\n"],
-    ids=["no prefix", "wrong length", "not digits", "trailing newline"],
-)
-def test_parse_crs_release_date_raises_when_the_token_carries_no_date(
-    version: str,
-) -> None:
-    """Test a changed token format fails rather than recording a wrong release
-
-    The token is the only statement of when OECD published the file, so a format
-    that no longer carries a date has to stop the extraction.
-    """
-    with pytest.raises(ValueError, match="vYYYYMMDD"):
-        parse_crs_release_date(version)
 
 
 def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
@@ -72,28 +49,31 @@ def test_dac_crs_source_observes_the_crs_bulk_file() -> None:
     }
 
 
-OBSERVATION = Observation(
-    data_version="v1", metadata={"dagster/uri": CRS_TEST_URL, "version": SOURCE_VERSION}
+@pytest.mark.parametrize(
+    "version",
+    [SOURCE_VERSION, f"{SOURCE_VERSION}-2"],
+    ids=["first release of the day", "same-day republish"],
 )
-
-
-def test_fetch_dac_crs_dates_the_release_from_the_version(tmp_path: Path) -> None:
+def test_fetch_dac_crs_dates_the_release_from_the_version(
+    tmp_path: Path, version: str
+) -> None:
     """Test the landing asset fetches the CRS bulk file its source observed and dates
     the release from its version token"""
+    observation = Observation(
+        data_version="v1", metadata={"dagster/uri": CRS_TEST_URL, "version": version}
+    )
     with patch(
         "dfo_pipelines.defs.oecd.dac_crs.assets.fetch_bulk_file", autospec=True
     ) as fetch:
-        fetch_dac_crs(UPath(tmp_path), OBSERVATION)
+        fetch_dac_crs(UPath(tmp_path), observation)
 
     arguments = dict(fetch.call_args.kwargs)
-    assert arguments.pop("release_date")(CRS_TEST_URL, SOURCE_VERSION) == (
-        SOURCE_RELEASE_DATE
-    )
+    assert arguments.pop("release_date")(CRS_TEST_URL, version) == SOURCE_RELEASE_DATE
     assert arguments == {
         "flow_url": CRS_FLOW_URL,
         "label": CRS_BULK_LABEL,
         "observed_url": CRS_TEST_URL,
-        "observed_version": SOURCE_VERSION,
+        "observed_version": version,
         "download": bulk_download_crs,
         "downloaded_name": "CRS.parquet",
     }
