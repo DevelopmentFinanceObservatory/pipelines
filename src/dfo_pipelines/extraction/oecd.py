@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from datetime import date
 from email.utils import parsedate_to_datetime
@@ -12,6 +13,8 @@ from upath import UPath
 from dfo_pipelines.extraction.metadata import FetchedRelease
 
 RELEASE_DATE_TIMEOUT_SECONDS = 30
+
+CRS_BULK_LABEL = "CRS-Parquet"
 
 # DAC parquet column pairs differ only in case, which DuckDB and BigQuery can't hold.
 DAC_COLUMN_RENAMES = {
@@ -41,6 +44,33 @@ def resolve_bulk_file(*, flow_url: str, label: str) -> tuple[str, str]:
             f"Bulk file version check: could not get the version of {label!r} at {url}"
         )
     return url, version
+
+
+def parse_release_date(version: str, *, label: str) -> date:
+    """Parse the date out of a `vYYYYMMDD` or `vYYYYMMDD-N` version token.
+
+    The optional `-N` suffix is `oda_reader`'s within-day sequence number for
+    a same-day republish; it carries no date information, so it is dropped.
+
+    Args:
+        version: Version token as `oda_reader` resolved it.
+        label: What the token is for, used only in the error message.
+
+    Returns:
+        date: The parsed date.
+
+    Raises:
+        ValueError: If the token does not carry a date.
+    """
+    matched = re.fullmatch(
+        r"v(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})(?:-\d+)?", version
+    )
+    if matched is None:
+        raise ValueError(
+            f"{label} version token carries no release date, expected "
+            f"vYYYYMMDD or vYYYYMMDD-N: {version}"
+        )
+    return date(int(matched["year"]), int(matched["month"]), int(matched["day"]))
 
 
 def fetch_bulk_file_release_date(url: str) -> date:

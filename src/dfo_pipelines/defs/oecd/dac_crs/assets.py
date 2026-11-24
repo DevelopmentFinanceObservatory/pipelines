@@ -1,6 +1,3 @@
-import re
-from datetime import date
-
 import dagster as dg
 from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import CRS_FLOW_URL
@@ -15,34 +12,16 @@ from dfo_pipelines.data_commons.export import (
 from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.defs.dfo.shared.assets import dfo_shared_dc_ingestion
 from dfo_pipelines.extraction.metadata import FetchedRelease
-from dfo_pipelines.extraction.oecd import fetch_bulk_file, resolve_bulk_file
+from dfo_pipelines.extraction.oecd import (
+    CRS_BULK_LABEL,
+    fetch_bulk_file,
+    parse_release_date,
+    resolve_bulk_file,
+)
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
-
-
-def parse_crs_release_date(version: str) -> date:
-    """Parse the date out of a version token.
-
-    Args:
-        version: Version token as oda_reader resolved it, of the form vYYYYMMDD.
-
-    Returns:
-        date: The parsed date.
-
-    Raises:
-        ValueError: If the token does not carry a date.
-    """
-    matched = re.fullmatch(r"v(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})", version)
-    if matched is None:
-        raise ValueError(
-            f"CRS version token carries no release date, expected vYYYYMMDD: {version}"
-        )
-    return date(int(matched["year"]), int(matched["month"]), int(matched["day"]))
-
-
-CRS_BULK_LABEL = "CRS-Parquet"
 
 
 @dg.observable_source_asset(
@@ -77,7 +56,7 @@ def fetch_dac_crs(directory: UPath, observation: Observation) -> FetchedRelease:
         observed_version=observation.metadata["version"],
         download=bulk_download_crs,
         downloaded_name="CRS.parquet",
-        release_date=lambda _, version: parse_crs_release_date(version),
+        release_date=lambda _, version: parse_release_date(version, label="CRS"),
     )
 
 
