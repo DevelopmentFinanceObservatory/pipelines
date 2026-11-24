@@ -49,6 +49,16 @@ def _spec(docs_dir: Path, *, source_model: str | None) -> ExportSpec:
     )
 
 
+def _resources(tmp_path: Path) -> dict[str, dg.ConfigurableResource]:
+    """A database and an export store under `tmp_path`"""
+    return {
+        "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        "export_file_store": UPathFileStoreResource(
+            base_path=str(tmp_path / "processed")
+        ),
+    }
+
+
 def _dep_keys(asset: dg.AssetsDefinition) -> set[dg.AssetKey]:
     return {dep.asset_key for dep in asset.specs_by_key[asset.key].deps}
 
@@ -59,7 +69,6 @@ def test_build_dc_export_asset_writes_the_bundle_to_a_directory_for_the_run(
     """Test the export hands its spec and a directory named by the run's UTC instant
     to `export_bundle`, returns the directory, and reports what the bundle holds"""
     spec = _spec(tmp_path, source_model=None)
-    export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     out_dir = tmp_path / "processed" / "example" / "20261001T093015Z"
     asset = build_dc_export_asset(spec=spec, group="example", title="Example")
 
@@ -73,13 +82,7 @@ def test_build_dc_export_asset_writes_the_bundle_to_a_directory_for_the_run(
         ) as export_bundle,
     ):
         mock_datetime.now.return_value = datetime(2026, 10, 1, 9, 30, 15, tzinfo=UTC)
-        result = dg.materialize(
-            [asset],
-            resources={
-                "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
-                "export_file_store": export_file_store,
-            },
-        )
+        result = dg.materialize([asset], resources=_resources(tmp_path))
 
     assert result.success
     export_bundle.assert_called_once()
@@ -105,12 +108,7 @@ def test_build_dc_export_asset_keeps_the_bundle_an_earlier_run_wrote(
     first run's bundle as it was"""
     spec = _spec(tmp_path, source_model=None)
     asset = build_dc_export_asset(spec=spec, group="example", title="Example")
-    resources = {
-        "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
-        "export_file_store": UPathFileStoreResource(
-            base_path=str(tmp_path / "processed")
-        ),
-    }
+    resources = _resources(tmp_path)
     runs = iter(["first", "second"])
 
     def write_bundle(spec: ExportSpec, *, out_dir: Path, **_: object) -> ExportMetadata:
@@ -161,15 +159,7 @@ def test_build_dc_export_asset_removes_the_bundle_of_a_failed_run(
         ),
         pytest.raises(RuntimeError, match="export failed"),
     ):
-        dg.materialize(
-            [asset],
-            resources={
-                "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
-                "export_file_store": UPathFileStoreResource(
-                    base_path=str(tmp_path / "processed")
-                ),
-            },
-        )
+        dg.materialize([asset], resources=_resources(tmp_path))
 
     assert list((tmp_path / "processed" / "example").iterdir()) == []
 
