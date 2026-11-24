@@ -14,7 +14,12 @@ import pyarrow.parquet as pq
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
-from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    FetchedRelease,
+    file_hashes,
+    holds_same_download,
+    write_extraction_metadata,
+)
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
@@ -163,6 +168,34 @@ def _named_check_results(
     ]
 
 
+def _matching_materialized_directory(
+    context: dg.AssetExecutionContext,
+    download_directory: UPath,
+    *,
+    files: Mapping[str, str],
+    release_dates: Mapping[str, date],
+) -> UPath | None:
+    """Directory the asset's latest materialization returned, if a sibling of
+    `download_directory` that holds the same download"""
+    event = context.instance.get_latest_materialization_event(context.asset_key)
+    if event is None or event.asset_materialization is None:
+        return None
+    uri = event.asset_materialization.metadata.get("dagster/uri")
+    if not isinstance(uri, dg.TextMetadataValue):
+        return None
+    materialized_directory = UPath(uri.value)
+    if materialized_directory.parent != download_directory.parent:
+        return None
+    if not holds_same_download(
+        materialized_directory,
+        download_directory=download_directory,
+        files=files,
+        release_dates=release_dates,
+    ):
+        return None
+    return materialized_directory
+
+
 def _size_and_row_count_metadata(
     sizes: Mapping[str, int], rows: Mapping[str, int]
 ) -> dict[str, dg.MetadataValue]:
@@ -213,7 +246,9 @@ def build_landing_asset(
     a ValueError when the source has none.
 
     Each download is written once, to a directory named for its UTC instant, with
-    the extraction metadata written last.
+    the extraction metadata written last. A download that the directory of the
+    asset's latest materialization already holds is deleted and that directory
+    returned, with this download's metadata and check results.
 
     Args:
         group: Group of the source, naming the asset `<group>_landing`.
@@ -275,13 +310,27 @@ def build_landing_asset(
             check_results = _files_not_empty(
                 files, stems, sizes=sizes, rows=rows
             ) + _named_check_results(checks, directory)
-            write_extraction_metadata(
-                directory,
-                downloaded_at=downloaded_at,
-                run_id=context.run.run_id,
-                release_dates=release_dates,
+            hashes = file_hashes(directory)
+            matching_directory = _matching_materialized_directory(
+                context, directory, files=hashes, release_dates=release_dates
             )
-        context.log.info(f"Wrote {title} data to {directory}")
+            if matching_directory is None:
+                write_extraction_metadata(
+                    directory,
+                    downloaded_at=downloaded_at,
+                    run_id=context.run.run_id,
+                    release_dates=release_dates,
+                    files=hashes,
+                )
+        if matching_directory is None:
+            context.log.info(f"Wrote {title} data to {directory}")
+        else:
+            directory.rmdir(recursive=True)
+            context.log.info(
+                f"{title} download matches {matching_directory}, so {directory} "
+                "was deleted"
+            )
+            directory = matching_directory
         return _landing_result(
             directory,
             metadata={

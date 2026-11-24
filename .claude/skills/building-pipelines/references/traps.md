@@ -26,7 +26,7 @@ A downstream asset reads its upstream's path from the value the upstream returne
 
 ### A landing directory is written once
 
-`build_landing_asset` writes each download to a new directory, writes `metadata.json` last, and removes a directory whose write failed. `build_raw_table_assets` refuses a directory without `metadata.json`, as incomplete.
+`build_landing_asset` writes each download to a new directory, writes `metadata.json` last, and removes a directory whose write failed. `build_raw_table_assets` refuses a directory without `metadata.json`, as incomplete. When a download matches the latest materialization's, the asset returns that directory, whose `metadata.json` names the earlier run and download time.
 
 ### Exports are replaced in place
 

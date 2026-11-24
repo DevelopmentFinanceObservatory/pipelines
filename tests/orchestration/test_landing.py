@@ -1,5 +1,6 @@
+import hashlib
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import date
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     AutomationHarness,
     check_outcomes,
+    landed_directory,
     logged_messages,
     materialization,
     materialize_landing,
@@ -29,6 +31,8 @@ RELEASE_DATE = date(2026, 7, 7)
 
 DATASET_DIRECTORY = Path("landing", "example", "things")
 DIRECTORY = DATASET_DIRECTORY / "20260803T234705Z"
+# Where a test's second download lands, a second after the first
+SECOND_DIRECTORY = DATASET_DIRECTORY / "20260803T234706Z"
 
 
 def parquet_with_rows(rows: int) -> bytes:
@@ -120,6 +124,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
         "downloaded_at": "2026-08-03T23:47:05+00:00",
         "run_id": result.run_id,
         "source_release_date": "2026-07-07",
+        "files": {"things.parquet": hashlib.sha256(file_path.read_bytes()).hexdigest()},
     }
     assert result.output_for_node("example_landing") == str(directory)
     assert materialization(result).metadata == {
@@ -156,6 +161,11 @@ def test_build_landing_asset_records_each_release(
         "run_id": result.run_id,
         "crs_release_date": "2026-07-01",
         "multisystem_release_date": "2026-06-15",
+        "files": {
+            "things.parquet": hashlib.sha256(
+                (directory / "things.parquet").read_bytes()
+            ).hexdigest()
+        },
     }
     metadata = materialization(result).metadata
     assert (
@@ -285,6 +295,136 @@ def test_build_landing_asset_refuses_a_directory_that_exists(
         materialize_landing(build_example(fetch_rows(1)), tmp_path, instance=instance)
 
     assert [path.name for path in (tmp_path / DIRECTORY).iterdir()] == ["earlier.txt"]
+
+
+def test_build_landing_asset_reuses_the_directory_holding_the_same_download(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
+    """Test a download identical to the latest materialization's is deleted, and that
+    directory returned untouched, with this fetch's metadata and check results"""
+    materialize_landing(
+        build_example(
+            fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
+        ),
+        tmp_path,
+        instance=instance,
+    )
+    recorded = (tmp_path / DIRECTORY / METADATA_FILE_NAME).read_text()
+
+    result = materialize_landing(
+        build_example(
+            fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260901")}),
+            checks={"never": lambda directory: False},
+        ),
+        tmp_path,
+        instance=instance,
+        raise_on_error=False,
+    )
+
+    directory = tmp_path / DIRECTORY
+    assert [path.name for path in (tmp_path / DATASET_DIRECTORY).iterdir()] == [
+        DIRECTORY.name
+    ]
+    assert (directory / METADATA_FILE_NAME).read_text() == recorded
+    assert result.output_for_node("example_landing") == str(directory)
+    assert materialization(result).metadata == {
+        "dagster/uri": dg.TextMetadataValue(str(directory)),
+        "file_size": dg.IntMetadataValue((directory / "things.parquet").stat().st_size),
+        "dagster/row_count": dg.IntMetadataValue(3),
+        "version": dg.TextMetadataValue("v20260901"),
+        "source_release_date": dg.TextMetadataValue("2026-07-07"),
+    }
+    assert check_outcomes(result) == {"files_not_empty": True, "never": False}
+    assert (
+        f"Example download matches {directory}, so {tmp_path / SECOND_DIRECTORY} "
+        "was deleted"
+    ) in [entry.user_message for entry in instance.all_logs(result.run_id)]
+
+
+def _recorded(directory: Path) -> dict:
+    return json.loads((directory / METADATA_FILE_NAME).read_text())
+
+
+def _record(directory: Path, recorded: dict) -> None:
+    (directory / METADATA_FILE_NAME).write_text(json.dumps(recorded))
+
+
+def _change_recorded_hash(directory: Path) -> None:
+    _record(directory, {**_recorded(directory), "files": {"things.parquet": "0" * 64}})
+
+
+def _change_recorded_release_date(directory: Path) -> None:
+    _record(directory, {**_recorded(directory), "source_release_date": "2026-08-01"})
+
+
+def _record_another_release(directory: Path) -> None:
+    _record(directory, {**_recorded(directory), "other_release_date": "2026-07-07"})
+
+
+def _truncate_materialized_file(directory: Path) -> None:
+    (directory / "things.parquet").write_bytes(b"")
+
+
+def _remove_materialized_file(directory: Path) -> None:
+    (directory / "things.parquet").unlink()
+
+
+def _remove_marker(directory: Path) -> None:
+    (directory / METADATA_FILE_NAME).unlink()
+
+
+def _corrupt_marker(directory: Path) -> None:
+    (directory / METADATA_FILE_NAME).write_text("{")
+
+
+def _drop_recorded_hashes(directory: Path) -> None:
+    recorded = _recorded(directory)
+    del recorded["files"]
+    _record(directory, recorded)
+
+
+@pytest.mark.parametrize(
+    "change_materialized_directory",
+    [
+        pytest.param(_change_recorded_hash, id="file hash differs"),
+        pytest.param(_change_recorded_release_date, id="release date differs"),
+        pytest.param(_record_another_release, id="another release recorded"),
+        pytest.param(_truncate_materialized_file, id="file a different size"),
+        pytest.param(_remove_materialized_file, id="file missing"),
+        pytest.param(_remove_marker, id="metadata missing"),
+        pytest.param(_corrupt_marker, id="metadata unreadable"),
+        pytest.param(_drop_recorded_hashes, id="metadata without hashes"),
+    ],
+)
+def test_build_landing_asset_keeps_a_download_the_materialized_directory_does_not_hold(
+    tmp_path: Path,
+    instance: dg.DagsterInstance,
+    change_materialized_directory: Callable[[Path], None],
+) -> None:
+    """Test a download lands in its own directory when the latest materialization's
+    directory records other hashes or releases, no longer holds each file at the
+    download's size, or holds no readable record of its hashes"""
+    landing = build_example(fetch_rows(3))
+    materialize_landing(landing, tmp_path, instance=instance)
+    change_materialized_directory(tmp_path / DIRECTORY)
+
+    result = materialize_landing(landing, tmp_path, instance=instance)
+
+    assert landed_directory(result) == tmp_path / SECOND_DIRECTORY
+    assert (tmp_path / SECOND_DIRECTORY / METADATA_FILE_NAME).exists()
+
+
+def test_build_landing_asset_reuses_no_directory_outside_its_own(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
+    """Test an identical download is kept when the latest materialization returned a
+    directory under another dataset directory, such as another file store's"""
+    landing = build_example(fetch_rows(3))
+    materialize_landing(landing, tmp_path / "elsewhere", instance=instance)
+
+    result = materialize_landing(landing, tmp_path, instance=instance)
+
+    assert landed_directory(result) == tmp_path / SECOND_DIRECTORY
 
 
 @pytest.mark.parametrize(

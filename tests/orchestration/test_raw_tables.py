@@ -13,6 +13,7 @@ from upath import UPath
 
 from dfo_pipelines.extraction.metadata import (
     METADATA_FILE_NAME,
+    file_hashes,
     write_extraction_metadata,
 )
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
@@ -101,6 +102,7 @@ def write_landing_directory(
         downloaded_at=downloaded_at,
         run_id="example-run",
         release_dates=release_dates,
+        files=file_hashes(UPath(directory)),
     )
     return directory
 
