@@ -37,10 +37,10 @@ OBSERVATION = Observation(data_version="April;2026", metadata={"version": "April
 
 
 def test_fetch_weo_lands_the_observed_release_when_a_newer_one_is_listed(
-    tmp_path: Path,
+    landing_directory: UPath,
 ) -> None:
     """Test the download names the observed release, not the newest one listed"""
-    file_path = UPath(tmp_path / "weo.parquet")
+    file_path = landing_directory / "weo.parquet"
 
     with (
         patch(
@@ -56,11 +56,12 @@ def test_fetch_weo_lands_the_observed_release_when_a_newer_one_is_listed(
             return_value=PUBLICATION_DATE,
         ) as publication_date,
     ):
-        release_dates, metadata = fetch_weo(UPath(tmp_path), OBSERVATION)
+        release_dates, metadata = fetch_weo(landing_directory, OBSERVATION)
 
     fetch.assert_called_once_with(version=("April", 2026))
     publication_date.assert_called_once_with(("April", 2026))
-    assert len(pd.read_parquet(file_path)) == FIXTURE_ROWS
+    with file_path.open("rb") as handle:
+        assert len(pd.read_parquet(handle)) == FIXTURE_ROWS
     assert release_dates == {"source": PUBLICATION_DATE}
     assert metadata == {"version": "April 2026"}
 

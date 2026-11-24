@@ -58,7 +58,8 @@ def fetch_weo(directory: UPath, observation: Observation) -> FetchedRelease:
     month, year = observation.metadata["version"].split()
     version = (month, int(year))
     dataframe = weo.fetch_data_with_metadata(version=version)
-    dataframe.to_parquet(directory / "weo.parquet", compression="gzip")
+    with (directory / "weo.parquet").open("wb") as handle:
+        dataframe.to_parquet(handle, compression="gzip")
     return FetchedRelease(
         release_dates={"source": fetch_weo_publication_date(version)},
         metadata={"version": f"{version[0]} {version[1]}"},

@@ -1,5 +1,6 @@
 """World Bank International Debt Statistics (IDS) assets."""
 
+import tempfile
 from collections.abc import Mapping
 from datetime import date
 
@@ -156,8 +157,10 @@ def fetch_ids(directory: UPath, observation: Observation) -> FetchedRelease:
     """
     source_release_date = date.fromisoformat(observation.metadata["release_date"])
     files = observation.metadata["files"]
-    download_ids_bulk_data_files(directory, observed_files=files)
-    combine_ids_bulk_data_files(directory, directory / "ids.parquet")
+    with tempfile.TemporaryDirectory() as working_directory:
+        downloads = UPath(working_directory)
+        download_ids_bulk_data_files(downloads, observed_files=files)
+        combine_ids_bulk_data_files(downloads, directory / "ids.parquet")
     return FetchedRelease(
         release_dates={"source": source_release_date}, metadata={"files": files}
     )
@@ -247,43 +250,41 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> None
     in memory first, so peak memory is bounded by the largest single file
     rather than by the whole dataset.
     """
-    tmp_path = output_file.with_suffix(".tmp")
     writer: pq.ParquetWriter | None = None
     try:
-        try:
-            for filename in BULK_XLSX_URLS:
-                # Read every column as str because cleaning happens in later stages,
-                # and letting pandas infer types is lossy: counterpart-area code
-                # "071" would be read as the integer 71, silently corrupting an
-                # identifier that later stages join on.
-                df = pd.read_excel(
-                    input_folder / filename, engine="openpyxl", dtype="str"
-                )
-                # The year headers arrive as ints, parquet requires string column names.
-                # Make conversion explicit to avoid warnings on implicit conversion.
-                df.columns = df.columns.map(str)
+        # ParquetWriter leaves a handle it is given open, so the `with` closes it.
+        with output_file.open("wb") as handle:
+            try:
+                for filename in BULK_XLSX_URLS:
+                    # Read every column as str because cleaning happens in later stages,
+                    # and letting pandas infer types is lossy: counterpart-area code
+                    # "071" would be read as the integer 71, silently corrupting an
+                    # identifier that later stages join on.
+                    df = pd.read_excel(
+                        input_folder / filename, engine="openpyxl", dtype="str"
+                    )
+                    # The year headers arrive as ints, parquet requires string column names.
+                    # Make conversion explicit to avoid warnings on implicit conversion.
+                    df.columns = df.columns.map(str)
 
-                table = pa.Table.from_pandas(df, preserve_index=False)
-                del df
+                    table = pa.Table.from_pandas(df, preserve_index=False)
+                    del df
 
-                if writer is None:
-                    writer = pq.ParquetWriter(tmp_path, table.schema)
+                    if writer is None:
+                        writer = pq.ParquetWriter(handle, table.schema)
 
-                # This raises if a file's schema differs from the first, rather than
-                # silently null-filling the way pd.concat would.
-                writer.write_table(table)
-                del table
-        finally:
-            if writer is not None:
-                writer.close()
+                    # This raises if a file's schema differs from the first, rather than
+                    # silently null-filling the way pd.concat would.
+                    writer.write_table(table)
+                    del table
+            finally:
+                if writer is not None:
+                    writer.close()
     except Exception:
-        tmp_path.unlink(missing_ok=True)  # remove the partially written output file
+        # Outside the `with`, since closing an object store's handle commits the
+        # partial file even when the block raised.
+        output_file.unlink(missing_ok=True)
         raise
-    finally:
-        for filename in BULK_XLSX_URLS:
-            (input_folder / filename).unlink(missing_ok=True)
-
-    tmp_path.rename(output_file)
 
 
 IDS_EXPORT_SPEC = ExportSpec(

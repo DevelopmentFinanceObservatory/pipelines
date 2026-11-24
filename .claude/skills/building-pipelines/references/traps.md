@@ -28,6 +28,10 @@ A downstream asset reads its upstream's path from the value the upstream returne
 
 `build_landing_asset` writes each download to a new directory, writes `metadata.json` last, and removes a directory whose write failed. `build_raw_table_assets` refuses a directory without `metadata.json`, as incomplete.
 
+### A fetch writes through the landing `UPath`
+
+The landing directory may be on an object store, so a fetch writes each declared file through the `UPath` it is given, with its methods or a handle opened from it. A library that takes only local paths gets neither the `UPath` nor `str(path)`: it writes to a local `tempfile.TemporaryDirectory()`, which also holds every working file, and the fetch copies the declared file across.
+
 ### An export directory is written once
 
 Each export writes its bundle to a new directory through `write_once_directory`, which removes it if the run raises or is cancelled. Ingestion reads only the directory a successful materialization recorded, so one left by a crash is never ingested. Enter the `with` just before the first write, and keep every write and read of the bundle inside it.

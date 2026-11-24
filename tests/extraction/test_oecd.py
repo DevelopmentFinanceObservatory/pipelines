@@ -1,7 +1,7 @@
 from datetime import date
 from functools import partial
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch
 
 import duckdb
 import httpx
@@ -153,24 +153,28 @@ def build_fetch(*, download: Mock, release_date: Mock):
     )
 
 
-def test_fetch_bulk_file_writes_the_download_as_published(tmp_path: Path) -> None:
+def test_fetch_bulk_file_writes_the_download_as_published(
+    landing_directory: UPath,
+) -> None:
     """Test the download is written to the path unchanged, dated by the
     release-date lookup, with the version the lookups before and after it agree on"""
+    file_path = landing_directory / "data.parquet"
     download = Mock(side_effect=write_download)
     release_date = Mock(return_value=RELEASE_DATE)
     fetch = build_fetch(download=download, release_date=release_date)
 
     with _version_lookup(VERSION) as lookup:
-        release_dates, metadata = fetch(UPath(tmp_path / "data.parquet"))
+        release_dates, metadata = fetch(file_path)
 
     assert (
         lookup.call_args_list
         == [call(flow_url=FLOW_URL, label=LABEL, bypass_annotation_cache=True)] * 2
     )
     release_date.assert_called_once_with(BULK_FILE_URL, VERSION)
-    download.assert_called_once_with(save_to_path=str(tmp_path), use_raw_cache=False)
-    assert [path.name for path in tmp_path.iterdir()] == ["data.parquet"]
-    assert pq.read_table(tmp_path / "data.parquet").to_pydict() == {"DONOR": [1, 2, 3]}
+    download.assert_called_once_with(save_to_path=ANY, use_raw_cache=False)
+    assert [path.name for path in landing_directory.iterdir()] == ["data.parquet"]
+    with file_path.open("rb") as handle:
+        assert pq.read_table(handle).to_pydict() == {"DONOR": [1, 2, 3]}
     assert release_dates == {"source": RELEASE_DATE}
     assert metadata == {"version": VERSION}
 
@@ -242,8 +246,8 @@ def test_fetch_bulk_file_refuses_a_bulk_file_that_moved_after_the_observation(
 def test_fetch_bulk_file_refuses_a_bulk_file_that_moved_during_the_download(
     tmp_path: Path,
 ) -> None:
-    """Test a bulk file republished during the download is refused and its download
-    deleted"""
+    """Test a bulk file republished during the download is refused and nothing is
+    landed"""
     download = Mock(side_effect=write_download)
     fetch = build_fetch(download=download, release_date=Mock(return_value=RELEASE_DATE))
 

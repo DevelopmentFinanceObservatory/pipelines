@@ -358,7 +358,8 @@ def fetch_imputed_multilateral_sectors(
             f"{prices}, expected {{'current'}} for base_year=None"
         )
 
-    data.to_parquet(directory / "imputed_multilateral_sectors.parquet", index=False)
+    with (directory / "imputed_multilateral_sectors.parquet").open("wb") as handle:
+        data.to_parquet(handle, index=False)
 
     return FetchedRelease(
         release_dates=release_dates,
