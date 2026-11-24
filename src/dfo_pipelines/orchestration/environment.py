@@ -1,4 +1,4 @@
-"""The environment the pipelines run in, and where each keeps its files"""
+"""The environment the pipelines run in"""
 
 import os
 from enum import StrEnum
@@ -7,19 +7,6 @@ from enum import StrEnum
 class Environment(StrEnum):
     LOCAL = "local"
     DEV = "dev"
-
-
-LANDING_BASE_PATHS = {
-    Environment.LOCAL: "data/landing",
-    Environment.DEV: "gs://dev-fin-observatory-pipelines-landing",
-}
-
-# TODO: Point dev at gs://dev-fin-observatory-pipelines-exports once the exports
-# can write there: https://github.com/DevelopmentFinanceObservatory/pipelines/issues/165
-EXPORT_BASE_PATHS = {
-    Environment.LOCAL: "data/exports",
-    Environment.DEV: "data/exports",
-}
 
 
 def dfo_environment() -> Environment:
