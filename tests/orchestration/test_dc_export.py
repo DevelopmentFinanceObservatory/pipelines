@@ -67,9 +67,8 @@ def test_build_dc_export_asset_writes_the_bundle_to_a_directory_for_the_run(
     tmp_path: Path,
 ) -> None:
     """Test the export hands its spec and a directory named by the run's UTC instant
-    to `export_bundle`, returns the directory, and reports what the bundle holds"""
+    and ID to `export_bundle`, returns the directory, and reports what the bundle holds"""
     spec = _spec(tmp_path, source_model=None)
-    out_dir = tmp_path / "processed" / "example" / "20261001T093015Z"
     asset = build_dc_export_asset(spec=spec, group="example", title="Example")
 
     with (
@@ -85,6 +84,7 @@ def test_build_dc_export_asset_writes_the_bundle_to_a_directory_for_the_run(
         result = dg.materialize([asset], resources=_resources(tmp_path))
 
     assert result.success
+    out_dir = tmp_path / "processed" / "example" / f"20261001T093015Z_{result.run_id}"
     export_bundle.assert_called_once()
     args, kwargs = export_bundle.call_args
     assert args == (spec,)

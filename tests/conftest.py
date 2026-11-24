@@ -1,9 +1,10 @@
 from collections.abc import Iterator
-from datetime import datetime, timedelta, tzinfo
-from itertools import count
-from unittest.mock import patch
+from datetime import datetime, tzinfo
+from unittest.mock import PropertyMock, patch
 
+import dagster as dg
 import pytest
+from dagster._core.execution.context.invocation import DirectOpExecutionContext
 
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 from tests.helpers import DOWNLOADED_AT
@@ -20,14 +21,24 @@ def knowledge_graph() -> KnowledgeGraphResource:
     )
 
 
+@pytest.fixture(autouse=True)
+def direct_invocation_run() -> Iterator[None]:
+    """Give a directly invoked asset a run, as `build_asset_context` sets none"""
+    with patch.object(
+        DirectOpExecutionContext,
+        "dagster_run",
+        new_callable=PropertyMock,
+        return_value=dg.DagsterRun(job_name="direct", run_id="direct-run"),
+    ):
+        yield
+
+
 @pytest.fixture
 def download_clock() -> Iterator[None]:
-    """Stamp landing downloads from DOWNLOADED_AT on, a second apart so each gets its
-    own directory, in the zone each reading names"""
-    instants = (DOWNLOADED_AT + timedelta(seconds=seconds) for seconds in count())
+    """Stamp landing downloads with DOWNLOADED_AT, in the zone each reading names"""
 
     def now(tz: tzinfo) -> datetime:
-        return next(instants).astimezone(tz)
+        return DOWNLOADED_AT.astimezone(tz)
 
     with patch("dfo_pipelines.orchestration.landing.datetime") as mock_datetime:
         mock_datetime.now.side_effect = now

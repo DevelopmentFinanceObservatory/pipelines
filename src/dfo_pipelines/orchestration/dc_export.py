@@ -55,7 +55,10 @@ def build_dc_export_asset(
         export_file_store: UPathFileStoreResource,
     ) -> dg.MaterializeResult:
         with export_file_store.write_once_directory(
-            spec.import_name, created_at=datetime.now(UTC), log=context.log
+            spec.import_name,
+            created_at=datetime.now(UTC),
+            run_id=context.run.run_id,
+            log=context.log,
         ) as out_dir:
             with duckdb.get_connection() as connection:
                 export_metadata = export_bundle(

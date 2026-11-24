@@ -28,7 +28,11 @@ pytestmark = pytest.mark.usefixtures("download_clock")
 RELEASE_DATE = date(2026, 7, 7)
 
 DATASET_DIRECTORY = Path("landing", "example", "things")
-DIRECTORY = DATASET_DIRECTORY / "20260803T234705Z"
+
+
+def directory_of(tmp_path: Path, run_id: str) -> Path:
+    """The directory a run landed its download in, from the `download_clock` instant"""
+    return tmp_path / DATASET_DIRECTORY / f"20260803T234705Z_{run_id}"
 
 
 def parquet_with_rows(rows: int) -> bytes:
@@ -110,7 +114,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / DIRECTORY
+    directory = directory_of(tmp_path, result.run_id)
     file_path = directory / "things.parquet"
     assert sorted(path.name for path in directory.iterdir()) == [
         METADATA_FILE_NAME,
@@ -149,7 +153,7 @@ def test_build_landing_asset_records_each_release(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / DIRECTORY
+    directory = directory_of(tmp_path, result.run_id)
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
     assert recorded == {
         "downloaded_at": "2026-08-03T23:47:05+00:00",
@@ -266,25 +270,26 @@ def test_build_landing_asset_raises_the_fetch_error_when_removal_fails(
             instance=instance,
         )
 
-    directory = tmp_path / DIRECTORY
     [run] = instance.get_runs()
+    directory = directory_of(tmp_path, run.run_id)
     assert f"Could not remove {directory}: cannot remove {directory}" in [
         entry.user_message for entry in instance.all_logs(run.run_id)
     ]
 
 
-def test_build_landing_asset_refuses_a_directory_that_exists(
+def test_build_landing_asset_gives_runs_in_the_same_second_separate_directories(
     tmp_path: Path, instance: dg.DagsterInstance
 ) -> None:
-    """Test a download stamped with an instant whose directory exists fails before
-    fetching, leaving that directory alone"""
-    (tmp_path / DIRECTORY).mkdir(parents=True)
-    (tmp_path / DIRECTORY / "earlier.txt").write_text("earlier")
-
-    with pytest.raises(FileExistsError, match="20260803T234705Z"):
+    """Test two downloads stamped with the same instant each land in a directory of
+    their own"""
+    results = [
         materialize_landing(build_example(fetch_rows(1)), tmp_path, instance=instance)
+        for _ in range(2)
+    ]
 
-    assert [path.name for path in (tmp_path / DIRECTORY).iterdir()] == ["earlier.txt"]
+    directories = [directory_of(tmp_path, result.run_id) for result in results]
+    assert directories[0] != directories[1]
+    assert all((directory / "things.parquet").exists() for directory in directories)
 
 
 @pytest.mark.parametrize(
@@ -360,7 +365,7 @@ def test_build_landing_asset_counts_the_rows_of_each_table(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / DIRECTORY
+    directory = directory_of(tmp_path, result.run_id)
     assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "file_size": dg.IntMetadataValue(
@@ -387,7 +392,7 @@ def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / DIRECTORY
+    directory = directory_of(tmp_path, result.run_id)
     assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
@@ -478,7 +483,8 @@ def test_build_landing_asset_logs_where_it_wrote(
         instance=instance,
     )
 
-    directory = tmp_path / DIRECTORY
+    [run] = instance.get_runs()
+    directory = directory_of(tmp_path, run.run_id)
     assert f"Wrote Example data to {directory}" in messages
 
 
