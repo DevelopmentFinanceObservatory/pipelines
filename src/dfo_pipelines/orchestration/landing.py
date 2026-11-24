@@ -1,8 +1,9 @@
 import csv
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Any
@@ -49,15 +50,55 @@ def _latest_observation(
     )
 
 
-def _landing_directory(
+def _create_landing_directory(
     landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
 ) -> UPath:
-    """Directory a download at `downloaded_at` is written to"""
-    return (
+    """Create the directory a download at `downloaded_at` is written to
+
+    Raises:
+        FileExistsError: If the directory exists, since each is written once.
+    """
+    directory = (
         UPath(landing_file_store.base_path)
         / path
         / downloaded_at.strftime("%Y%m%dT%H%M%SZ")
     )
+    if directory.exists():
+        raise FileExistsError(
+            f"{directory} exists, and a landing directory is written once"
+        )
+    directory.mkdir(parents=True)
+    return directory
+
+
+@contextmanager
+def _removed_on_failure(directory: UPath, log: dg.DagsterLogManager) -> Iterator[None]:
+    """Remove `directory` if the block raises, cancellation included, then re-raise"""
+    try:
+        yield
+    except BaseException:
+        # Raise the failure that stopped the write, not one from cleaning up.
+        try:
+            # An empty prefix on GCS does not exist, and removing it raises.
+            if directory.exists():
+                directory.rmdir(recursive=True)
+        except Exception as error:
+            log.warning(f"Could not remove {directory}: {error}")
+        raise
+
+
+def _file_sizes(paths: Mapping[str, UPath]) -> dict[str, int]:
+    """Size in bytes of each file, by stem"""
+    return {stem: path.stat().st_size for stem, path in paths.items()}
+
+
+def _row_counts(paths: Mapping[str, UPath]) -> dict[str, int]:
+    """Row count of each file that has one, by stem"""
+    return {
+        stem: count
+        for stem, path in paths.items()
+        if (count := _count_rows(path)) is not None
+    }
 
 
 def _count_rows(path: UPath) -> int | None:
@@ -113,6 +154,44 @@ def _files_not_empty(
     ]
 
 
+def _named_check_results(
+    checks: Mapping[str, Callable[[UPath], bool]], directory: UPath
+) -> list[dg.AssetCheckResult]:
+    """Result of each named check on the landing directory"""
+    return [
+        dg.AssetCheckResult(check_name=check_name, passed=check(directory))
+        for check_name, check in checks.items()
+    ]
+
+
+def _download_metadata(
+    sizes: Mapping[str, int], rows: Mapping[str, int]
+) -> dict[str, dg.MetadataValue]:
+    """Total size and row count of the files, and each file's row count when several
+    have one"""
+    metadata: dict[str, dg.MetadataValue] = {}
+    if sizes:
+        metadata["file_size"] = dg.MetadataValue.int(sum(sizes.values()))
+    if rows:
+        metadata["dagster/row_count"] = dg.MetadataValue.int(sum(rows.values()))
+    if len(rows) > 1:
+        metadata |= {
+            f"{stem}_row_count": dg.MetadataValue.int(count)
+            for stem, count in rows.items()
+        }
+    return metadata
+
+
+def _release_date_metadata(
+    release_dates: Mapping[str, date],
+) -> dict[str, dg.MetadataValue]:
+    """Each release date as `<name>_release_date`"""
+    return {
+        f"{release}_release_date": dg.MetadataValue.text(release_date.isoformat())
+        for release, release_date in release_dates.items()
+    }
+
+
 def build_landing_asset(
     *,
     group: str,
@@ -134,10 +213,8 @@ def build_landing_asset(
     The asset passes its fetch the source's latest observation, and fails with
     a ValueError when the source has none.
 
-    Each download is written once, to a new directory named for its UTC instant. The
-    extraction metadata is written last, after the files are read and checked,
-    marking the directory complete, and a download that fails before then has its
-    directory removed.
+    Each download is written once, to a directory named for its UTC instant, with
+    the extraction metadata written last.
 
     Args:
         group: Group of the source, naming the asset `<group>_landing`.
@@ -184,69 +261,34 @@ def build_landing_asset(
     def landing(context: dg.AssetExecutionContext):
         observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
-        directory = _landing_directory(
+        directory = _create_landing_directory(
             context.resources.landing_file_store,
             path=f"{group}/{dataset}",
             downloaded_at=downloaded_at,
         )
-        if directory.exists():
-            raise FileExistsError(
-                f"{directory} exists, and a landing directory is written once"
-            )
-        directory.mkdir(parents=True)
-        try:
+        with _removed_on_failure(directory, context.log):
             release_dates, source_metadata = fetch(directory, observation)
             paths = {
                 stem: directory / file for stem, file in zip(stems, files, strict=True)
             }
-            sizes = {stem: path.stat().st_size for stem, path in paths.items()}
-            rows = {
-                stem: count
-                for stem, path in paths.items()
-                if (count := _count_rows(path)) is not None
-            }
-            check_results = _files_not_empty(files, stems, sizes=sizes, rows=rows) + [
-                dg.AssetCheckResult(check_name=check_name, passed=check(directory))
-                for check_name, check in checks.items()
-            ]
+            sizes = _file_sizes(paths)
+            rows = _row_counts(paths)
+            check_results = _files_not_empty(
+                files, stems, sizes=sizes, rows=rows
+            ) + _named_check_results(checks, directory)
             write_extraction_metadata(
                 directory,
                 downloaded_at=downloaded_at,
                 run_id=context.run.run_id,
                 release_dates=release_dates,
             )
-        except BaseException:
-            # Raise the failure that stopped the write, not one from cleaning up.
-            try:
-                # An empty prefix on GCS does not exist, and removing it raises.
-                if directory.exists():
-                    directory.rmdir(recursive=True)
-            except Exception as error:
-                context.log.warning(f"Could not remove {directory}: {error}")
-            raise
         context.log.info(f"Wrote {title} data to {directory}")
-
-        metadata: dict[str, dg.MetadataValue] = {}
-        if sizes:
-            metadata["file_size"] = dg.MetadataValue.int(sum(sizes.values()))
-        if rows:
-            metadata["dagster/row_count"] = dg.MetadataValue.int(sum(rows.values()))
-        if len(rows) > 1:
-            metadata |= {
-                f"{stem}_row_count": dg.MetadataValue.int(count)
-                for stem, count in rows.items()
-            }
         return _landing_result(
             directory,
             metadata={
-                **metadata,
+                **_download_metadata(sizes, rows),
                 **source_metadata,
-                **{
-                    f"{release}_release_date": dg.MetadataValue.text(
-                        release_date.isoformat()
-                    )
-                    for release, release_date in release_dates.items()
-                },
+                **_release_date_metadata(release_dates),
             },
             check_results=check_results,
         )
