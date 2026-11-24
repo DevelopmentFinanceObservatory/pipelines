@@ -1,4 +1,5 @@
 import csv
+import logging
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -72,7 +73,7 @@ def _create_landing_directory(
 
 
 @contextmanager
-def _removed_on_failure(directory: UPath, log: dg.DagsterLogManager) -> Iterator[None]:
+def _remove_on_exception(directory: UPath, log: logging.Logger) -> Iterator[None]:
     """Remove `directory` if the block raises, cancellation included, then re-raise"""
     try:
         yield
@@ -266,7 +267,7 @@ def build_landing_asset(
             path=f"{group}/{dataset}",
             downloaded_at=downloaded_at,
         )
-        with _removed_on_failure(directory, context.log):
+        with _remove_on_exception(directory, context.log):
             release_dates, source_metadata = fetch(directory, observation)
             paths = {
                 stem: directory / file for stem, file in zip(stems, files, strict=True)
