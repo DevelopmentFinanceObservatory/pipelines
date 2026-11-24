@@ -14,6 +14,7 @@ from upath import UPath
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
+from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
 # Dagster kind of each file extension that has one
 _FILE_KINDS = {".parquet": "parquet", ".csv": "csv"}
@@ -214,15 +215,16 @@ def build_landing_asset(
             dg.AssetCheckSpec(name=check_name, asset=name, blocking=True)
             for check_name in (["files_not_empty"] if files else []) + list(checks)
         ],
-        required_resource_keys={"landing_file_store"},
         retry_policy=retry_policy,
     )
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
-    def landing(context: dg.AssetExecutionContext):
+    def landing(
+        context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
+    ):
         observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
-        with context.resources.landing_file_store.write_once_directory(
+        with landing_file_store.write_once_directory(
             f"{group}/{dataset}", created_at=downloaded_at, log=context.log
         ) as directory:
             release_dates, source_metadata = fetch(directory, observation)
