@@ -300,10 +300,9 @@ def test_landing_check_fails_when_only_the_template_exists(
     assert not result.asset_materializations_for_node("dfo_skills_dc_export")
 
 
-def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
-    tmp_path: Path, upstream: Path
-) -> None:
-    """Test a rerun replaces the day's copy rather than adding to it"""
+@pytest.mark.usefixtures("download_clock")
+def test_landing_drops_a_skill_deleted_upstream(tmp_path: Path, upstream: Path) -> None:
+    """Test a rerun lands only the skills upstream holds, not the earlier copy's"""
     commit(upstream, SKILLS, internal=INTERNAL_SKILLS)
     materialize_skills(tmp_path, head(upstream))
     replaced = {"oda-channels/SKILL.md": "---\nname: oda-channels\n---\n"}
@@ -314,10 +313,11 @@ def test_landing_drops_a_skill_deleted_upstream_on_a_same_day_rerun(
     assert files_under(landed_directory(result)) == landing_files(replaced)
 
 
+@pytest.mark.usefixtures("download_clock")
 def test_landing_keeps_the_previous_copy_when_the_clone_fails(
     tmp_path: Path, upstream: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test a failed fetch leaves the day's earlier copy in place"""
+    """Test a failed fetch leaves the earlier copy in place"""
     published = landed_directory(materialize_skills(tmp_path, head(upstream)))
 
     redirect_repository(monkeypatch, (tmp_path / "missing").as_uri())
@@ -325,6 +325,7 @@ def test_landing_keeps_the_previous_copy_when_the_clone_fails(
         materialize_skills(tmp_path, head(upstream))
 
     assert files_under(published) == landing_files(SKILLS)
+    assert list(published.parent.iterdir()) == [published]
 
 
 def test_landing_fails_when_git_stalls(
@@ -365,6 +366,7 @@ def test_landing_fails_when_git_stalls(
         "file_under_internal_skills",
     ],
 )
+@pytest.mark.usefixtures("download_clock")
 def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
     tmp_path: Path, upstream: Path, link: str, target: str, error: str
 ) -> None:
@@ -383,6 +385,7 @@ def test_landing_rejects_a_symlink_and_keeps_the_previous_copy(
         materialize_skills(tmp_path, head(upstream))
 
     assert files_under(published) == landing_files(SKILLS)
+    assert list(published.parent.iterdir()) == [published]
 
 
 class _SkillsAutomation(AutomationHarness):
@@ -434,6 +437,7 @@ def test_landing_is_not_rerun_when_main_is_unchanged(
         assert automation.tick() == {"dfo_skills_landing": 0}
 
 
+@pytest.mark.usefixtures("download_clock")
 def test_landing_is_rerun_once_when_main_moves(tmp_path: Path, upstream: Path) -> None:
     """Test a new commit on main requests the landing directory, and only once"""
     with _SkillsAutomation(tmp_path) as automation:

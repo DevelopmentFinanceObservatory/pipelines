@@ -11,7 +11,10 @@ import pytest
 from dagster_duckdb import DuckDBResource
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import write_extraction_metadata
+from dfo_pipelines.extraction.metadata import (
+    METADATA_FILE_NAME,
+    write_extraction_metadata,
+)
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.raw_tables import (
     RawTableSpec,
@@ -94,7 +97,10 @@ def write_landing_directory(
     for stem, table in tables.items():
         pq.write_table(table, directory / f"{stem}.parquet")
     write_extraction_metadata(
-        UPath(directory), downloaded_at=downloaded_at, release_dates=release_dates
+        UPath(directory),
+        downloaded_at=downloaded_at,
+        run_id="example-run",
+        release_dates=release_dates,
     )
     return directory
 
@@ -215,6 +221,28 @@ def test_build_raw_table_assets_failed_table_load_records_no_metadata(
             "example_raw_tables"
         )
     }
+
+
+def test_build_raw_table_assets_refuses_an_incomplete_directory_naming_its_landing(
+    tmp_path: Path,
+) -> None:
+    """Test a directory without extraction metadata fails the run before any table
+    loads, naming the landing asset to materialize"""
+    write_landing_directory_of_rows(tmp_path / "raw", {"things": 3, "others": 2})
+    (tmp_path / "raw" / METADATA_FILE_NAME).unlink()
+
+    result = load_raw_tables(
+        build_example(),
+        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        directory=tmp_path / "raw",
+        raise_on_error=False,
+    )
+
+    failure = result.failure_data_for_node("example_raw_tables")
+    assert failure is not None
+    assert failure.error is not None
+    assert "materialize example_landing" in failure.error.to_string()
+    assert not result.asset_materializations_for_node("example_raw_tables")
 
 
 def test_build_raw_table_assets_refuses_a_release_name_that_is_not_an_identifier() -> (

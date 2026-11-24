@@ -39,13 +39,18 @@ class ExtractionMetadata:
 
 
 def write_extraction_metadata(
-    directory: UPath, *, downloaded_at: datetime, release_dates: Mapping[str, date]
+    directory: UPath,
+    *,
+    downloaded_at: datetime,
+    run_id: str,
+    release_dates: Mapping[str, date],
 ) -> None:
     """Record extraction metadata in `directory`.
 
     Args:
         directory: Directory holding the files the extraction wrote.
         downloaded_at: Instant the files were fetched.
+        run_id: Run that wrote the directory.
         release_dates: Date each named source released the fetched data,
             keyed by source name. Written as `<name>_release_date`.
 
@@ -54,7 +59,7 @@ def write_extraction_metadata(
     """
     if not release_dates:
         raise ValueError("release_dates must name at least one source")
-    payload = {"downloaded_at": downloaded_at.isoformat()}
+    payload = {"downloaded_at": downloaded_at.isoformat(), "run_id": run_id}
     for name, release_date in release_dates.items():
         payload[f"{name}_release_date"] = release_date.isoformat()
     (directory / METADATA_FILE_NAME).write_text(json.dumps(payload))

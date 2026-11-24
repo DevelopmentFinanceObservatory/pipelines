@@ -530,11 +530,6 @@ def fetch_skills(directory: UPath, observation: Observation) -> FetchedRelease:
             )
         )
 
-        # Cleared after the clone succeeds, so a failed fetch keeps the day's
-        # copy and a rerun drops skills deleted upstream.
-        if directory.exists():
-            directory.rmdir(recursive=True)
-        directory.mkdir(parents=True)
         for path in files:
             target = directory / path.relative_to(clone_path)
             target.parent.mkdir(parents=True, exist_ok=True)
