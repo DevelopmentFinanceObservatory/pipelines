@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from contextlib import ExitStack
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from types import MappingProxyType
@@ -11,6 +11,10 @@ from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+
+# First instant the `download_clock` fixture stamps a download with. Late enough in
+# the UTC day that any zone east of UTC has moved to the next date.
+DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 
 
 @cache

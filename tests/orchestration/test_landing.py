@@ -1,8 +1,7 @@
 import json
 from collections.abc import Iterator, Mapping
-from datetime import UTC, date, datetime, tzinfo
+from datetime import date
 from pathlib import Path
-from unittest.mock import patch
 
 import dagster as dg
 import pyarrow as pa
@@ -24,10 +23,12 @@ from tests.helpers import (
     record_observation,
 )
 
-# Late enough in the UTC day that any zone east of UTC has moved to the next date.
-DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
+pytestmark = pytest.mark.usefixtures("download_clock")
 
 RELEASE_DATE = date(2026, 7, 7)
+
+DATASET_DIRECTORY = Path("landing", "example", "things")
+DIRECTORY = DATASET_DIRECTORY / "20260803T234705Z"
 
 
 def parquet_with_rows(rows: int) -> bytes:
@@ -96,32 +97,20 @@ def build_example(
     )
 
 
-@pytest.fixture(autouse=True)
-def frozen_download_clock() -> Iterator[None]:
-    """Freeze the instant the landing asset stamps a download with, in the zone it
-    names, which a local-time reading would not"""
-
-    def now(tz: tzinfo) -> datetime:
-        return DOWNLOADED_AT.astimezone(tz)
-
-    with patch("dfo_pipelines.orchestration.landing.datetime") as mock_datetime:
-        mock_datetime.now.side_effect = now
-        yield
-
-
 def test_build_landing_asset_writes_the_download_and_its_metadata(
     tmp_path: Path,
     instance: dg.DagsterInstance,
 ) -> None:
-    """Test the hook's file and the extraction metadata land in the directory of the
-    download's UTC date, with the standard metadata and the hook's own"""
+    """Test the hook's file and the extraction metadata land in a directory named for
+    the download's UTC instant, with the run, the standard metadata and the hook's
+    own"""
     asset = build_example(
         fetch_rows(3, metadata={"version": dg.MetadataValue.text("v20260801")})
     )
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / DIRECTORY
     file_path = directory / "things.parquet"
     assert sorted(path.name for path in directory.iterdir()) == [
         METADATA_FILE_NAME,
@@ -129,6 +118,7 @@ def test_build_landing_asset_writes_the_download_and_its_metadata(
     ]
     assert json.loads((directory / METADATA_FILE_NAME).read_text()) == {
         "downloaded_at": "2026-08-03T23:47:05+00:00",
+        "run_id": result.run_id,
         "source_release_date": "2026-07-07",
     }
     assert result.output_for_node("example_landing") == str(directory)
@@ -159,10 +149,11 @@ def test_build_landing_asset_records_each_release(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / DIRECTORY
     recorded = json.loads((directory / METADATA_FILE_NAME).read_text())
     assert recorded == {
         "downloaded_at": "2026-08-03T23:47:05+00:00",
+        "run_id": result.run_id,
         "crs_release_date": "2026-07-01",
         "multisystem_release_date": "2026-06-15",
     }
@@ -177,58 +168,123 @@ def test_build_landing_asset_records_each_release(
     assert "source_release_date" not in metadata
 
 
-def _refuse_download(directory: UPath, observation: Observation):
-    raise RuntimeError("download refused")
+def _fetch_partially_then_raise(error: BaseException):
+    def fetch(directory: UPath, observation: Observation):
+        (directory / "things.parquet").write_bytes(b"partial")
+        raise error
+
+    return fetch
+
+
+def _unreadable(directory: UPath) -> bool:
+    raise ValueError("check could not read the directory")
 
 
 @pytest.mark.parametrize(
-    ("fetch", "files", "error", "match"),
+    ("landing", "error", "match"),
     [
         pytest.param(
-            _refuse_download,
-            ("things.parquet",),
+            build_example(
+                _fetch_partially_then_raise(RuntimeError("download refused"))
+            ),
             RuntimeError,
             "download refused",
             id="fetch fails",
         ),
         pytest.param(
-            fetch_files({"things.parquet": b"PAR1"}),
-            ("things.parquet",),
+            build_example(fetch_files({"things.parquet": b"PAR1"})),
             pa.ArrowInvalid,
             None,
             id="file unreadable",
         ),
         pytest.param(
-            fetch_rows(1, release_dates={}),
-            ("things.parquet",),
+            build_example(fetch_rows(1, release_dates={})),
             ValueError,
             "must name at least one source",
             id="no release date",
         ),
         pytest.param(
-            fetch_rows(1),
-            ("things.parquet", "more.csv"),
+            build_example(fetch_rows(1), files=("things.parquet", "more.csv")),
             FileNotFoundError,
             r"more\.csv",
             id="declared file missing",
+        ),
+        pytest.param(
+            build_example(fetch_rows(1), checks={"readable": _unreadable}),
+            ValueError,
+            "check could not read the directory",
+            id="check raises",
+        ),
+        pytest.param(
+            build_example(_fetch_partially_then_raise(KeyboardInterrupt())),
+            KeyboardInterrupt,
+            None,
+            id="keyboard interrupt",
+        ),
+        pytest.param(
+            build_example(
+                _fetch_partially_then_raise(dg.DagsterExecutionInterruptedError())
+            ),
+            dg.DagsterExecutionInterruptedError,
+            None,
+            id="run terminated",
         ),
     ],
 )
 def test_build_landing_asset_records_nothing_when_the_landing_fails(
     tmp_path: Path,
     instance: dg.DagsterInstance,
-    fetch,
-    files: tuple[str, ...],
-    error: type[Exception],
+    landing: dg.AssetsDefinition,
+    error: type[BaseException],
     match: str | None,
 ) -> None:
-    """Test a landing that fails leaves no record claiming a download happened"""
+    """Test a landing that fails or is interrupted leaves no directory claiming a
+    download happened"""
     with pytest.raises(error, match=match):
+        materialize_landing(landing, tmp_path, instance=instance)
+
+    assert not list((tmp_path / DATASET_DIRECTORY).iterdir())
+
+
+def test_build_landing_asset_raises_the_fetch_error_when_removal_fails(
+    tmp_path: Path, instance: dg.DagsterInstance, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a directory that cannot be removed after a failed fetch is logged as a
+    warning, and the fetch's error is the one raised"""
+
+    def refuse(self: UPath, recursive: bool = True) -> None:
+        raise ValueError(f"cannot remove {self}")
+
+    monkeypatch.setattr(type(UPath(tmp_path)), "rmdir", refuse)
+
+    with pytest.raises(RuntimeError, match="download refused"):
         materialize_landing(
-            build_example(fetch, files=files), tmp_path, instance=instance
+            build_example(
+                _fetch_partially_then_raise(RuntimeError("download refused"))
+            ),
+            tmp_path,
+            instance=instance,
         )
 
-    assert not list((tmp_path / "landing").rglob(METADATA_FILE_NAME))
+    directory = tmp_path / DIRECTORY
+    [run] = instance.get_runs()
+    assert f"Could not remove {directory}: cannot remove {directory}" in [
+        entry.user_message for entry in instance.all_logs(run.run_id)
+    ]
+
+
+def test_build_landing_asset_refuses_a_directory_that_exists(
+    tmp_path: Path, instance: dg.DagsterInstance
+) -> None:
+    """Test a download stamped with an instant whose directory exists fails before
+    fetching, leaving that directory alone"""
+    (tmp_path / DIRECTORY).mkdir(parents=True)
+    (tmp_path / DIRECTORY / "earlier.txt").write_text("earlier")
+
+    with pytest.raises(FileExistsError, match="20260803T234705Z"):
+        materialize_landing(build_example(fetch_rows(1)), tmp_path, instance=instance)
+
+    assert [path.name for path in (tmp_path / DIRECTORY).iterdir()] == ["earlier.txt"]
 
 
 @pytest.mark.parametrize(
@@ -304,7 +360,7 @@ def test_build_landing_asset_counts_the_rows_of_each_table(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / DIRECTORY
     assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "file_size": dg.IntMetadataValue(
@@ -331,7 +387,7 @@ def test_build_landing_asset_records_no_size_or_rows_without_declared_files(
 
     result = materialize_landing(asset, tmp_path, instance=instance)
 
-    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / DIRECTORY
     assert materialization(result).metadata == {
         "dagster/uri": dg.TextMetadataValue(str(directory)),
         "source_release_date": dg.TextMetadataValue("2026-07-07"),
@@ -422,7 +478,7 @@ def test_build_landing_asset_logs_where_it_wrote(
         instance=instance,
     )
 
-    directory = tmp_path / "landing" / "example" / "things" / "2026" / "08" / "03"
+    directory = tmp_path / DIRECTORY
     assert f"Wrote Example data to {directory}" in messages
 
 

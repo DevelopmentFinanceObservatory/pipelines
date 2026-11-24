@@ -129,7 +129,15 @@ def build_raw_table_assets(
     def raw_tables(duckdb: DuckDBResource, landing_directory: str):
         directory = UPath(landing_directory)
         with duckdb.get_connection() as connection:
-            metadata = read_extraction_metadata(directory, release_names=release_names)
+            try:
+                metadata = read_extraction_metadata(
+                    directory, release_names=release_names
+                )
+            except FileNotFoundError as error:
+                raise FileNotFoundError(
+                    f"{directory} was never completed; materialize "
+                    f"{landing_key.to_user_string()}"
+                ) from error
             for raw_table in tables:
                 rows = load_parquet(
                     connection,
