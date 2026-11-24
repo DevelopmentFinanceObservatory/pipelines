@@ -30,8 +30,7 @@ class UPathFileStoreResource(StrictConfigurableResource):
         """Create `<base_path>/<path>/<created_at in UTC>_<run_id>` for the block to
         write, and remove it if the block raises
 
-        The run ID keeps runs that start in the same second out of each other's
-        directory, since `mkdir` reserves nothing on GCS.
+        The run ID keeps runs that start in the same second apart.
         """
         directory = (
             UPath(self.base_path)
