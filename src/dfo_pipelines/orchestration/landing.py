@@ -74,7 +74,7 @@ def _create_landing_directory(
 
 @contextmanager
 def _remove_on_exception(directory: UPath, log: logging.Logger) -> Iterator[None]:
-    """Remove `directory` if the block raises, cancellation included, then re-raise"""
+    """Remove `directory` if the block raises, then re-raise"""
     try:
         yield
     except BaseException:
