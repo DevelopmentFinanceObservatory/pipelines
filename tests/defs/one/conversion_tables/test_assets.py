@@ -1,8 +1,6 @@
 import json
 from collections.abc import Callable
-from datetime import date
 from pathlib import Path
-from unittest.mock import patch
 
 import dagster as dg
 import pandas as pd
@@ -17,6 +15,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import meta
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
@@ -114,7 +113,7 @@ from (values
 
 def _run_export(tmp_path: Path, table: str) -> Path:
     """Materialize one table's export asset over hand-written dc models"""
-    spec, export_asset = TABLES[table]
+    _, export_asset = TABLES[table]
     duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     with duckdb.get_connection() as connection:
@@ -123,16 +122,13 @@ def _run_export(tmp_path: Path, table: str) -> Path:
         connection.execute(_statvars_sql(table))
         connection.execute(_observations_sql(table))
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 10, 1)
-        out_dir = file_store.build_date_partitioned_path(spec.import_name)
-        export_asset(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return Path(str(out_dir))
+    result = export_asset(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    assert isinstance(result, dg.MaterializeResult)
+    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
 
 
 def _statvar_nodes(out_dir: Path) -> dict[str, str]:

@@ -28,9 +28,9 @@ A downstream asset reads its upstream's path from the value the upstream returne
 
 `build_landing_asset` writes each download to a new directory, writes `metadata.json` last, and removes a directory whose write failed. `build_raw_table_assets` refuses a directory without `metadata.json`, as incomplete.
 
-### Exports are replaced in place
+### An export directory is written once
 
-Export paths are keyed to the day rather than the run. Clear the partition before writing, or a same-day rerun republishes files an earlier run wrote and this one did not. A failure partway leaves the partition incomplete until the next successful run.
+Each export writes its bundle to a new directory through `write_once_directory`, which removes it if the run raises or is cancelled. Ingestion reads only the directory a successful materialization recorded, so one left by a crash is never ingested. Enter the `with` just before the first write, so a run that fails validation creates nothing, and keep every read of the bundle inside it.
 
 ## dbt
 

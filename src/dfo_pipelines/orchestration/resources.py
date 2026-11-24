@@ -2,7 +2,7 @@ import logging
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
@@ -22,14 +22,6 @@ class UPathFileStoreResource(StrictConfigurableResource):
     """File store for UPath backends"""
 
     base_path: str
-
-    def build_date_partitioned_path(self, path: str) -> UPath:
-        """Builds a path in the format `<base_path>/<path>/<YYYY>/<MM>/<DD>`.
-
-        The date partition is today's.
-        """
-        partition = date.today().strftime("%Y/%m/%d")
-        return UPath(self.base_path) / path / partition
 
     @contextmanager
     def write_once_directory(

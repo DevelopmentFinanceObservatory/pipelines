@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import dagster as dg
@@ -599,7 +599,6 @@ def dfo_skills_dc_export(
     resolve, fails the run before anything is written.
     """
     provenance_dcid = "dcid:provenance/DFOSkills"
-    out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
 
     skill_directories = _skill_directories(UPath(dfo_skills_landing))
     # A skill's name is its id in the graph, so two roots cannot share one.
@@ -670,13 +669,17 @@ def dfo_skills_dc_export(
         reference_count += len(skill.references)
 
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
-    manager.export_all(str(out_dir))
-    context.log.info(
-        f"Exported {len(skills)} skills and {reference_count} references to {out_dir}"
-    )
-    return export_directory_result(
-        out_dir, {"skill_count": len(skills), "reference_count": reference_count}
-    )
+    with export_file_store.write_once_directory(
+        IMPORT_NAME, created_at=datetime.now(UTC), log=context.log
+    ) as out_dir:
+        manager.export_all(str(out_dir))
+        context.log.info(
+            f"Exported {len(skills)} skills and {reference_count} references to"
+            f" {out_dir}"
+        )
+        return export_directory_result(
+            out_dir, {"skill_count": len(skills), "reference_count": reference_count}
+        )
 
 
 dfo_skills_dc_ingestion = build_dc_ingestion_asset(

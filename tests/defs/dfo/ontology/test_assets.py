@@ -15,6 +15,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
     BENCH,
     CODE_MAPPING_CSV,
     COMPILE_REPORT,
+    IMPORT_NAME,
     ONTOLOGY_MCF,
     dfo_ontology_dc_export,
     dfo_ontology_landing,
@@ -377,6 +378,23 @@ def test_export_counts_the_nodes_it_publishes(tmp_path: Path) -> None:
     node_count = meta(result, "node_count", dg.IntMetadataValue).value
 
     assert node_count == STUB_MCF.count("Node: ")
+
+
+def test_export_removes_its_directory_when_the_copy_fails(tmp_path: Path) -> None:
+    """Test an export that fails to copy the ontology, after writing the rest of
+    the bundle, leaves no directory to ingest"""
+    landing_directory = tmp_path / "landing"
+    landing_directory.mkdir()
+    export_directory = tmp_path / "processed"
+
+    with pytest.raises(FileNotFoundError):
+        dfo_ontology_dc_export(
+            context=dg.build_asset_context(),
+            export_file_store=UPathFileStoreResource(base_path=str(export_directory)),
+            dfo_ontology_landing=str(landing_directory),
+        )
+
+    assert list((export_directory / IMPORT_NAME).iterdir()) == []
 
 
 def test_the_compiled_ontology_reaches_the_table_and_the_bundle(

@@ -21,7 +21,7 @@ def defs():
             executor=dg.multiprocess_executor.configured({"max_concurrent": 1}),
             resources={
                 "landing_file_store": UPathFileStoreResource(base_path="data/landing"),
-                "export_file_store": UPathFileStoreResource(base_path="data/processed"),
+                "export_file_store": UPathFileStoreResource(base_path="data/exports"),
                 "duckdb": DuckDBResource(database=dg.EnvVar("DUCKDB_PATH")),
                 "knowledge_graph": KnowledgeGraphResource(
                     project_id=dg.EnvVar("DCP_PROJECT_ID"),

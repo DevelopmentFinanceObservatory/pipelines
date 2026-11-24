@@ -29,7 +29,7 @@ cp .env.example .env
 - `dbt/`: dbt models, from staging (`stg_`) through intermediate (`int_`) to the Data Commons schema (`dc_`)
 - `docs/`: how each source is transformed, one directory per dataset
 - `tests/`: Python tests
-- `data/`: downloads as sources delivered them (`landing/`), exported bundles (`processed/`) and, by default, the DuckDB database (`dfo.duckdb`)
+- `data/`: downloads as sources delivered them (`landing/`), exported bundles (`exports/`) and, by default, the DuckDB database (`dfo.duckdb`)
 
 ## Running Dagster
 

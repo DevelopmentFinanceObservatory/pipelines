@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -52,18 +52,18 @@ def _dep_keys(asset: dg.AssetsDefinition) -> set[dg.AssetKey]:
     return {dep.asset_key for dep in asset.specs_by_key[asset.key].deps}
 
 
-def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
+def test_build_dc_export_asset_writes_the_bundle_to_a_directory_for_the_run(
     tmp_path: Path,
 ) -> None:
-    """Test the export hands its spec and today's partition of the file store to
-    `export_bundle`, returns the directory, and reports what the bundle holds"""
+    """Test the export hands its spec and a directory named by the run's UTC instant
+    to `export_bundle`, returns the directory, and reports what the bundle holds"""
     spec = _spec(tmp_path, source_model=None)
     export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    out_dir = tmp_path / "processed" / "example" / "2026" / "10" / "01"
+    out_dir = tmp_path / "processed" / "example" / "20261001T093015Z"
     asset = build_dc_export_asset(spec=spec, group="example", title="Example")
 
     with (
-        patch("dfo_pipelines.orchestration.resources.date") as mock_date,
+        patch("dfo_pipelines.orchestration.dc_export.datetime") as mock_datetime,
         patch(
             "dfo_pipelines.orchestration.dc_export.export_bundle",
             return_value=ExportMetadata(
@@ -71,7 +71,7 @@ def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
             ),
         ) as export_bundle,
     ):
-        mock_date.today.return_value = date(2026, 10, 1)
+        mock_datetime.now.return_value = datetime(2026, 10, 1, 9, 30, 15, tzinfo=UTC)
         result = dg.materialize(
             [asset],
             resources={
@@ -95,6 +95,81 @@ def test_build_dc_export_asset_writes_the_bundle_to_todays_partition(
     }
     # The IO manager adds the `path` it stored the value at.
     assert materialization.metadata.items() >= reported.items()
+
+
+def test_build_dc_export_asset_keeps_the_bundle_an_earlier_run_wrote(
+    tmp_path: Path,
+) -> None:
+    """Test a second materialization writes a directory of its own and leaves the
+    first run's bundle as it was"""
+    spec = _spec(tmp_path, source_model=None)
+    asset = build_dc_export_asset(spec=spec, group="example", title="Example")
+    resources = {
+        "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        "export_file_store": UPathFileStoreResource(
+            base_path=str(tmp_path / "processed")
+        ),
+    }
+    runs = iter(["first", "second"])
+
+    def write_bundle(spec: ExportSpec, *, out_dir: Path, **_: object) -> ExportMetadata:
+        (out_dir / "config.json").write_text(next(runs))
+        return ExportMetadata(
+            observation_count=0, statvar_count=0, observation_file_count=0
+        )
+
+    with (
+        patch("dfo_pipelines.orchestration.dc_export.datetime") as mock_datetime,
+        patch(
+            "dfo_pipelines.orchestration.dc_export.export_bundle",
+            side_effect=write_bundle,
+        ),
+    ):
+        mock_datetime.now.side_effect = [
+            datetime(2026, 10, 1, 9, 30, 15, tzinfo=UTC),
+            datetime(2026, 10, 1, 9, 30, 16, tzinfo=UTC),
+        ]
+        first = dg.materialize([asset], resources=resources)
+        second = dg.materialize([asset], resources=resources)
+
+    first_dir = Path(first.output_for_node("example_dc_export"))
+    second_dir = Path(second.output_for_node("example_dc_export"))
+    assert first_dir != second_dir
+    assert (first_dir / "config.json").read_text() == "first"
+    assert (second_dir / "config.json").read_text() == "second"
+
+
+def test_build_dc_export_asset_removes_the_bundle_of_a_failed_run(
+    tmp_path: Path,
+) -> None:
+    """Test an export that fails after writing part of its bundle fails the run and
+    leaves no directory to ingest"""
+    spec = _spec(tmp_path, source_model=None)
+    asset = build_dc_export_asset(spec=spec, group="example", title="Example")
+
+    def write_part_of_the_bundle(
+        spec: ExportSpec, *, out_dir: Path, **_: object
+    ) -> ExportMetadata:
+        (out_dir / "config.json").write_text("{}")
+        raise RuntimeError("export failed")
+
+    with patch(
+        "dfo_pipelines.orchestration.dc_export.export_bundle",
+        side_effect=write_part_of_the_bundle,
+    ):
+        result = dg.materialize(
+            [asset],
+            resources={
+                "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+                "export_file_store": UPathFileStoreResource(
+                    base_path=str(tmp_path / "processed")
+                ),
+            },
+            raise_on_error=False,
+        )
+
+    assert not result.success
+    assert list((tmp_path / "processed" / "example").iterdir()) == []
 
 
 def test_build_dc_export_asset_is_named_and_versioned_by_its_spec(

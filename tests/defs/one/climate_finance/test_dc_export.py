@@ -1,8 +1,6 @@
 import json
-from datetime import date
 from pathlib import Path
 from typing import NamedTuple
-from unittest.mock import patch
 
 import dagster as dg
 import pandas as pd
@@ -19,6 +17,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import meta
 
 DISBURSEMENT_DCID = (
     "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal"
@@ -170,16 +169,13 @@ def _run_export(tmp_path: Path, export: Export) -> Path:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     _create_dc_models(duckdb, export)
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 8, 3)
-        out_dir = file_store.build_date_partitioned_path(export.spec.import_name)
-        export.asset(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return Path(str(out_dir))
+    result = export.asset(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    assert isinstance(result, dg.MaterializeResult)
+    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
 
 
 @pytest.mark.parametrize("export", EXPORTS)

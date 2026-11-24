@@ -154,8 +154,6 @@ def dfo_ontology_dc_export(
     dfo_ontology_landing: str,
 ) -> dg.MaterializeResult:
     """Data Commons export for the DFO ontology"""
-    out_dir = export_file_store.build_date_partitioned_path(IMPORT_NAME)
-
     manager = CustomDataManager()
     manager.set_import_name(IMPORT_NAME)
 
@@ -176,15 +174,18 @@ def dfo_ontology_dc_export(
         license_type="dcid:DFOCiteAndLicense",
     )
     manager.add_mcf_file(file_name="*.mcf", provenance=provenance_dcid)
-    manager.export_all(str(out_dir), validate_data=True)
-    shutil.copyfileobj(
-        (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb"),
-        (out_dir / ONTOLOGY_MCF).open("wb"),
-    )
-    context.log.info(f"Exported the DFO ontology to {out_dir}")
-    return export_directory_result(
-        out_dir, {"node_count": count_mcf_nodes(out_dir / ONTOLOGY_MCF)}
-    )
+    with export_file_store.write_once_directory(
+        IMPORT_NAME, created_at=datetime.now(UTC), log=context.log
+    ) as out_dir:
+        manager.export_all(str(out_dir), validate_data=True)
+        shutil.copyfileobj(
+            (UPath(dfo_ontology_landing) / ONTOLOGY_MCF).open("rb"),
+            (out_dir / ONTOLOGY_MCF).open("wb"),
+        )
+        context.log.info(f"Exported the DFO ontology to {out_dir}")
+        return export_directory_result(
+            out_dir, {"node_count": count_mcf_nodes(out_dir / ONTOLOGY_MCF)}
+        )
 
 
 dfo_ontology_dc_ingestion = build_dc_ingestion_asset(

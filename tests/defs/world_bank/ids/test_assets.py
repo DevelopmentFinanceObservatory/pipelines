@@ -24,6 +24,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from tests.helpers import meta
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
 
@@ -697,16 +698,13 @@ def run_export(tmp_path: Path) -> Path:
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
     create_dc_models(duckdb)
 
-    with patch("dfo_pipelines.orchestration.resources.date") as mock_date:
-        mock_date.today.return_value = date(2026, 8, 3)
-        out_dir = file_store.build_date_partitioned_path("world_bank_ids")
-        world_bank_ids_dc_export(
-            context=dg.build_asset_context(),
-            duckdb=duckdb,
-            export_file_store=file_store,
-        )
-
-    return Path(str(out_dir))
+    result = world_bank_ids_dc_export(
+        context=dg.build_asset_context(),
+        duckdb=duckdb,
+        export_file_store=file_store,
+    )
+    assert isinstance(result, dg.MaterializeResult)
+    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
 
 
 def test_ids_dc_export_writes_each_observation_input_to_its_own_files_by_year(

@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
@@ -53,18 +54,20 @@ def build_dc_export_asset(
         duckdb: DuckDBResource,
         export_file_store: UPathFileStoreResource,
     ) -> dg.MaterializeResult:
-        out_dir = export_file_store.build_date_partitioned_path(spec.import_name)
-        with duckdb.get_connection() as connection:
-            export_metadata = export_bundle(
-                spec, connection=connection, out_dir=out_dir, log=context.log
+        with export_file_store.write_once_directory(
+            spec.import_name, created_at=datetime.now(UTC), log=context.log
+        ) as out_dir:
+            with duckdb.get_connection() as connection:
+                export_metadata = export_bundle(
+                    spec, connection=connection, out_dir=out_dir, log=context.log
+                )
+            return export_directory_result(
+                out_dir,
+                {
+                    "observation_count": export_metadata.observation_count,
+                    "statvar_count": export_metadata.statvar_count,
+                    "observation_file_count": export_metadata.observation_file_count,
+                },
             )
-        return export_directory_result(
-            out_dir,
-            {
-                "observation_count": export_metadata.observation_count,
-                "statvar_count": export_metadata.statvar_count,
-                "observation_file_count": export_metadata.observation_file_count,
-            },
-        )
 
     return dc_export
