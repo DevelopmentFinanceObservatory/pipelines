@@ -2,7 +2,7 @@ import logging
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
@@ -35,13 +35,17 @@ class UPathFileStoreResource(StrictConfigurableResource):
     def write_once_directory(
         self, path: str, *, created_at: datetime, log: logging.Logger
     ) -> Iterator[UPath]:
-        """Create `<base_path>/<path>/<created_at>` for the block to write, and remove
-        it if the block raises
+        """Create `<base_path>/<path>/<created_at in UTC>` for the block to write,
+        and remove it if the block raises
 
         Raises:
             FileExistsError: If the directory exists, since each is written once.
         """
-        directory = UPath(self.base_path) / path / created_at.strftime("%Y%m%dT%H%M%SZ")
+        directory = (
+            UPath(self.base_path)
+            / path
+            / created_at.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+        )
         if directory.exists():
             raise FileExistsError(
                 f"{directory} exists, and a directory is written once"
