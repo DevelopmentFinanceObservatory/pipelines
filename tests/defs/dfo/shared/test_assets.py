@@ -7,7 +7,7 @@ from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory, meta
 
 LICENSE_TYPES_SQL = """
 create or replace table dfo_shared.license_types as
@@ -54,7 +54,7 @@ def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     )
 
     assert isinstance(result, dg.MaterializeResult)
-    out_dir = Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    out_dir = exported_directory(result)
     assert (out_dir / "custom_nodes.mcf").read_text().strip() == (
         "Node: dcid:TestLicense\n"
         'name: "Test License"\n'

@@ -83,6 +83,12 @@ def landed_directory(result: dg.ExecuteInProcessResult) -> Path:
     return Path(uri.value)
 
 
+def exported_directory(result: object) -> Path:
+    """The bundle directory an export asset's result recorded"""
+    assert isinstance(result, dg.MaterializeResult)
+    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+
+
 def check_outcomes(result: dg.ExecuteInProcessResult) -> dict[str, bool]:
     """Whether each check the run evaluated passed, keyed on its name"""
     return {

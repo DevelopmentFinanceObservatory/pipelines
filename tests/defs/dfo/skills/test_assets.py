@@ -32,6 +32,7 @@ from dfo_pipelines.orchestration.resources import (
 from tests.helpers import (
     AutomationHarness,
     check_outcomes,
+    exported_directory,
     landed_directory,
     materialization,
     materialize_landing,
@@ -485,8 +486,7 @@ def test_dc_export_writes_the_expected_bundle(tmp_path: Path) -> None:
         dfo_ontology_landing=str(FIXTURES / "ontology"),
     )
 
-    assert isinstance(result, dg.MaterializeResult)
-    out_dir = Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    out_dir = exported_directory(result)
     assert files_under(out_dir) == files_under(FIXTURES / "dc_export")
 
 
@@ -544,7 +544,7 @@ def export_skills(
         dfo_ontology_landing=str(ontology_root),
     )
     assert isinstance(result, dg.MaterializeResult)
-    return result, Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return result, exported_directory(result)
 
 
 def test_landing_and_export_carry_a_skill_from_each_root(

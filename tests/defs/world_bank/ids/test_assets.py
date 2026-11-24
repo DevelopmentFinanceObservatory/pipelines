@@ -24,7 +24,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
 
@@ -703,8 +703,7 @@ def run_export(tmp_path: Path) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 def test_ids_dc_export_writes_each_observation_input_to_its_own_files_by_year(

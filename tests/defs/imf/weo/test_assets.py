@@ -21,7 +21,7 @@ from dfo_pipelines.defs.imf.weo.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
@@ -226,8 +226,7 @@ def _run_dc_export(tmp_path: Path) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 def test_imf_weo_dc_export_writes_the_import_config(tmp_path: Path) -> None:

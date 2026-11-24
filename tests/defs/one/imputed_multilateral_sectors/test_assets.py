@@ -28,7 +28,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -1096,8 +1096,7 @@ def _run_export(tmp_path: Path) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 def test_dc_export_writes_the_pipeline_documentation_onto_the_provenance_node(

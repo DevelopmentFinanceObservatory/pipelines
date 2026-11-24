@@ -15,7 +15,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
@@ -127,8 +127,7 @@ def _run_export(tmp_path: Path, table: str) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 def _statvar_nodes(out_dir: Path) -> dict[str, str]:

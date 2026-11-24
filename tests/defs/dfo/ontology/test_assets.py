@@ -27,6 +27,7 @@ from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
     column_list,
+    exported_directory,
     landed_directory,
     materialize_landing,
     meta,
@@ -340,7 +341,7 @@ def build_export(tmp_path: Path) -> tuple[dg.MaterializeResult, Path]:
         dfo_ontology_landing=str(landing_directory),
     )
     assert isinstance(result, dg.MaterializeResult)
-    return result, Path(str(meta(result, "dagster/uri", dg.TextMetadataValue).value))
+    return result, exported_directory(result)
 
 
 def test_export_publishes_the_compiled_mcf_unchanged(tmp_path: Path) -> None:

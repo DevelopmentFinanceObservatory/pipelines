@@ -17,7 +17,7 @@ from dfo_pipelines.defs.oecd.dac2b.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2B_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2b/DAC2b.parquet"
@@ -167,8 +167,7 @@ def _run_dc_export(tmp_path: Path) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 def test_oecd_dac2b_dc_export_writes_the_import_config(tmp_path: Path) -> None:

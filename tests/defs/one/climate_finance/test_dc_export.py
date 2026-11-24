@@ -17,7 +17,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
 )
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
-from tests.helpers import meta
+from tests.helpers import exported_directory
 
 DISBURSEMENT_DCID = (
     "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal"
@@ -174,8 +174,7 @@ def _run_export(tmp_path: Path, export: Export) -> Path:
         duckdb=duckdb,
         export_file_store=file_store,
     )
-    assert isinstance(result, dg.MaterializeResult)
-    return Path(meta(result, "dagster/uri", dg.TextMetadataValue).value)
+    return exported_directory(result)
 
 
 @pytest.mark.parametrize("export", EXPORTS)
