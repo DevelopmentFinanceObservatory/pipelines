@@ -80,9 +80,7 @@ def _remove_on_exception(directory: UPath, log: logging.Logger) -> Iterator[None
     except BaseException:
         # Raise the failure that stopped the write, not one from cleaning up.
         try:
-            # An empty prefix on GCS does not exist, and removing it raises.
-            if directory.exists():
-                directory.rmdir(recursive=True)
+            directory.rmdir(recursive=True)
         except Exception as error:
             log.warning(f"Could not remove {directory}: {error}")
         raise
