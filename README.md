@@ -19,6 +19,8 @@ Copy the example environment file, [`.env.example`](.env.example), and fill in t
 cp .env.example .env
 ```
 
+`DFO_ENVIRONMENT` selects where landing downloads are written: `local` uses `data/landing`, and `dev` uses the dev project's GCS landing bucket. Definitions fail to load when it is unset or not one of these. The tests set it to `local` themselves.
+
 ## Project structure
 
 - `src/dfo_pipelines/`: Python package
