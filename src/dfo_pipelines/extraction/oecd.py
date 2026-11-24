@@ -139,8 +139,7 @@ def fetch_bulk_file(
     # without a bypass, sees the version observed.
     check_observed()
     released = release_date(observed_url, observed_version)
-    # oda_reader writes only to local disk, so the download goes to a local
-    # working directory and is copied to the store from there.
+    # oda_reader writes only to local disk.
     with tempfile.TemporaryDirectory() as working_directory:
         download(save_to_path=working_directory, use_raw_cache=False)
         # The URL stays stable across a republish, so a republish during the

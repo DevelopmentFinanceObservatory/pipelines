@@ -252,7 +252,6 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> None
     """
     writer: pq.ParquetWriter | None = None
     try:
-        # ParquetWriter leaves a handle it is given open, so the `with` closes it.
         with output_file.open("wb") as handle:
             try:
                 for filename in BULK_XLSX_URLS:
@@ -281,8 +280,7 @@ def combine_ids_bulk_data_files(input_folder: UPath, output_file: UPath) -> None
                 if writer is not None:
                     writer.close()
     except Exception:
-        # Outside the `with`, since closing an object store's handle commits the
-        # partial file even when the block raised.
+        # Outside the `with`, whose close commits the partial file on an object store.
         output_file.unlink(missing_ok=True)
         raise
 
