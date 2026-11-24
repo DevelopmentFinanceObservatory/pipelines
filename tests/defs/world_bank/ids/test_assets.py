@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable, Iterable
 from datetime import date
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import dagster as dg
 import httpx
@@ -272,11 +272,11 @@ def test_world_bank_ids_source_observe_fn_raises_on_connection_error() -> None:
 
 
 def test_fetch_ids_combines_the_downloads_unmodified(
-    tmp_path: Path,
+    landing_directory: UPath,
 ) -> None:
     """Test the hook writes the six downloads as one text parquet file and returns
     the release date and the files' metadata"""
-    file_path = UPath(tmp_path / "ids.parquet")
+    file_path = landing_directory / "ids.parquet"
     source_df = pd.DataFrame(
         {
             "Country Code": ["AFG", "ZMB"],
@@ -296,15 +296,16 @@ def test_fetch_ids_combines_the_downloads_unmodified(
         "dfo_pipelines.defs.world_bank.ids.assets.download_ids_bulk_data_files",
         side_effect=_fake_download(source_df),
     ) as download:
-        release_dates, metadata = fetch_ids(UPath(tmp_path), OBSERVATION)
+        release_dates, metadata = fetch_ids(landing_directory, OBSERVATION)
 
-    download.assert_called_once_with(file_path.parent, observed_files=OBSERVED_FILES)
+    download.assert_called_once_with(ANY, observed_files=OBSERVED_FILES)
     assert release_dates == {"source": SOURCE_RELEASE_DATE}
     assert metadata == {"files": OBSERVED_FILES}
 
     # files are combined unmodified: 2 rows x 6 files, original columns, year
     # headers carried through as strings
-    out = pd.read_parquet(file_path)
+    with file_path.open("rb") as handle:
+        out = pd.read_parquet(handle)
     assert len(out) == 12
     assert list(out.columns) == [
         "Country Code",
@@ -320,8 +321,8 @@ def test_fetch_ids_combines_the_downloads_unmodified(
     assert set(out.dtypes.astype(str)) == {"str"}
     assert out["Counterpart-Area Code"].tolist() == ["WLD", "071"] * 6
 
-    # the downloaded XLSX are removed, leaving the published parquet
-    assert [path.name for path in file_path.parent.iterdir()] == ["ids.parquet"]
+    # the downloaded XLSX stay out of the landing directory
+    assert [path.name for path in landing_directory.iterdir()] == ["ids.parquet"]
 
 
 def test_fetch_ids_records_the_observed_release_date(tmp_path: Path) -> None:
@@ -341,14 +342,14 @@ def test_fetch_ids_records_the_observed_release_date(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("read_to_fail_on", [1, 2])
 def test_fetch_ids_cleans_up_when_combine_fails(
-    tmp_path: Path, read_to_fail_on: int
+    landing_directory: UPath, read_to_fail_on: int
 ) -> None:
-    """Test downloads and output are cleaned up when combining fails
+    """Test the output is removed when combining fails
 
     Parameterized with the read number to fail on so that a failure after the
     combined output file has been created can be tested.
     """
-    file_path = UPath(tmp_path / "ids.parquet")
+    file_path = landing_directory / "ids.parquet"
     df = pd.DataFrame({"Country Code": ["AFG"]})
     # Capture before patching: the patch target is the pandas module attribute
     # itself, so calling pd.read_excel inside the side effect would recurse.
@@ -373,9 +374,9 @@ def test_fetch_ids_cleans_up_when_combine_fails(
         ),
         pytest.raises(ValueError, match="corrupt workbook"),
     ):
-        fetch_ids(UPath(tmp_path), OBSERVATION)
+        fetch_ids(landing_directory, OBSERVATION)
 
-    assert list(file_path.parent.iterdir()) == []
+    assert not file_path.exists()
 
 
 def test_download_ids_bulk_data_files_writes_every_file(tmp_path: Path) -> None:

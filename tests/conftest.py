@@ -1,10 +1,13 @@
 from collections.abc import Iterator
 from datetime import datetime, tzinfo
+from pathlib import Path
 from unittest.mock import PropertyMock, patch
+from uuid import uuid4
 
 import dagster as dg
 import pytest
 from dagster._core.execution.context.invocation import DirectOpExecutionContext
+from upath import UPath
 
 from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
 from tests.helpers import DOWNLOADED_AT
@@ -43,3 +46,11 @@ def download_clock() -> Iterator[None]:
     with patch("dfo_pipelines.orchestration.landing.datetime") as mock_datetime:
         mock_datetime.now.side_effect = now
         yield
+
+
+@pytest.fixture(params=["local", "memory"])
+def landing_directory(request: pytest.FixtureRequest, tmp_path: Path) -> UPath:
+    """A fetch's landing directory, on local disk and on an object store"""
+    if request.param == "local":
+        return UPath(tmp_path)
+    return UPath(f"memory://{uuid4().hex}/landing")

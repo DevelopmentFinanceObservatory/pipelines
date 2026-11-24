@@ -1,7 +1,10 @@
 import re
+import shutil
+import tempfile
 from collections.abc import Callable
 from datetime import date
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 import httpx
 from oda_reader.download.download_tools import (
@@ -136,15 +139,17 @@ def fetch_bulk_file(
     # without a bypass, sees the version observed.
     check_observed()
     released = release_date(observed_url, observed_version)
-    download(save_to_path=str(file_path.parent), use_raw_cache=False)
-    (file_path.parent / downloaded_name).rename(file_path)
-    # The URL stays stable across a republish, so a republish during the
-    # download shows only in a lookup after it.
-    try:
+    # oda_reader writes only to local disk.
+    with tempfile.TemporaryDirectory() as working_directory:
+        download(save_to_path=working_directory, use_raw_cache=False)
+        # The URL stays stable across a republish, so a republish during the
+        # download shows only in a lookup after it.
         check_observed()
-    except ValueError:
-        file_path.unlink()
-        raise
+        with (
+            (Path(working_directory) / downloaded_name).open("rb") as downloaded,
+            file_path.open("wb") as landed,
+        ):
+            shutil.copyfileobj(downloaded, landed)
     return FetchedRelease(
         release_dates={"source": released}, metadata={"version": observed_version}
     )

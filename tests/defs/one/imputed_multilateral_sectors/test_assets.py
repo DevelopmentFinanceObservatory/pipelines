@@ -736,14 +736,14 @@ def test_fetch_imputed_multilateral_sectors_calls_the_compute_with_refresh_and_f
 
 
 def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_release_for_a_conforming_frame(
-    tmp_path: Path,
+    landing_directory: UPath,
 ) -> None:
     """Test a conforming frame passes the guards and is written out in full
 
     A conforming frame carries {"USD"} currency and {"current"} prices,
     with matching provenance.
     """
-    file_path = tmp_path / "imputed_multilateral_sectors.parquet"
+    file_path = landing_directory / "imputed_multilateral_sectors.parquet"
     expected = _result_frame(CONFORMING_ROWS, provenance=VALID_PROVENANCE)
     bulk_patch = _patched_bulk_versions(
         ((CRS_TEST_URL, CRS_VERSION), (MULTI_TEST_URL, MULTI_VERSION)),
@@ -755,9 +755,10 @@ def test_fetch_imputed_multilateral_sectors_writes_the_parquet_and_returns_the_r
     )
 
     with bulk_patch, compute_patch:
-        fetched = fetch_imputed_multilateral_sectors(UPath(tmp_path), _observation())
+        fetched = fetch_imputed_multilateral_sectors(landing_directory, _observation())
 
-    written = pd.read_parquet(file_path)
+    with file_path.open("rb") as handle:
+        written = pd.read_parquet(handle)
     # Parquet round trip preserves the nullable Int64 columns and float/str
     # dtypes here, so the frame comes back byte-for-byte comparable.
     pd.testing.assert_frame_equal(written, expected)

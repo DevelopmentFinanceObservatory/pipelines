@@ -184,9 +184,9 @@ def build_landing_asset(
         dataset: Directory under the group the files are written to.
         title: Name of the source in the description and logs, such as "OECD DAC1".
         files: Names of the files the fetch writes to the landing directory.
-        fetch: Writes the files to the landing directory it is given, putting any
-            working files there and nowhere else, and landing the version the
-            observation it is given saw. Each of its release dates is recorded
+        fetch: Writes the files to the landing directory it is given, keeping any
+            working files in a local temporary directory, and landing the version
+            the observation it is given saw. Each of its release dates is recorded
             as `<name>_release_date`.
         checks: Further blocking checks on the landing directory, by name.
         retry_policy: Retry policy of the asset.
