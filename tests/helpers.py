@@ -1,12 +1,10 @@
-from collections.abc import Iterator, Mapping
-from contextlib import ExitStack, contextmanager
-from datetime import datetime, timedelta, tzinfo
+from collections.abc import Mapping
+from contextlib import ExitStack
+from datetime import UTC, datetime
 from functools import cache
-from itertools import count
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Self
-from unittest.mock import patch
 
 import dagster as dg
 from dagster_duckdb import DuckDBResource
@@ -14,25 +12,15 @@ from dagster_duckdb import DuckDBResource
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 
+# First instant the `download_clock` fixture stamps a download with. Late enough in
+# the UTC day that any zone east of UTC has moved to the next date.
+DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
+
 
 @cache
 def project_definitions() -> dg.Definitions:
     """The project's definitions, loaded as dg dev and dg check defs load them"""
     return defs()
-
-
-@contextmanager
-def stepped_download_clock(start: datetime) -> Iterator[None]:
-    """Stamp landing downloads from `start` on, a second apart so each gets its own
-    directory, in the zone each reading names"""
-    instants = (start + timedelta(seconds=seconds) for seconds in count())
-
-    def now(tz: tzinfo) -> datetime:
-        return next(instants).astimezone(tz)
-
-    with patch("dfo_pipelines.orchestration.landing.datetime") as mock_datetime:
-        mock_datetime.now.side_effect = now
-        yield
 
 
 def meta[T](result: dg.MaterializeResult, key: str, kind: type[T]) -> T:

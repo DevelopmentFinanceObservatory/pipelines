@@ -1,6 +1,6 @@
 import json
 from collections.abc import Iterator, Mapping
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 
 import dagster as dg
@@ -21,11 +21,9 @@ from tests.helpers import (
     materialization,
     materialize_landing,
     record_observation,
-    stepped_download_clock,
 )
 
-# Late enough in the UTC day that any zone east of UTC has moved to the next date.
-DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
+pytestmark = pytest.mark.usefixtures("download_clock")
 
 RELEASE_DATE = date(2026, 7, 7)
 
@@ -99,13 +97,6 @@ def build_example(
     )
 
 
-@pytest.fixture(autouse=True)
-def download_clock() -> Iterator[None]:
-    """Stamp a test's first download at DOWNLOADED_AT, and each later one a second on"""
-    with stepped_download_clock(DOWNLOADED_AT):
-        yield
-
-
 def test_build_landing_asset_writes_the_download_and_its_metadata(
     tmp_path: Path,
     instance: dg.DagsterInstance,
@@ -177,61 +168,6 @@ def test_build_landing_asset_records_each_release(
     assert "source_release_date" not in metadata
 
 
-def _refuse_download(directory: UPath, observation: Observation):
-    (directory / "things.parquet").write_bytes(b"partial")
-    raise RuntimeError("download refused")
-
-
-@pytest.mark.parametrize(
-    ("fetch", "files", "error", "match"),
-    [
-        pytest.param(
-            _refuse_download,
-            ("things.parquet",),
-            RuntimeError,
-            "download refused",
-            id="fetch fails",
-        ),
-        pytest.param(
-            fetch_files({"things.parquet": b"PAR1"}),
-            ("things.parquet",),
-            pa.ArrowInvalid,
-            None,
-            id="file unreadable",
-        ),
-        pytest.param(
-            fetch_rows(1, release_dates={}),
-            ("things.parquet",),
-            ValueError,
-            "must name at least one source",
-            id="no release date",
-        ),
-        pytest.param(
-            fetch_rows(1),
-            ("things.parquet", "more.csv"),
-            FileNotFoundError,
-            r"more\.csv",
-            id="declared file missing",
-        ),
-    ],
-)
-def test_build_landing_asset_records_nothing_when_the_landing_fails(
-    tmp_path: Path,
-    instance: dg.DagsterInstance,
-    fetch,
-    files: tuple[str, ...],
-    error: type[Exception],
-    match: str | None,
-) -> None:
-    """Test a landing that fails leaves no directory claiming a download happened"""
-    with pytest.raises(error, match=match):
-        materialize_landing(
-            build_example(fetch, files=files), tmp_path, instance=instance
-        )
-
-    assert not list((tmp_path / DATASET_DIRECTORY).iterdir())
-
-
 def _fetch_partially_then_raise(error: BaseException):
     def fetch(directory: UPath, observation: Observation):
         (directory / "things.parquet").write_bytes(b"partial")
@@ -240,40 +176,72 @@ def _fetch_partially_then_raise(error: BaseException):
     return fetch
 
 
+def _unreadable(directory: UPath) -> bool:
+    raise ValueError("check could not read the directory")
+
+
 @pytest.mark.parametrize(
-    "error",
-    [KeyboardInterrupt(), dg.DagsterExecutionInterruptedError()],
-    ids=["keyboard interrupt", "run terminated"],
+    ("landing", "error", "match"),
+    [
+        pytest.param(
+            build_example(
+                _fetch_partially_then_raise(RuntimeError("download refused"))
+            ),
+            RuntimeError,
+            "download refused",
+            id="fetch fails",
+        ),
+        pytest.param(
+            build_example(fetch_files({"things.parquet": b"PAR1"})),
+            pa.ArrowInvalid,
+            None,
+            id="file unreadable",
+        ),
+        pytest.param(
+            build_example(fetch_rows(1, release_dates={})),
+            ValueError,
+            "must name at least one source",
+            id="no release date",
+        ),
+        pytest.param(
+            build_example(fetch_rows(1), files=("things.parquet", "more.csv")),
+            FileNotFoundError,
+            r"more\.csv",
+            id="declared file missing",
+        ),
+        pytest.param(
+            build_example(fetch_rows(1), checks={"readable": _unreadable}),
+            ValueError,
+            "check could not read the directory",
+            id="check raises",
+        ),
+        pytest.param(
+            build_example(_fetch_partially_then_raise(KeyboardInterrupt())),
+            KeyboardInterrupt,
+            None,
+            id="keyboard interrupt",
+        ),
+        pytest.param(
+            build_example(
+                _fetch_partially_then_raise(dg.DagsterExecutionInterruptedError())
+            ),
+            dg.DagsterExecutionInterruptedError,
+            None,
+            id="run terminated",
+        ),
+    ],
 )
-def test_build_landing_asset_removes_the_directory_when_interrupted(
-    tmp_path: Path, instance: dg.DagsterInstance, error: BaseException
+def test_build_landing_asset_records_nothing_when_the_landing_fails(
+    tmp_path: Path,
+    instance: dg.DagsterInstance,
+    landing: dg.AssetsDefinition,
+    error: type[BaseException],
+    match: str | None,
 ) -> None:
-    """Test a download interrupted partway, which raises no Exception, leaves no
-    directory"""
-    materialize_landing(
-        build_example(_fetch_partially_then_raise(error)),
-        tmp_path,
-        instance=instance,
-        raise_on_error=False,
-    )
-
-    assert not list((tmp_path / DATASET_DIRECTORY).iterdir())
-
-
-def test_build_landing_asset_removes_the_directory_when_a_check_raises(
-    tmp_path: Path, instance: dg.DagsterInstance
-) -> None:
-    """Test a named check that raises fails the landing and leaves no directory"""
-
-    def unreadable(directory: UPath) -> bool:
-        raise ValueError("check could not read the directory")
-
-    with pytest.raises(ValueError, match="check could not read the directory"):
-        materialize_landing(
-            build_example(fetch_rows(1), checks={"readable": unreadable}),
-            tmp_path,
-            instance=instance,
-        )
+    """Test a landing that fails or is interrupted leaves no directory claiming a
+    download happened"""
+    with pytest.raises(error, match=match):
+        materialize_landing(landing, tmp_path, instance=instance)
 
     assert not list((tmp_path / DATASET_DIRECTORY).iterdir())
 
@@ -291,7 +259,11 @@ def test_build_landing_asset_raises_the_fetch_error_when_removal_fails(
 
     with pytest.raises(RuntimeError, match="download refused"):
         materialize_landing(
-            build_example(_refuse_download), tmp_path, instance=instance
+            build_example(
+                _fetch_partially_then_raise(RuntimeError("download refused"))
+            ),
+            tmp_path,
+            instance=instance,
         )
 
     directory = tmp_path / DIRECTORY
