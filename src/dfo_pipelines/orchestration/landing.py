@@ -1,8 +1,6 @@
 import csv
-import logging
 from collections import Counter
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import PurePosixPath
@@ -49,41 +47,6 @@ def _latest_observation(
         data_version=observation.data_version,
         metadata={key: value.value for key, value in observation.metadata.items()},
     )
-
-
-def _create_landing_directory(
-    landing_file_store: UPathFileStoreResource, *, path: str, downloaded_at: datetime
-) -> UPath:
-    """Create the directory a download at `downloaded_at` is written to
-
-    Raises:
-        FileExistsError: If the directory exists, since each is written once.
-    """
-    directory = (
-        UPath(landing_file_store.base_path)
-        / path
-        / downloaded_at.strftime("%Y%m%dT%H%M%SZ")
-    )
-    if directory.exists():
-        raise FileExistsError(
-            f"{directory} exists, and a landing directory is written once"
-        )
-    directory.mkdir(parents=True)
-    return directory
-
-
-@contextmanager
-def _remove_on_exception(directory: UPath, log: logging.Logger) -> Iterator[None]:
-    """Remove `directory` if the block raises, then re-raise"""
-    try:
-        yield
-    except BaseException:
-        # Raise the failure that stopped the write, not one from cleaning up.
-        try:
-            directory.rmdir(recursive=True)
-        except Exception as error:
-            log.warning(f"Could not remove {directory}: {error}")
-        raise
 
 
 def _file_sizes(paths: Mapping[str, UPath]) -> dict[str, int]:
@@ -252,20 +215,18 @@ def build_landing_asset(
             dg.AssetCheckSpec(name=check_name, asset=name, blocking=True)
             for check_name in (["files_not_empty"] if files else []) + list(checks)
         ],
-        required_resource_keys={"landing_file_store"},
         retry_policy=retry_policy,
     )
     # Left unannotated, since a MaterializeResult return annotation types the
     # output as Nothing and the IO manager then rejects the path returned as its value.
-    def landing(context: dg.AssetExecutionContext):
+    def landing(
+        context: dg.AssetExecutionContext, landing_file_store: UPathFileStoreResource
+    ):
         observation = _latest_observation(context.instance, source)
         downloaded_at = datetime.now(UTC)
-        directory = _create_landing_directory(
-            context.resources.landing_file_store,
-            path=f"{group}/{dataset}",
-            downloaded_at=downloaded_at,
-        )
-        with _remove_on_exception(directory, context.log):
+        with landing_file_store.write_once_directory(
+            f"{group}/{dataset}", created_at=downloaded_at, log=context.log
+        ) as directory:
             release_dates, source_metadata = fetch(directory, observation)
             paths = {
                 stem: directory / file for stem, file in zip(stems, files, strict=True)

@@ -1,4 +1,5 @@
-from datetime import date
+import logging
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,6 +30,22 @@ def test_upath_file_store_build_date_partitioned_path(tmp_path: Path) -> None:
         path = file_store.build_date_partitioned_path("oecd_dac_crs/dac_crs")
 
     assert str(path) == f"{tmp_path}/oecd_dac_crs/dac_crs/2026/08/03"
+
+
+def test_upath_file_store_names_a_write_once_directory_by_its_utc_instant(
+    tmp_path: Path,
+) -> None:
+    """Test a directory created at an instant given in another zone is named by
+    that instant in UTC"""
+    file_store = UPathFileStoreResource(base_path=str(tmp_path))
+    created_at = datetime(2026, 8, 4, 1, 47, 5, tzinfo=timezone(timedelta(hours=2)))
+
+    with file_store.write_once_directory(
+        "oecd_dac1/dac1", created_at=created_at, log=logging.getLogger(__name__)
+    ) as directory:
+        pass
+
+    assert str(directory) == f"{tmp_path}/oecd_dac1/dac1/20260803T234705Z"
 
 
 @pytest.mark.parametrize("source", ["environment", ".env"])

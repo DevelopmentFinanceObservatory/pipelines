@@ -1,5 +1,8 @@
+import logging
 import re
-from datetime import date
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, date, datetime
 
 import dagster as dg
 from dcp_tools.gcp_utilities.settings import KGSettings
@@ -27,6 +30,36 @@ class UPathFileStoreResource(StrictConfigurableResource):
         """
         partition = date.today().strftime("%Y/%m/%d")
         return UPath(self.base_path) / path / partition
+
+    @contextmanager
+    def write_once_directory(
+        self, path: str, *, created_at: datetime, log: logging.Logger
+    ) -> Iterator[UPath]:
+        """Create `<base_path>/<path>/<created_at in UTC>` for the block to write,
+        and remove it if the block raises
+
+        Raises:
+            FileExistsError: If the directory exists, since each is written once.
+        """
+        directory = (
+            UPath(self.base_path)
+            / path
+            / created_at.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+        )
+        if directory.exists():
+            raise FileExistsError(
+                f"{directory} exists, and a directory is written once"
+            )
+        directory.mkdir(parents=True)
+        try:
+            yield directory
+        except BaseException:
+            # Raise the failure that stopped the write, not one from cleaning up.
+            try:
+                directory.rmdir(recursive=True)
+            except Exception as error:
+                log.warning(f"Could not remove {directory}: {error}")
+            raise
 
 
 class KnowledgeGraphResource(StrictConfigurableResource):
