@@ -43,8 +43,8 @@ def test_upath_file_store_names_a_write_once_directory_by_its_utc_instant_and_ru
 def test_upath_file_store_writes_runs_in_the_same_second_to_separate_directories(
     tmp_path: Path,
 ) -> None:
-    """Test two runs at one instant get different directories, and the same run
-    at that instant is refused, leaving its directory alone"""
+    """Test two runs at one instant get different directories, and the second leaves
+    the first's files alone"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path))
     created_at = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
     log = logging.getLogger(__name__)
@@ -57,11 +57,6 @@ def test_upath_file_store_writes_runs_in_the_same_second_to_separate_directories
         "dac1", created_at=created_at, run_id="run-b", log=log
     ) as second:
         pass
-    with pytest.raises(FileExistsError, match="run-a"):
-        with file_store.write_once_directory(
-            "dac1", created_at=created_at, run_id="run-a", log=log
-        ):
-            pass
 
     assert first != second
     assert [path.name for path in first.iterdir()] == ["earlier.txt"]

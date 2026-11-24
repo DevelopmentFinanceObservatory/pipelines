@@ -2,7 +2,6 @@ import json
 from collections.abc import Iterator, Mapping
 from datetime import date
 from pathlib import Path
-from unittest.mock import patch
 
 import dagster as dg
 import pyarrow as pa
@@ -16,7 +15,6 @@ from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
 from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from tests.helpers import (
-    DOWNLOADED_AT,
     AutomationHarness,
     check_outcomes,
     logged_messages,
@@ -33,7 +31,7 @@ DATASET_DIRECTORY = Path("landing", "example", "things")
 
 
 def directory_of(tmp_path: Path, run_id: str) -> Path:
-    """The directory a run landed its download in, from the first `download_clock` instant"""
+    """The directory a run landed its download in, from the `download_clock` instant"""
     return tmp_path / DATASET_DIRECTORY / f"20260803T234705Z_{run_id}"
 
 
@@ -284,14 +282,10 @@ def test_build_landing_asset_gives_runs_in_the_same_second_separate_directories(
 ) -> None:
     """Test two downloads stamped with the same instant each land in a directory of
     their own"""
-    with patch("dfo_pipelines.orchestration.landing.datetime") as clock:
-        clock.now.return_value = DOWNLOADED_AT
-        results = [
-            materialize_landing(
-                build_example(fetch_rows(1)), tmp_path, instance=instance
-            )
-            for _ in range(2)
-        ]
+    results = [
+        materialize_landing(build_example(fetch_rows(1)), tmp_path, instance=instance)
+        for _ in range(2)
+    ]
 
     directories = [directory_of(tmp_path, result.run_id) for result in results]
     assert directories[0] != directories[1]

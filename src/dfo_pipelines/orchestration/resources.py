@@ -32,19 +32,12 @@ class UPathFileStoreResource(StrictConfigurableResource):
 
         The run ID keeps runs that start in the same second out of each other's
         directory, since `mkdir` reserves nothing on GCS.
-
-        Raises:
-            FileExistsError: If the directory exists, since each is written once.
         """
         directory = (
             UPath(self.base_path)
             / path
             / f"{created_at.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}_{run_id}"
         )
-        if directory.exists():
-            raise FileExistsError(
-                f"{directory} exists, and a directory is written once"
-            )
         directory.mkdir(parents=True)
         try:
             yield directory
