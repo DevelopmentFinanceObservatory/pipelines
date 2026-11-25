@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any
+from unittest.mock import DEFAULT, MagicMock, create_autospec
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -231,54 +231,29 @@ def test_write_csv_writes_each_partitions_rows_sorted_to_its_own_file(
     }
 
 
-@dataclass
-class _Load:
-    """A load the fake BigQuery client was asked to run"""
-
-    destination: str
-    job_config: bigquery.LoadJobConfig
-    uri: str | None = None
-    uploaded: pa.Table | None = None
-
-
-@dataclass
-class _FinishedLoadJob:
-    output_rows: int | None
-
-    def result(self) -> None:
-        pass
-
-
-@dataclass
-class _RecordingClient:
-    """Stands in for `bigquery.Client`, keeping each load it is asked to run"""
-
-    output_rows: int | None = 0
-    loads: list[_Load] = field(default_factory=list)
-
-    def __enter__(self) -> "_RecordingClient":
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        pass
-
-    def load_table_from_uri(
-        self, uri: str, destination: str, *, job_config: bigquery.LoadJobConfig
-    ) -> _FinishedLoadJob:
-        self.loads.append(_Load(destination, job_config, uri=uri))
-        return _FinishedLoadJob(self.output_rows)
-
-    def load_table_from_file(
-        self, file: BinaryIO, destination: str, *, job_config: bigquery.LoadJobConfig
-    ) -> _FinishedLoadJob:
-        self.loads.append(_Load(destination, job_config, uploaded=pq.read_table(file)))
-        return _FinishedLoadJob(self.output_rows)
+@pytest.fixture
+def uploaded() -> list[pa.Table]:
+    """The parquet file each load from a file uploaded, in order"""
+    return []
 
 
 @pytest.fixture
-def bigquery_client(monkeypatch: pytest.MonkeyPatch) -> _RecordingClient:
-    """The client every `BigQueryWarehouseResource` call opens"""
-    client = _RecordingClient()
+def bigquery_client(
+    monkeypatch: pytest.MonkeyPatch, uploaded: list[pa.Table]
+) -> MagicMock:
+    """The client every `BigQueryWarehouseResource` call opens, whose loads
+    finish with no rows"""
+    client = create_autospec(bigquery.Client, instance=True)
+    client.__enter__.return_value = client
+    client.load_table_from_uri.return_value.output_rows = 0
+    client.load_table_from_file.return_value.output_rows = 0
+
+    def read_upload(file: Any, *_: object, **__: object) -> object:
+        # The file is a temporary one, gone once the call returns
+        uploaded.append(pq.read_table(file))
+        return DEFAULT
+
+    client.load_table_from_file.side_effect = read_upload
     monkeypatch.setattr(BigQueryWarehouseResource, "_client", lambda _: client)
     return client
 
@@ -286,33 +261,33 @@ def bigquery_client(monkeypatch: pytest.MonkeyPatch) -> _RecordingClient:
 BIGQUERY_WAREHOUSE = BigQueryWarehouseResource(project="project", location="EU")
 
 
-def _replaces(load: _Load, source_format: str) -> bool:
-    """Whether `load` reads `source_format` and replaces its table"""
+def _replaces(job_config: bigquery.LoadJobConfig, source_format: str) -> bool:
+    """Whether a load with `job_config` reads `source_format` and replaces its
+    table"""
     return (
-        load.job_config.source_format == source_format
-        and load.job_config.write_disposition
-        == bigquery.WriteDisposition.WRITE_TRUNCATE
+        job_config.source_format == source_format
+        and job_config.write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
     )
 
 
 def test_bigquery_load_parquet_loads_the_file_from_its_path(
-    bigquery_client: _RecordingClient, tmp_path: Path
+    bigquery_client: MagicMock, tmp_path: Path
 ) -> None:
     """Test a file without renames loads from its own path, replacing the table,
     and the job's row count is returned"""
-    bigquery_client.output_rows = 3
+    bigquery_client.load_table_from_uri.return_value.output_rows = 3
     path = _write(tmp_path / "data.parquet", 3)
 
     rows = BIGQUERY_WAREHOUSE.load_parquet(path=path, schema="raw", table="t")
 
-    [load] = bigquery_client.loads
-    assert (load.uri, load.destination) == (path, "raw.t")
-    assert _replaces(load, bigquery.SourceFormat.PARQUET)
+    [load] = bigquery_client.load_table_from_uri.call_args_list
+    assert load.args == (path, "raw.t")
+    assert _replaces(load.kwargs["job_config"], bigquery.SourceFormat.PARQUET)
     assert rows == 3
 
 
 def test_bigquery_load_parquet_uploads_a_copy_with_columns_renamed_by_position(
-    bigquery_client: _RecordingClient, tmp_path: Path
+    bigquery_client: MagicMock, uploaded: list[pa.Table], tmp_path: Path
 ) -> None:
     """Test names differing only by case take their own new names, and every
     value and type is kept"""
@@ -325,16 +300,16 @@ def test_bigquery_load_parquet_uploads_a_copy_with_columns_renamed_by_position(
         renames={"DONOR": "donor_code", "Donor": "donor_name"},
     )
 
-    [load] = bigquery_client.loads
-    assert load.destination == "raw.t"
-    assert _replaces(load, bigquery.SourceFormat.PARQUET)
-    assert load.uploaded == pq.read_table(path).rename_columns(
-        ["donor_code", "donor_name", "value"]
-    )
+    [load] = bigquery_client.load_table_from_file.call_args_list
+    assert load.args[1] == "raw.t"
+    assert _replaces(load.kwargs["job_config"], bigquery.SourceFormat.PARQUET)
+    assert uploaded == [
+        pq.read_table(path).rename_columns(["donor_code", "donor_name", "value"])
+    ]
 
 
 def test_bigquery_load_rows_uploads_the_rows_typed_by_their_values(
-    bigquery_client: _RecordingClient,
+    bigquery_client: MagicMock, uploaded: list[pa.Table]
 ) -> None:
     """Test a timezone-aware instant and a date keep their types, and the columns
     follow the row's keys"""
@@ -346,12 +321,12 @@ def test_bigquery_load_rows_uploads_the_rows_typed_by_their_values(
 
     BIGQUERY_WAREHOUSE.load_rows([row], schema="raw", table="metadata")
 
-    [load] = bigquery_client.loads
-    assert load.destination == "raw.metadata"
-    assert _replaces(load, bigquery.SourceFormat.PARQUET)
-    assert load.uploaded is not None
-    assert load.uploaded.to_pylist() == [row]
-    assert load.uploaded.schema.types == [
+    [load] = bigquery_client.load_table_from_file.call_args_list
+    assert load.args[1] == "raw.metadata"
+    assert _replaces(load.kwargs["job_config"], bigquery.SourceFormat.PARQUET)
+    [table] = uploaded
+    assert table.to_pylist() == [row]
+    assert table.schema.types == [
         pa.timestamp("us", tz="UTC"),
         pa.date32(),
         pa.date32(),
@@ -359,7 +334,7 @@ def test_bigquery_load_rows_uploads_the_rows_typed_by_their_values(
 
 
 def test_bigquery_load_csv_as_strings_loads_every_header_column_as_a_string(
-    bigquery_client: _RecordingClient, tmp_path: Path
+    bigquery_client: MagicMock, tmp_path: Path
 ) -> None:
     """Test the header names every column, without a byte order mark, and is
     skipped as data, and a quoted cell may hold a line break"""
@@ -368,22 +343,23 @@ def test_bigquery_load_csv_as_strings_loads_every_header_column_as_a_string(
 
     BIGQUERY_WAREHOUSE.load_csv_as_strings(path=str(path), schema="raw", table="codes")
 
-    [load] = bigquery_client.loads
-    assert (load.uri, load.destination) == (str(path), "raw.codes")
-    assert _replaces(load, bigquery.SourceFormat.CSV)
-    assert [(field.name, field.field_type) for field in load.job_config.schema] == [
+    [load] = bigquery_client.load_table_from_uri.call_args_list
+    assert load.args == (str(path), "raw.codes")
+    job_config = load.kwargs["job_config"]
+    assert _replaces(job_config, bigquery.SourceFormat.CSV)
+    assert [(field.name, field.field_type) for field in job_config.schema] == [
         ("code", "STRING"),
         ("label", "STRING"),
     ]
-    assert load.job_config.skip_leading_rows == 1
-    assert load.job_config.allow_quoted_newlines
+    assert job_config.skip_leading_rows == 1
+    assert job_config.allow_quoted_newlines
 
 
 def test_bigquery_load_counts_no_rows_when_the_job_reports_none(
-    bigquery_client: _RecordingClient, tmp_path: Path
+    bigquery_client: MagicMock, tmp_path: Path
 ) -> None:
     """Test a finished load whose job gives no row count returns zero"""
-    bigquery_client.output_rows = None
+    bigquery_client.load_table_from_uri.return_value.output_rows = None
 
     rows = BIGQUERY_WAREHOUSE.load_parquet(
         path=_write(tmp_path / "data.parquet", 0), schema="raw", table="t"
