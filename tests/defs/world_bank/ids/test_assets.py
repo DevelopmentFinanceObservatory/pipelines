@@ -8,7 +8,6 @@ import dagster as dg
 import httpx
 import pandas as pd
 import pytest
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.defs.world_bank.ids.assets import (
@@ -24,8 +23,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_models
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
 
@@ -684,25 +682,23 @@ from (values
 """
 
 
-def create_dc_models(duckdb: DuckDBResource) -> None:
-    """Create the DC schema models the export reads, holding a small fixture bundle"""
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists world_bank_ids")
-        connection.execute(PROVENANCE_SQL)
-        connection.execute(STATVARS_SQL)
-        connection.execute(OBSERVATIONS_SQL)
-        connection.execute(ECONOMY_OBSERVATIONS_SQL)
+# The DC schema models the export reads, holding a small fixture bundle
+DC_MODELS_SQL = (
+    "create schema if not exists world_bank_ids",
+    PROVENANCE_SQL,
+    STATVARS_SQL,
+    OBSERVATIONS_SQL,
+    ECONOMY_OBSERVATIONS_SQL,
+)
 
 
 def run_export(tmp_path: Path) -> Path:
     """Materialize the export asset, returning the bundle directory"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    create_dc_models(duckdb)
 
     result = world_bank_ids_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse_with_models(tmp_path, *DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

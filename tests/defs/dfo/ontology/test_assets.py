@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 import dagster as dg
 import pytest
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.defs.dfo.ontology.assets import (
     BENCH,
@@ -27,13 +26,11 @@ from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import (
-    column_list,
     exported_directory,
     landed_directory,
     materialize_landing,
     meta,
     record_observation,
-    row_count,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -281,16 +278,17 @@ def test_landing_check_fails_when_the_report_is_empty(
 
 def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
     """Test the code mapping is loaded whole, for other pipelines to resolve against"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
     rows = mapping_rows()
 
     result = dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse,
         dfo_ontology_landing=str(FIXTURES),
     )
 
-    assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(rows)
-    assert column_list(duckdb, "dfo_ontology.raw_code_mapping") == list(rows[0])
+    loaded = warehouse.get_rows("dfo_ontology.raw_code_mapping")
+    assert len(loaded) == len(rows)
+    assert list(loaded[0]) == list(rows[0])
     assert isinstance(result, dg.MaterializeResult)
     assert meta(result, "dagster/row_count", dg.IntMetadataValue).value == len(rows)
     assert checks(result) == {"table_not_empty": True}
@@ -298,34 +296,34 @@ def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
 
 def test_raw_code_mapping_table_replaces_what_it_finds(tmp_path: Path) -> None:
     """Test a refreshed ontology replaces the table rather than appending to it"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
     rows = mapping_rows()
     fewer = rows[: len(rows) // 2]
     write_mapping(tmp_path / "refreshed", fewer)
 
     dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse,
         dfo_ontology_landing=str(FIXTURES),
     )
-    assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(rows)
+    assert len(warehouse.get_rows("dfo_ontology.raw_code_mapping")) == len(rows)
 
     dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse,
         dfo_ontology_landing=str(tmp_path / "refreshed"),
     )
 
-    assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(fewer)
+    assert len(warehouse.get_rows("dfo_ontology.raw_code_mapping")) == len(fewer)
 
 
 def test_raw_code_mapping_table_check_fails_when_the_mapping_has_no_rows(
     tmp_path: Path,
 ) -> None:
     """Test the table check fails when the mapping carries only its header"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
     write_mapping(tmp_path / "empty", [])
 
     result = dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse,
         dfo_ontology_landing=str(tmp_path / "empty"),
     )
 
@@ -409,7 +407,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
     """Test the directory the compiler writes is what both consumers read"""
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "landing"))
     export_file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
 
     result = dg.materialize(
         [
@@ -420,7 +418,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
         resources={
             "landing_file_store": file_store,
             "export_file_store": export_file_store,
-            "warehouse": DuckDBWarehouseResource(database=duckdb.database),
+            "warehouse": warehouse,
         },
         instance=observed_instance(),
     )
@@ -429,4 +427,6 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
     assert all(check.passed for check in result.get_asset_check_evaluations()), (
         result.get_asset_check_evaluations()
     )
-    assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(mapping_rows())
+    assert len(warehouse.get_rows("dfo_ontology.raw_code_mapping")) == len(
+        mapping_rows()
+    )

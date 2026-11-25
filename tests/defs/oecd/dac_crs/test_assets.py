@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import dagster as dg
 import pytest
-from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_crs
 from oda_reader.download.download_tools import CRS_FLOW_URL
 from upath import UPath
@@ -18,8 +17,7 @@ from dfo_pipelines.defs.oecd.dac_crs.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_models
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 CRS_TEST_URL = "https://webfs-dcd.oecd.org/data/dac_crs/CRS.parquet"
@@ -175,24 +173,22 @@ from (values
 """
 
 
-def create_dc_models(duckdb: DuckDBResource) -> None:
-    """Create the DC schema models the export reads, holding a small fixture bundle"""
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists oecd_dac_crs")
-        connection.execute(PROVENANCE_SQL)
-        connection.execute(STATVARS_SQL)
-        connection.execute(OBSERVATIONS_SQL)
+# The DC schema models the export reads, holding a small fixture bundle
+DC_MODELS_SQL = (
+    "create schema if not exists oecd_dac_crs",
+    PROVENANCE_SQL,
+    STATVARS_SQL,
+    OBSERVATIONS_SQL,
+)
 
 
 def run_export(tmp_path: Path) -> Path:
     """Materialize the export asset, returning the bundle directory"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    create_dc_models(duckdb)
 
     result = oecd_dac_crs_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse_with_models(tmp_path, *DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

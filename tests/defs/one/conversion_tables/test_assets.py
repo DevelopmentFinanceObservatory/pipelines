@@ -5,7 +5,6 @@ from pathlib import Path
 import dagster as dg
 import pandas as pd
 import pytest
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES, ExportSpec
 from dfo_pipelines.defs.one.conversion_tables.assets import (
@@ -15,8 +14,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_models
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
@@ -115,17 +113,18 @@ from (values
 def _run_export(tmp_path: Path, table: str) -> Path:
     """Materialize one table's export asset over hand-written dc models"""
     _, export_asset = TABLES[table]
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists one_conversion_tables")
-        connection.execute(_provenance_sql(table))
-        connection.execute(_statvars_sql(table))
-        connection.execute(_observations_sql(table))
+    warehouse = warehouse_with_models(
+        tmp_path,
+        "create schema if not exists one_conversion_tables",
+        _provenance_sql(table),
+        _statvars_sql(table),
+        _observations_sql(table),
+    )
 
     result = export_asset(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse,
         export_file_store=file_store,
     )
     return exported_directory(result)

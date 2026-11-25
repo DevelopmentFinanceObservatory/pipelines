@@ -5,7 +5,6 @@ from typing import NamedTuple
 import dagster as dg
 import pandas as pd
 import pytest
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import DOCUMENTATION_FILES, ExportSpec
 from dfo_pipelines.defs.one.climate_finance.assets import (
@@ -17,8 +16,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_models
 
 DISBURSEMENT_DCID = (
     "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal"
@@ -76,8 +74,9 @@ EXPORTS = [
 ]
 
 
-def _create_dc_models(duckdb: DuckDBResource, export: Export) -> None:
-    """Create the models `export.spec` reads, holding a small fixture bundle"""
+def _dc_models_sql(export: Export) -> list[str]:
+    """Statements creating the models `export.spec` reads, holding a small fixture
+    bundle"""
     spec = export.spec
     source = export.source.removeprefix("dcid:")
     observation_properties = (
@@ -88,91 +87,89 @@ def _create_dc_models(duckdb: DuckDBResource, export: Export) -> None:
     recipient_column = (
         "'country/KEN' as financing_recipient," if export.recipient else ""
     )
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists one_climate_finance")
-        connection.execute(
-            f"""
-            create or replace table {spec.provenance_model} as
-            select
-                'Test provenance' as name,
-                '{source}' as source,
-                'https://example.org/data' as url,
-                'https://example.org/data/release' as source_data_url,
-                'https://example.org/terms' as license,
-                '2026-11-09' as imported_source_release_date,
-                '2021' as earliest_observation_date,
-                '2022' as latest_observation_date,
-                'Test description' as description,
-                'Test attribution' as license_attribution
-            """
-        )
-        connection.execute(
-            f"""
-            create or replace table {spec.statvar_model} as
-            select * from (values
-                (
-                    '{DISBURSEMENT_DCID}', 'Test disbursements',
-                    'dcid:FinancialFlow', 'dcid:amount', 'dcid:measuredValue',
-                    'nettingBasis,financialFlowType,climatePolicyObjective',
-                    'dcid:Gross', 'dcid:Disbursement', null,
-                    'dcid:ClimateChangePolicyObjective', 'dcid:Nominal',
-                    '{observation_properties}'
-                ),
-                (
-                    '{COMMITMENT_DCID}', 'Test commitments',
-                    'dcid:FinancialObligation', 'dcid:amount', 'dcid:measuredValue',
-                    'financialObligationType,climatePolicyObjective',
-                    null, null, 'dcid:Commitment',
-                    'dcid:MitigationOnlyClimateChangePolicyObjective',
-                    'dcid:Nominal', '{observation_properties}'
-                )
-            ) as statvars (
-                dcid, name, population_type, measured_property, stat_type,
-                constraint_properties, netting_basis, financial_flow_type,
-                financial_obligation_type, climate_policy_objective,
-                measurement_qualifier, observation_properties
+    statements = ["create schema if not exists one_climate_finance"]
+    statements.append(
+        f"""
+        create or replace table {spec.provenance_model} as
+        select
+            'Test provenance' as name,
+            '{source}' as source,
+            'https://example.org/data' as url,
+            'https://example.org/data/release' as source_data_url,
+            'https://example.org/terms' as license,
+            '2026-11-09' as imported_source_release_date,
+            '2021' as earliest_observation_date,
+            '2022' as latest_observation_date,
+            'Test description' as description,
+            'Test attribution' as license_attribution
+        """
+    )
+    statements.append(
+        f"""
+        create or replace table {spec.statvar_model} as
+        select * from (values
+            (
+                '{DISBURSEMENT_DCID}', 'Test disbursements',
+                'dcid:FinancialFlow', 'dcid:amount', 'dcid:measuredValue',
+                'nettingBasis,financialFlowType,climatePolicyObjective',
+                'dcid:Gross', 'dcid:Disbursement', null,
+                'dcid:ClimateChangePolicyObjective', 'dcid:Nominal',
+                '{observation_properties}'
+            ),
+            (
+                '{COMMITMENT_DCID}', 'Test commitments',
+                'dcid:FinancialObligation', 'dcid:amount', 'dcid:measuredValue',
+                'financialObligationType,climatePolicyObjective',
+                null, null, 'dcid:Commitment',
+                'dcid:MitigationOnlyClimateChangePolicyObjective',
+                'dcid:Nominal', '{observation_properties}'
             )
-            """
+        ) as statvars (
+            dcid, name, population_type, measured_property, stat_type,
+            constraint_properties, netting_basis, financial_flow_type,
+            financial_obligation_type, climate_policy_objective,
+            measurement_qualifier, observation_properties
         )
-        connection.execute(
+        """
+    )
+    statements.append(
+        f"""
+        create or replace table {spec.observation_inputs[0].model} as
+        select
+            variable,
+            year as date,
+            'country/FRA' as financing_provider,
+            {recipient_column}
+            value::decimal(18, 2) as value,
+            'dcid:CurrencyUSD' as unit,
+            measurement_method
+        from (values
+            ('{DISBURSEMENT_DCID}', 2021, 1.5, '{MEASUREMENT_METHODS[2021]}'),
+            ('{COMMITMENT_DCID}', 2021, 2.5, '{MEASUREMENT_METHODS[2021]}'),
+            ('{DISBURSEMENT_DCID}', 2022, 3.5, '{MEASUREMENT_METHODS[2022]}')
+        ) as observations (variable, year, value, measurement_method)
+        """
+    )
+    if spec.source_model is not None:
+        statements.append(
             f"""
-            create or replace table {spec.observation_inputs[0].model} as
+            create or replace table {spec.source_model} as
             select
-                variable,
-                year as date,
-                'country/FRA' as financing_provider,
-                {recipient_column}
-                value::decimal(18, 2) as value,
-                'dcid:CurrencyUSD' as unit,
-                measurement_method
-            from (values
-                ('{DISBURSEMENT_DCID}', 2021, 1.5, '{MEASUREMENT_METHODS[2021]}'),
-                ('{COMMITMENT_DCID}', 2021, 2.5, '{MEASUREMENT_METHODS[2021]}'),
-                ('{DISBURSEMENT_DCID}', 2022, 3.5, '{MEASUREMENT_METHODS[2022]}')
-            ) as observations (variable, year, value, measurement_method)
+                '{source}' as dcid,
+                'Test source' as name,
+                'https://example.org/' as url
             """
         )
-        if spec.source_model is not None:
-            connection.execute(
-                f"""
-                create or replace table {spec.source_model} as
-                select
-                    '{source}' as dcid,
-                    'Test source' as name,
-                    'https://example.org/' as url
-                """
-            )
+    return statements
 
 
 def _run_export(tmp_path: Path, export: Export) -> Path:
     """Materialize the export asset, returning the bundle directory"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    _create_dc_models(duckdb, export)
 
     result = export.asset(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse_with_models(tmp_path, *_dc_models_sql(export)),
         export_file_store=file_store,
     )
     return exported_directory(result)

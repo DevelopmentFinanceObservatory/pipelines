@@ -7,6 +7,7 @@ from types import MappingProxyType
 from typing import Any, Self
 
 import dagster as dg
+import duckdb
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.definitions import defs
@@ -103,10 +104,13 @@ def row_count(duckdb: DuckDBResource, table: str) -> int:
         return connection.sql(f"select count(*) from {table}").fetchall()[0][0]
 
 
-def column_list(duckdb: DuckDBResource, table: str) -> list:
-    """List columns in a database table"""
-    with duckdb.get_connection() as connection:
-        return connection.sql(f"select * from {table}").columns
+def warehouse_with_models(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
+    """A DuckDB warehouse in `tmp_path` holding the tables `statements` create"""
+    database = str(tmp_path / "database.duckdb")
+    with duckdb.connect(database) as connection:
+        for statement in statements:
+            connection.execute(statement)
+    return DuckDBWarehouseResource(database=database)
 
 
 def logged_messages(

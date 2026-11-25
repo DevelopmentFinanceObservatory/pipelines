@@ -1,14 +1,12 @@
 from pathlib import Path
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory, meta
+from tests.helpers import exported_directory, meta, warehouse_with_models
 
 LICENSE_TYPES_SQL = """
 create or replace table dfo_shared.license_types as
@@ -36,21 +34,19 @@ select * from (values
 """
 
 
-def create_seeds(tmp_path: Path) -> DuckDBResource:
-    """A database holding the seeds the export reads, with one row in each"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists dfo_shared")
-        connection.execute(LICENSE_TYPES_SQL)
-        connection.execute(PROPERTIES_SQL)
-    return duckdb
+# The seeds the export reads, with one row in each
+SEEDS_SQL = (
+    "create schema if not exists dfo_shared",
+    LICENSE_TYPES_SQL,
+    PROPERTIES_SQL,
+)
 
 
 def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     """Test each seed row becomes a licence type or property node under the import's provenance"""
     result = dfo_shared_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=create_seeds(tmp_path).database),
+        warehouse=warehouse_with_models(tmp_path, *SEEDS_SQL),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
     )
 

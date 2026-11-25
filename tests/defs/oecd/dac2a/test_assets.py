@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from oda_reader import bulk_download_dac2a
 from oda_reader.dac2a import DAC2A_BULK_LABEL
 from oda_reader.download.download_tools import DAC2A_FLOW_URL
@@ -17,8 +16,7 @@ from dfo_pipelines.defs.oecd.dac2a.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_models
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC2A_TEST_URL = "https://webfs-dcd.oecd.org/data/dac2a/DAC2a.parquet"
@@ -165,14 +163,11 @@ select * from (values
 
 def _run_dc_export(tmp_path: Path) -> Path:
     """Materialize the export over a small fixture bundle"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    with duckdb.get_connection() as connection:
-        connection.execute(DC_MODELS_SQL)
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
 
     result = oecd_dac2a_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(database=duckdb.database),
+        warehouse=warehouse_with_models(tmp_path, DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

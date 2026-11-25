@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import (
@@ -19,7 +18,7 @@ from dfo_pipelines.data_commons.export import (
     ObservationInput,
     export_bundle,
 )
-from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
+from tests.helpers import warehouse_with_models
 
 LOG = logging.getLogger(__name__)
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -153,26 +152,24 @@ from (values
 """
 
 
-def create_models(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
-    """A warehouse holding the models the export reads, as a small fixture bundle,
-    changed by `statements`"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    with duckdb.get_connection() as connection:
-        connection.execute("create schema if not exists test_import")
-        connection.execute(PROVENANCE_SQL)
-        connection.execute(STATVARS_SQL)
-        connection.execute(OBSERVATIONS_SQL)
-        connection.execute(ABOUT_OBSERVATIONS_SQL)
-        for statement in statements:
-            connection.execute(statement)
-    return DuckDBWarehouseResource(database=duckdb.database)
+# The models the export reads, holding a small fixture bundle
+MODELS_SQL = (
+    "create schema if not exists test_import",
+    PROVENANCE_SQL,
+    STATVARS_SQL,
+    OBSERVATIONS_SQL,
+    ABOUT_OBSERVATIONS_SQL,
+)
 
 
 def run_export(tmp_path: Path) -> tuple[ExportMetadata, Path]:
     """Export the fixture bundle, returning the result and the directory written to"""
     out_dir = UPath(tmp_path / "bundle")
     metadata = export_bundle(
-        EXPORT_SPEC, warehouse=create_models(tmp_path), out_dir=out_dir, log=LOG
+        EXPORT_SPEC,
+        warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
+        out_dir=out_dir,
+        log=LOG,
     )
     return metadata, Path(str(out_dir))
 
@@ -235,8 +232,9 @@ def test_export_bundle_writes_the_same_bytes_whatever_the_row_order(
     for name, direction in (("stored_ascending", "asc"), ("stored_descending", "desc")):
         directory = tmp_path / name
         directory.mkdir()
-        warehouse = create_models(
+        warehouse = warehouse_with_models(
             directory,
+            *MODELS_SQL,
             *(
                 f"create or replace table {table} as"
                 f" select * from {table} order by all {direction}"
@@ -288,7 +286,10 @@ def run_export_with_about_observations(tmp_path: Path) -> tuple[ExportMetadata, 
     )
     out_dir = UPath(tmp_path / "bundle")
     metadata = export_bundle(
-        spec, warehouse=create_models(tmp_path), out_dir=out_dir, log=LOG
+        spec,
+        warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
+        out_dir=out_dir,
+        log=LOG,
     )
     return metadata, Path(str(out_dir))
 
@@ -377,7 +378,7 @@ def test_export_bundle_refuses_a_file_two_observation_patterns_match(
     with pytest.raises(ValueError, match=r"observations_2000\.csv matches"):
         export_bundle(
             spec,
-            warehouse=create_models(tmp_path),
+            warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
             out_dir=UPath(tmp_path / "bundle"),
             log=LOG,
         )
@@ -397,7 +398,12 @@ def test_export_bundle_writes_constant_observation_properties_to_the_config(
         EXPORT_SPEC, constant_observation_properties={"observationPeriod": "P1Y"}
     )
     out_dir = UPath(tmp_path / "bundle")
-    export_bundle(spec, warehouse=create_models(tmp_path), out_dir=out_dir, log=LOG)
+    export_bundle(
+        spec,
+        warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
+        out_dir=out_dir,
+        log=LOG,
+    )
 
     config = json.loads(Path(str(out_dir / "config.json")).read_text())
 
@@ -460,8 +466,9 @@ def test_export_bundle_omits_a_constraint_the_statvar_does_not_carry(
 
 def test_export_bundle_skips_a_statvar_column_the_spec_ignores(tmp_path: Path) -> None:
     """Test a column named in statvar_ignore_columns is not published as a property"""
-    warehouse = create_models(
+    warehouse = warehouse_with_models(
         tmp_path,
+        *MODELS_SQL,
         "alter table test_import.statvars add column internal_flag boolean",
         "update test_import.statvars set internal_flag = true",
     )
@@ -482,8 +489,9 @@ def test_export_bundle_does_not_coerce_a_numeric_looking_string(
     tmp_path: Path,
 ) -> None:
     """Test a string column holding a number stays a string through the CSV round-trip"""
-    warehouse = create_models(
+    warehouse = warehouse_with_models(
         tmp_path,
+        *MODELS_SQL,
         "alter table test_import.statvars add column scaling_factor varchar",
         f"""
         update test_import.statvars set scaling_factor = '100'
@@ -558,7 +566,7 @@ def test_export_bundle_fails_before_writing_when_a_documentation_file_is_missing
     with pytest.raises(FileNotFoundError, match=missing):
         export_bundle(
             dataclasses.replace(EXPORT_SPEC, docs_dir=docs_dir),
-            warehouse=create_models(tmp_path),
+            warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
             out_dir=UPath(out_dir),
             log=LOG,
         )
@@ -614,8 +622,9 @@ def test_documentation_version_changes_with_each_documentation_edit(
 
 def test_export_bundle_requires_exactly_one_provenance(tmp_path: Path) -> None:
     """Test the export fails when the provenance model holds two rows"""
-    warehouse = create_models(
+    warehouse = warehouse_with_models(
         tmp_path,
+        *MODELS_SQL,
         """
         insert into test_import.provenance
         select * from test_import.provenance
@@ -642,7 +651,7 @@ select
 
 def test_export_bundle_writes_the_source_the_spec_names(tmp_path: Path) -> None:
     """Test the Source node takes its properties from the model's columns"""
-    warehouse = create_models(tmp_path, SOURCE_SQL)
+    warehouse = warehouse_with_models(tmp_path, *MODELS_SQL, SOURCE_SQL)
     out_dir = UPath(tmp_path / "bundle")
 
     export_bundle(
@@ -663,8 +672,9 @@ def test_export_bundle_writes_the_source_the_spec_names(tmp_path: Path) -> None:
 
 def test_export_bundle_requires_exactly_one_source(tmp_path: Path) -> None:
     """Test the export fails when the source model holds two rows"""
-    warehouse = create_models(
+    warehouse = warehouse_with_models(
         tmp_path,
+        *MODELS_SQL,
         SOURCE_SQL,
         """
         insert into test_import.source
@@ -685,8 +695,9 @@ def export_with_provenance_column(
     tmp_path: Path, *, column: str, value_sql: str, property_name: str
 ) -> Path:
     """Export the fixture bundle with one extra provenance column mapped to a property"""
-    warehouse = create_models(
+    warehouse = warehouse_with_models(
         tmp_path,
+        *MODELS_SQL,
         f"""
         create or replace table test_import.provenance as
         select *, {value_sql} as {column} from test_import.provenance
@@ -710,7 +721,7 @@ def test_export_bundle_writes_the_conversion_recipe_onto_the_provenance(
 
     export_bundle(
         replace(EXPORT_SPEC, conversion_recipe=ConversionRecipe.IMF),
-        warehouse=create_models(tmp_path),
+        warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
         out_dir=out_dir,
         log=LOG,
     )
@@ -815,7 +826,7 @@ def test_export_bundle_refuses_a_mapped_column_the_provenance_lacks(
                     "deflator_base_year": "deflatorBaseYear"
                 },
             ),
-            warehouse=create_models(tmp_path),
+            warehouse=warehouse_with_models(tmp_path, *MODELS_SQL),
             out_dir=UPath(tmp_path / "bundle"),
             log=LOG,
         )
