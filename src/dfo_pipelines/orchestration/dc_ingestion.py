@@ -4,7 +4,7 @@ import dagster as dg
 from upath import UPath
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.orchestration.resources.knowledge_graph import KnowledgeGraphResource
+from dfo_pipelines.resources.knowledge_graph import KnowledgeGraphResource
 
 
 def build_dc_ingestion_asset(

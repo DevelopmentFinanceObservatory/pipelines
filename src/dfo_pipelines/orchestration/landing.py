@@ -14,7 +14,7 @@ from upath import UPath
 from dfo_pipelines.data_commons.mcf import count_mcf_nodes
 from dfo_pipelines.extraction.metadata import FetchedRelease, write_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 
 # Dagster kind of each file extension that has one
 _FILE_KINDS = {".parquet": "parquet", ".csv": "csv"}

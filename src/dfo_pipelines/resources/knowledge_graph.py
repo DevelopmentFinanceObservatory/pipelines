@@ -1,6 +1,6 @@
 from dcp_tools.gcp_utilities.settings import KGSettings
 
-from dfo_pipelines.orchestration.resources.base import StrictConfigurableResource
+from dfo_pipelines.resources.base import StrictConfigurableResource
 
 
 class KnowledgeGraphResource(StrictConfigurableResource):

@@ -1,4 +1,4 @@
-from dfo_pipelines.orchestration.resources.base import StrictConfigurableResource
+from dfo_pipelines.resources.base import StrictConfigurableResource
 
 
 class ClimateFinanceExportResource(StrictConfigurableResource):

@@ -6,7 +6,7 @@ from dagster_duckdb import DuckDBResource
 from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
 )
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import exported_directory, meta
 
 LICENSE_TYPES_SQL = """

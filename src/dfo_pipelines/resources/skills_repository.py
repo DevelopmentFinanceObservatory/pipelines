@@ -2,7 +2,7 @@ import re
 
 import dagster as dg
 
-from dfo_pipelines.orchestration.resources.base import StrictConfigurableResource
+from dfo_pipelines.resources.base import StrictConfigurableResource
 
 # A GitHub repository's page, which is also the address git fetches it from.
 SKILLS_REPOSITORY_URL_SHAPE = re.compile(

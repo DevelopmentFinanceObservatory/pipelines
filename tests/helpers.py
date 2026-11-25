@@ -10,7 +10,7 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.definitions import defs
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 
 # Instant the `download_clock` fixture stamps each download with. Late enough in
 # the UTC day that any zone east of UTC has moved to the next date.

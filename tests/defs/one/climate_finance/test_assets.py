@@ -20,7 +20,7 @@ from dfo_pipelines.extraction.climate_finance import (
 )
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources.climate_finance_export import (
+from dfo_pipelines.resources.climate_finance_export import (
     ClimateFinanceExportResource,
 )
 from tests.defs.one.climate_finance.conftest import EXPORT

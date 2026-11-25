@@ -16,7 +16,7 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 
 EXPORT_KEY = dg.AssetKey("example_dc_export")
 RATE_DIAGNOSTIC = dg.AssetKey(["example", "int_example_rates"])

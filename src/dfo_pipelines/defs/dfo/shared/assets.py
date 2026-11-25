@@ -9,7 +9,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import dfo_ontology_dc_ingestion
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from dfo_pipelines.warehouse import get_model_rows
 
 IMPORT_NAME = "dfo_shared"

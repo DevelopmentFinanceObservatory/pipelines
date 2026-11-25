@@ -23,7 +23,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
     world_bank_ids_source,
 )
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import exported_directory
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)

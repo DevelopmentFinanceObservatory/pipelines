@@ -25,8 +25,8 @@ from dfo_pipelines.defs.dfo.skills.assets import (
 from dfo_pipelines.defs.export_specs import EXPORT_SPECS
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.orchestration.resources.skills_repository import (
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.skills_repository import (
     SkillsRepositoryResource,
 )
 from tests.helpers import (

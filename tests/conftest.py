@@ -9,7 +9,7 @@ import pytest
 from dagster._core.execution.context.invocation import DirectOpExecutionContext
 from upath import UPath
 
-from dfo_pipelines.orchestration.resources.knowledge_graph import KnowledgeGraphResource
+from dfo_pipelines.resources.knowledge_graph import KnowledgeGraphResource
 from tests.helpers import DOWNLOADED_AT
 
 

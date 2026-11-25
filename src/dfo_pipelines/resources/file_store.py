@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from upath import UPath
 
-from dfo_pipelines.orchestration.resources.base import StrictConfigurableResource
+from dfo_pipelines.resources.base import StrictConfigurableResource
 
 
 class UPathFileStoreResource(StrictConfigurableResource):

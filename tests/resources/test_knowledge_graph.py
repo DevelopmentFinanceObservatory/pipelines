@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from dfo_pipelines.orchestration.resources.knowledge_graph import KnowledgeGraphResource
+from dfo_pipelines.resources.knowledge_graph import KnowledgeGraphResource
 
 # KGSettings fields the resource leaves to dcp-tools' defaults
 DEFAULTED_SETTINGS = {

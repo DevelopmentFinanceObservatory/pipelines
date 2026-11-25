@@ -20,7 +20,7 @@ from dfo_pipelines.defs.imf.weo.assets import (
     imf_weo_source,
 )
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import exported_directory
 
 FIXTURES = Path(__file__).parent / "fixtures"

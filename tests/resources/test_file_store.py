@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 
 
 def test_upath_file_store_names_a_write_once_directory_by_its_utc_instant_and_run(

@@ -13,7 +13,7 @@ from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME, FetchedRelease
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
-from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import (
     AutomationHarness,
     check_outcomes,
