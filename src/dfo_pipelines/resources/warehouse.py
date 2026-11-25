@@ -1,12 +1,18 @@
+import csv
+import itertools
+import tempfile
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
+from pathlib import Path
 from typing import Any, override
 
+import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from duckdb import DuckDBPyConnection
+from google.cloud import bigquery, bigquery_storage
 from upath import UPath
 
 from dfo_pipelines.resources.base import StrictConfigurableResource
@@ -15,8 +21,7 @@ from dfo_pipelines.resources.base import StrictConfigurableResource
 class WarehouseResource(StrictConfigurableResource, ABC):
     """Database the raw files are loaded into and the dbt models are read from
 
-    Loads replace `schema`.`table`, creating the schema if needed, and return the
-    table's row count. Reads name a model as `<schema>.<name>`.
+    Loads replace `schema`.`table` and return the table's row count. Reads name a model as `<schema>.<name>`.
     """
 
     @abstractmethod
@@ -74,8 +79,13 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """
 
 
+def aliased_column_names(names: Sequence[str], renames: Mapping[str, str]) -> list[str]:
+    """`names` with each one in `renames` replaced by its new name, in order"""
+    return [renames.get(name, name) for name in names]
+
+
 class DuckDBWarehouseResource(WarehouseResource):
-    """Warehouse in a DuckDB database"""
+    """Warehouse in a DuckDB database, whose loads create the schema if needed"""
 
     database: str
 
@@ -114,8 +124,7 @@ class DuckDBWarehouseResource(WarehouseResource):
     ) -> int:
         select_statement = "select * from read_parquet(?)"
         if renames:
-            published = pq.read_schema(path).names
-            aliases = [renames.get(name, name) for name in published]
+            aliases = aliased_column_names(pq.read_schema(path).names, renames)
             columns = ", ".join(
                 '"' + alias.replace('"', '""') + '"' for alias in aliases
             )
@@ -181,3 +190,207 @@ class DuckDBWarehouseResource(WarehouseResource):
                     str(UPath(directory) / f"{file_stem}_{value}.csv"), header=True
                 )
         return sum(count for _, count in partitions)
+
+
+def write_renamed_parquet(
+    source: str, destination: Path, renames: Mapping[str, str]
+) -> None:
+    """Copy the parquet file at `source` to `destination` a batch at a time, with
+    its columns renamed by position as `aliased_column_names` gives"""
+    with UPath(source).open("rb") as source_file:
+        parquet_file = pq.ParquetFile(source_file)
+        published = parquet_file.schema_arrow
+        aliases = aliased_column_names(published.names, renames)
+        schema = pa.schema(
+            field.with_name(alias)
+            for field, alias in zip(published, aliases, strict=True)
+        )
+        with pq.ParquetWriter(destination, schema) as writer:
+            for batch in parquet_file.iter_batches():
+                writer.write_batch(
+                    pa.RecordBatch.from_arrays(batch.columns, schema=schema)
+                )
+
+
+def arrow_decimal_types(
+    fields: Sequence[bigquery.SchemaField],
+) -> dict[str, pa.Decimal128Type]:
+    """The decimal type DuckDB can hold for each NUMERIC or BIGNUMERIC field, keyed
+    on its name
+
+    A field takes its declared precision and scale, and an undeclared NUMERIC its
+    default, 38 and 9.
+
+    Raises:
+        ValueError: If a BIGNUMERIC field has no declared precision, since its
+            default exceeds DuckDB's 38 digits.
+    """
+    decimal_types = {}
+    for field in fields:
+        if field.field_type not in {"NUMERIC", "BIGNUMERIC"}:
+            continue
+        if field.precision is not None:
+            decimal_types[field.name] = pa.decimal128(field.precision, field.scale or 0)
+        elif field.field_type == "NUMERIC":
+            decimal_types[field.name] = pa.decimal128(38, 9)
+        else:
+            raise ValueError(
+                f"BIGNUMERIC column {field.name!r} has no declared precision,"
+                " so its values may not fit a DuckDB decimal"
+            )
+    return decimal_types
+
+
+def write_batches_to_duckdb(
+    batches: Iterable[pa.RecordBatch],
+    *,
+    column_names: Sequence[str],
+    decimal_types: Mapping[str, pa.Decimal128Type],
+    database: str,
+    model: str,
+) -> None:
+    """Create table `model` (`<schema>.<name>`) in the DuckDB `database` from
+    `batches`, casting each column in `decimal_types` to its type
+
+    Without batches the table has `column_names` as string columns.
+    """
+    batches = iter(batches)
+    first = next(batches, None)
+    if first is None:
+        schema = pa.schema((name, pa.string()) for name in column_names)
+    else:
+        schema = pa.schema(
+            field.with_type(decimal_types.get(field.name, field.type))
+            for field in first.schema
+        )
+        batches = itertools.chain([first], batches)
+    reader = pa.RecordBatchReader.from_batches(
+        schema, (batch.cast(schema) for batch in batches)
+    )
+    model_schema, _ = model.split(".")
+    with duckdb.connect(database) as connection:
+        connection.execute(f"create schema if not exists {model_schema}")
+        connection.execute(f"create table {model} as select * from reader")
+
+
+class BigQueryWarehouseResource(WarehouseResource):
+    """Warehouse in BigQuery, whose schemas are datasets that must already exist"""
+
+    project: str
+    location: str
+
+    def _client(self) -> bigquery.Client:
+        """Client for the project, using application default credentials"""
+        return bigquery.Client(project=self.project, location=self.location)
+
+    @staticmethod
+    def _job_config(source_format: str, **options: Any) -> bigquery.LoadJobConfig:
+        """Load job configuration replacing the destination table"""
+        return bigquery.LoadJobConfig(
+            source_format=source_format,
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            **options,
+        )
+
+    @staticmethod
+    def _row_count(job: bigquery.LoadJob) -> int:
+        """Rows loaded by `job`, once it has finished"""
+        job.result()
+        # The API leaves out a count of zero
+        return job.output_rows or 0
+
+    def _load_file(self, path: Path, *, schema: str, table: str) -> int:
+        """Load the local parquet file at `path`"""
+        with self._client() as client, path.open("rb") as file:
+            return self._row_count(
+                client.load_table_from_file(
+                    file,
+                    f"{schema}.{table}",
+                    job_config=self._job_config(bigquery.SourceFormat.PARQUET),
+                )
+            )
+
+    @override
+    def load_parquet(
+        self,
+        *,
+        path: str,
+        schema: str,
+        table: str,
+        renames: Mapping[str, str] | None = None,
+    ) -> int:
+        if renames:
+            # BigQuery rejects a file whose column names differ only in case
+            with tempfile.TemporaryDirectory() as directory:
+                renamed = Path(directory) / "renamed.parquet"
+                write_renamed_parquet(path, renamed, renames)
+                return self._load_file(renamed, schema=schema, table=table)
+        with self._client() as client:
+            return self._row_count(
+                client.load_table_from_uri(
+                    path,
+                    f"{schema}.{table}",
+                    job_config=self._job_config(bigquery.SourceFormat.PARQUET),
+                )
+            )
+
+    @override
+    def load_rows(
+        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
+    ) -> int:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rows.parquet"
+            pq.write_table(pa.Table.from_pylist(list(rows)), path)
+            return self._load_file(path, schema=schema, table=table)
+
+    @override
+    def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
+        with UPath(path).open(newline="") as file:
+            header = next(csv.reader(file))
+        job_config = self._job_config(
+            bigquery.SourceFormat.CSV,
+            schema=[bigquery.SchemaField(name, "STRING") for name in header],
+            skip_leading_rows=1,
+            allow_quoted_newlines=True,
+        )
+        with self._client() as client:
+            return self._row_count(
+                client.load_table_from_uri(
+                    path, f"{schema}.{table}", job_config=job_config
+                )
+            )
+
+    @override
+    def get_rows(self, model: str) -> list[dict[str, Any]]:
+        with self._client() as client:
+            return client.query(f"select * from {model}").to_arrow().to_pylist()
+
+    @override
+    def write_csv(
+        self,
+        model: str,
+        *,
+        directory: str,
+        file_stem: str,
+        partition_column: str | None = None,
+    ) -> int:
+        with self._client() as client, tempfile.TemporaryDirectory() as temporary:
+            fields = client.get_table(model).schema
+            database = str(Path(temporary) / "warehouse.duckdb")
+            write_batches_to_duckdb(
+                client.query(f"select * from {model}")
+                .result()
+                .to_arrow_iterable(
+                    bqstorage_client=bigquery_storage.BigQueryReadClient()
+                ),
+                column_names=[field.name for field in fields],
+                decimal_types=arrow_decimal_types(fields),
+                database=database,
+                model=model,
+            )
+            return DuckDBWarehouseResource(database=database).write_csv(
+                model,
+                directory=directory,
+                file_stem=file_stem,
+                partition_column=partition_column,
+            )
