@@ -303,9 +303,7 @@ def export_bundle(
     log.info("Registering StatisticalVariable nodes")
     with tempfile.TemporaryDirectory() as staging_dir:
         statvars_csv = Path(staging_dir) / "statvars.csv"
-        statvar_count = warehouse.write_table(
-            spec.statvar_model, path=str(statvars_csv)
-        )
+        statvar_count = warehouse.write_csv(spec.statvar_model, path=str(statvars_csv))
         manager.add_variables_to_mcf_from_csv(
             statvars_csv,
             column_to_property_mapping=spec.statvar_column_to_property,
@@ -332,7 +330,7 @@ def export_bundle(
     log.info("Writing observations")
     observation_count = 0
     for observations in spec.observation_inputs:
-        rows = warehouse.write_partitions(
+        rows = warehouse.write_csv_partitions(
             observations.model,
             column=PARTITION_COLUMN,
             directory=str(out_dir),

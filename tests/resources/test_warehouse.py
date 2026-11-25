@@ -54,16 +54,14 @@ def _load_dated_rows(warehouse: WarehouseResource, tmp_path: Path) -> None:
         ),
         path,
     )
-    warehouse.load_parquet(path=str(path), schema="raw", table="t")
+    warehouse.load_parquet(str(path), table="raw.t")
 
 
 def test_load_parquet_loads_every_column_and_row(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test the whole file lands in the table, and the row count is returned"""
-    rows = warehouse.load_parquet(
-        path=_write(tmp_path / "data.parquet", 3), schema="raw", table="t"
-    )
+    rows = warehouse.load_parquet(_write(tmp_path / "data.parquet", 3), table="raw.t")
 
     assert rows == 3
     assert sorted(warehouse.get_rows("raw.t"), key=lambda row: row["code"]) == [
@@ -77,13 +75,11 @@ def test_load_parquet_loads_an_empty_file_as_an_empty_table(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test a file with no rows gives an empty table with its columns, and 0"""
-    rows = warehouse.load_parquet(
-        path=_write(tmp_path / "empty.parquet", 0), schema="raw", table="t"
-    )
+    rows = warehouse.load_parquet(_write(tmp_path / "empty.parquet", 0), table="raw.t")
 
     assert rows == 0
     header = tmp_path / "header.csv"
-    warehouse.write_table("raw.t", path=str(header))
+    warehouse.write_csv("raw.t", path=str(header))
     assert header.read_text() == ",".join(COLUMNS) + "\n"
 
 
@@ -91,13 +87,9 @@ def test_load_parquet_replaces_an_existing_table(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test a reload leaves only the rows of the new file"""
-    warehouse.load_parquet(
-        path=_write(tmp_path / "big.parquet", 5), schema="raw", table="t"
-    )
+    warehouse.load_parquet(_write(tmp_path / "big.parquet", 5), table="raw.t")
 
-    rows = warehouse.load_parquet(
-        path=_write(tmp_path / "small.parquet", 2), schema="raw", table="t"
-    )
+    rows = warehouse.load_parquet(_write(tmp_path / "small.parquet", 2), table="raw.t")
 
     assert rows == 2
     assert len(warehouse.get_rows("raw.t")) == 2
@@ -109,9 +101,8 @@ def test_load_parquet_aliases_columns_by_position(
     """Test renames reach columns whose names differ only by case, others keep
     their name and the order is unchanged"""
     warehouse.load_parquet(
-        path=_write(tmp_path / "data.parquet", 2, ("DONOR", "Donor", "value")),
-        schema="raw",
-        table="t",
+        _write(tmp_path / "data.parquet", 2, ("DONOR", "Donor", "value")),
+        table="raw.t",
         renames={"DONOR": "donor_code", "Donor": "donor_name"},
     )
 
@@ -125,14 +116,11 @@ def test_load_rows_replaces_the_previous_rows(warehouse: WarehouseResource) -> N
     """Test a reload leaves only the rows it was given"""
     warehouse.load_rows(
         [{"downloaded_at": DOWNLOADED_AT}, {"downloaded_at": DOWNLOADED_AT}],
-        schema="raw",
-        table="metadata",
+        table="raw.metadata",
     )
     later = datetime(2026, 9, 8, 11, 2, tzinfo=UTC)
 
-    rows = warehouse.load_rows(
-        [{"downloaded_at": later}], schema="raw", table="metadata"
-    )
+    rows = warehouse.load_rows([{"downloaded_at": later}], table="raw.metadata")
 
     assert rows == 1
     assert warehouse.get_rows("raw.metadata") == [{"downloaded_at": later}]
@@ -149,7 +137,7 @@ def test_load_rows_types_columns_from_their_values_in_the_order_given(
         "crs_release_date": RELEASE_DATES["crs"],
     }
 
-    warehouse.load_rows([row], schema="raw", table="metadata")
+    warehouse.load_rows([row], table="raw.metadata")
 
     [loaded] = warehouse.get_rows("raw.metadata")
     assert list(loaded.items()) == list(row.items())
@@ -164,7 +152,7 @@ def test_load_csv_as_strings_keeps_every_value_as_written(
     path = tmp_path / "codes.csv"
     path.write_text("code,label\n007,Seven\n010,Ten\n")
 
-    rows = warehouse.load_csv_as_strings(path=str(path), schema="raw", table="codes")
+    rows = warehouse.load_csv_as_strings(str(path), table="raw.codes")
 
     assert rows == 2
     assert sorted(warehouse.get_rows("raw.codes"), key=lambda row: row["code"]) == [
@@ -179,16 +167,16 @@ def test_load_csv_as_strings_replaces_an_existing_table(
     """Test a reload leaves only the rows of the new file"""
     path = tmp_path / "codes.csv"
     path.write_text("code\n1\n2\n3\n")
-    warehouse.load_csv_as_strings(path=str(path), schema="raw", table="codes")
+    warehouse.load_csv_as_strings(str(path), table="raw.codes")
     path.write_text("code\n4\n")
 
-    rows = warehouse.load_csv_as_strings(path=str(path), schema="raw", table="codes")
+    rows = warehouse.load_csv_as_strings(str(path), table="raw.codes")
 
     assert rows == 1
     assert warehouse.get_rows("raw.codes") == [{"code": "4"}]
 
 
-def test_write_table_writes_every_row_sorted_by_every_column(
+def test_write_csv_writes_every_row_sorted_by_every_column(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test the file holds the header then every row, sorted by the first column,
@@ -196,13 +184,13 @@ def test_write_table_writes_every_row_sorted_by_every_column(
     _load_dated_rows(warehouse, tmp_path)
     path = tmp_path / "t.csv"
 
-    rows = warehouse.write_table("raw.t", path=str(path))
+    rows = warehouse.write_csv("raw.t", path=str(path))
 
     assert rows == 3
     assert path.read_text() == "date,variable,value\n2000,c,3\n2001,a,1\n2001,b,2\n"
 
 
-def test_write_partitions_writes_each_values_rows_sorted_to_its_own_file(
+def test_write_csv_partitions_writes_each_values_rows_sorted_to_its_own_file(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test each value gets a file named for it holding only its rows, sorted, and
@@ -211,7 +199,7 @@ def test_write_partitions_writes_each_values_rows_sorted_to_its_own_file(
     directory = tmp_path / "bundle"
     directory.mkdir()
 
-    rows = warehouse.write_partitions(
+    rows = warehouse.write_csv_partitions(
         "raw.t", column="date", directory=str(directory), file_stem="observations"
     )
 

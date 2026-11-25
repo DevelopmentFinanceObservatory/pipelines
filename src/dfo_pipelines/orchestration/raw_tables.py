@@ -135,22 +135,15 @@ def build_raw_table_assets(
                 f"{landing_key.to_user_string()}"
             ) from error
         for raw_table in tables:
+            table = f"{group}.{raw_table.table}"
             rows = warehouse.load_parquet(
-                path=str(directory / f"{raw_table.file_stem}.parquet"),
-                schema=group,
-                table=raw_table.table,
+                str(directory / f"{raw_table.file_stem}.parquet"),
+                table=table,
                 renames=raw_table.renames,
             )
-            yield raw_table_result(
-                f"{group}.{raw_table.table}",
-                rows,
-                asset_key=dg.AssetKey(raw_table.asset),
-            )
-        rows = warehouse.load_rows(
-            [metadata.as_row()], schema=group, table=metadata_table
-        )
-        yield metadata_table_result(
-            f"{group}.{metadata_table}", rows, asset_key=metadata_key
-        )
+            yield raw_table_result(table, rows, asset_key=dg.AssetKey(raw_table.asset))
+        table = f"{group}.{metadata_table}"
+        rows = warehouse.load_rows([metadata.as_row()], table=table)
+        yield metadata_table_result(table, rows, asset_key=metadata_key)
 
     return raw_tables

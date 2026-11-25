@@ -15,18 +15,13 @@ from dfo_pipelines.resources.base import StrictConfigurableResource
 class WarehouseResource(StrictConfigurableResource, ABC):
     """Database the raw files are loaded into and the dbt models are read from
 
-    Loads replace `schema`.`table`, creating the schema if needed, and return the
-    table's row count. Reads name a model as `<schema>.<name>`.
+    Tables and models are named `<schema>.<name>`. Loads replace a table, creating
+    its schema if needed, and return its row count.
     """
 
     @abstractmethod
     def load_parquet(
-        self,
-        *,
-        path: str,
-        schema: str,
-        table: str,
-        renames: Mapping[str, str] | None = None,
+        self, path: str, *, table: str, renames: Mapping[str, str] | None = None
     ) -> int:
         """Load the parquet file at `path`
 
@@ -35,9 +30,7 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """
 
     @abstractmethod
-    def load_rows(
-        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
-    ) -> int:
+    def load_rows(self, rows: Sequence[Mapping[str, Any]], *, table: str) -> int:
         """Load `rows`, with columns in the order of the first row's keys
 
         Column types follow the Python values: a timezone-aware `datetime` gives a
@@ -46,7 +39,7 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """
 
     @abstractmethod
-    def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
+    def load_csv_as_strings(self, path: str, *, table: str) -> int:
         """Load the CSV file at `path`, read with a header row and every column as a
         string
         """
@@ -56,21 +49,21 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """Every row of `model` as a dict, keyed on column name"""
 
     @abstractmethod
-    def write_table(self, model: str, *, path: str) -> int:
+    def write_csv(self, model: str, *, path: str) -> int:
         """Write every row of `model` to `path` as a CSV file with a header, sorted
         ascending on every column in table order, nulls last, returning the count
         of rows written
         """
 
     @abstractmethod
-    def write_partitions(
+    def write_csv_partitions(
         self, model: str, *, column: str, directory: str, file_stem: str
     ) -> int:
         """Write the rows of `model` to `directory` as CSV files with a header, one
         or more for each value of `column`, returning the count of rows written
 
         Each file is named `<file_stem>_<value>`, then optionally a shard suffix,
-        then `.csv`. Rows are sorted as `write_table` sorts them.
+        then `.csv`. Rows are sorted as `write_csv` sorts them.
         """
 
 
@@ -81,12 +74,7 @@ class DuckDBWarehouseResource(WarehouseResource):
 
     @override
     def load_parquet(
-        self,
-        *,
-        path: str,
-        schema: str,
-        table: str,
-        renames: Mapping[str, str] | None = None,
+        self, path: str, *, table: str, renames: Mapping[str, str] | None = None
     ) -> int:
         select_statement = "select * from read_parquet(?)"
         if renames:
@@ -97,27 +85,22 @@ class DuckDBWarehouseResource(WarehouseResource):
             )
             select_statement += f" as source({columns})"
         with self._connection() as connection:
-            return self._replace_table(
-                connection, schema, table, select_statement, [path]
-            )
+            return self._replace_table(connection, table, select_statement, [path])
 
     @override
-    def load_rows(
-        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
-    ) -> int:
+    def load_rows(self, rows: Sequence[Mapping[str, Any]], *, table: str) -> int:
         rows_to_load = pa.Table.from_pylist(list(rows))
         with self._connection() as connection:
             connection.register("rows_to_load", rows_to_load)
             return self._replace_table(
-                connection, schema, table, "select * from rows_to_load", []
+                connection, table, "select * from rows_to_load", []
             )
 
     @override
-    def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
+    def load_csv_as_strings(self, path: str, *, table: str) -> int:
         with self._connection() as connection:
             return self._replace_table(
                 connection,
-                schema,
                 table,
                 "select * from read_csv(?, header = true, all_varchar = true)",
                 [path],
@@ -129,7 +112,7 @@ class DuckDBWarehouseResource(WarehouseResource):
             return connection.sql(f"select * from {model}").to_arrow_table().to_pylist()
 
     @override
-    def write_table(self, model: str, *, path: str) -> int:
+    def write_csv(self, model: str, *, path: str) -> int:
         with self._connection() as connection:
             [(row_count,)] = connection.execute(
                 f"copy (select * from {model} order by all) to ? (format csv, header)",
@@ -138,7 +121,7 @@ class DuckDBWarehouseResource(WarehouseResource):
         return row_count
 
     @override
-    def write_partitions(
+    def write_csv_partitions(
         self, model: str, *, column: str, directory: str, file_stem: str
     ) -> int:
         with self._connection() as connection:
@@ -162,19 +145,16 @@ class DuckDBWarehouseResource(WarehouseResource):
     @staticmethod
     def _replace_table(
         connection: DuckDBPyConnection,
-        schema: str,
         table: str,
         select_statement: str,
         parameters: list[Any],
     ) -> int:
-        """Replace `schema`.`table` with the rows `select_statement` gives, returning
-        its row count"""
+        """Replace `table` with the rows `select_statement` gives, returning its row
+        count"""
+        schema, _ = table.split(".")
         connection.execute(f"create schema if not exists {schema}")
         connection.execute(
-            f"create or replace table {schema}.{table} as {select_statement}",
-            parameters,
+            f"create or replace table {table} as {select_statement}", parameters
         )
-        [(row_count,)] = connection.sql(
-            f"select count(*) from {schema}.{table}"
-        ).fetchall()
+        [(row_count,)] = connection.sql(f"select count(*) from {table}").fetchall()
         return row_count
