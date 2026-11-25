@@ -4,7 +4,6 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.extraction.metadata import ExtractionMetadata
 from dfo_pipelines.resources.warehouse import (
@@ -22,9 +21,7 @@ def warehouse(request: pytest.FixtureRequest, tmp_path: Path) -> WarehouseResour
     """An empty warehouse of each implementation"""
     match request.param:
         case "duckdb":
-            return DuckDBWarehouseResource(
-                duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
-            )
+            return DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
         case _:
             raise ValueError(request.param)
 
@@ -70,7 +67,7 @@ def test_load_parquet_loads_every_column_and_row(
     )
 
     assert rows == 3
-    assert warehouse.read_table("raw.t").to_pylist() == [
+    assert sorted(warehouse.get_rows("raw.t"), key=lambda row: row["code"]) == [
         {"code": 0, "name": "name 0", "value": 0},
         {"code": 1, "name": "name 1", "value": 10},
         {"code": 2, "name": "name 2", "value": 20},
@@ -86,7 +83,9 @@ def test_load_parquet_loads_an_empty_file_as_an_empty_table(
     )
 
     assert rows == 0
-    assert warehouse.read_table("raw.t").column_names == list(COLUMNS)
+    header = tmp_path / "header.csv"
+    warehouse.write_table("raw.t", path=str(header))
+    assert header.read_text() == ",".join(COLUMNS) + "\n"
 
 
 def test_load_parquet_replaces_an_existing_table(
@@ -117,7 +116,7 @@ def test_load_parquet_aliases_columns_by_position(
         renames={"DONOR": "donor_code", "Donor": "donor_name"},
     )
 
-    assert warehouse.read_table("raw.t").to_pylist() == [
+    assert sorted(warehouse.get_rows("raw.t"), key=lambda row: row["donor_code"]) == [
         {"donor_code": 0, "donor_name": "name 0", "value": 0},
         {"donor_code": 1, "donor_name": "name 1", "value": 10},
     ]
@@ -189,7 +188,7 @@ def test_load_csv_as_strings_keeps_every_value_as_written(
     rows = warehouse.load_csv_as_strings(path=str(path), schema="raw", table="codes")
 
     assert rows == 2
-    assert warehouse.read_table("raw.codes").to_pylist() == [
+    assert sorted(warehouse.get_rows("raw.codes"), key=lambda row: row["code"]) == [
         {"code": "007", "label": "Seven"},
         {"code": "010", "label": "Ten"},
     ]
@@ -210,17 +209,18 @@ def test_load_csv_as_strings_replaces_an_existing_table(
     assert warehouse.get_rows("raw.codes") == [{"code": "4"}]
 
 
-def test_read_table_sorts_by_every_column(
+def test_write_table_writes_every_row_sorted_by_every_column(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
-    """Test the rows come back sorted by the first column, then the next"""
+    """Test the file holds the header then every row, sorted by the first column,
+    then the next, and the row count is returned"""
     _load_dated_rows(warehouse, tmp_path)
+    path = tmp_path / "t.csv"
 
-    assert warehouse.read_table("raw.t").to_pylist() == [
-        {"date": 2000, "variable": "c", "value": 3},
-        {"date": 2001, "variable": "a", "value": 1},
-        {"date": 2001, "variable": "b", "value": 2},
-    ]
+    rows = warehouse.write_table("raw.t", path=str(path))
+
+    assert rows == 3
+    assert path.read_text() == "date,variable,value\n2000,c,3\n2001,a,1\n2001,b,2\n"
 
 
 def test_write_partitions_writes_each_values_rows_sorted_to_its_own_file(

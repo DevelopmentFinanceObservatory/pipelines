@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from contextlib import AbstractContextManager
 from typing import Any, override
 
-import pyarrow as pa
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
+from duckdb import DuckDBPyConnection
 from upath import UPath
 
 from dfo_pipelines.extraction.metadata import ExtractionMetadata
@@ -52,11 +53,10 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """Every row of `model` as a dict, keyed on column name"""
 
     @abstractmethod
-    def read_table(self, model: str) -> pa.Table:
-        """Every row of `model`, sorted ascending on every column in table order,
-        nulls last
-
-        Decimals are decimal128 at the model's declared precision and scale.
+    def write_table(self, model: str, *, path: str) -> int:
+        """Write every row of `model` to `path` as a CSV file with a header, sorted
+        ascending on every column in table order, nulls last, returning the count
+        of rows written
         """
 
     @abstractmethod
@@ -67,14 +67,14 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         or more for each value of `column`, returning the count of rows written
 
         Each file is named `<file_stem>_<value>`, then optionally a shard suffix,
-        then `.csv`. Rows are sorted as `read_table` sorts them.
+        then `.csv`. Rows are sorted as `write_table` sorts them.
         """
 
 
 class DuckDBWarehouseResource(WarehouseResource):
     """Warehouse in a DuckDB database"""
 
-    duckdb: DuckDBResource
+    database: str
 
     @override
     def load_parquet(
@@ -120,21 +120,23 @@ class DuckDBWarehouseResource(WarehouseResource):
 
     @override
     def get_rows(self, model: str) -> list[dict[str, Any]]:
-        with self.duckdb.get_connection() as connection:
+        with self._connection() as connection:
             return connection.sql(f"select * from {model}").to_arrow_table().to_pylist()
 
     @override
-    def read_table(self, model: str) -> pa.Table:
-        with self.duckdb.get_connection() as connection:
-            return connection.sql(
-                f"select * from {model} order by all"
-            ).to_arrow_table()
+    def write_table(self, model: str, *, path: str) -> int:
+        with self._connection() as connection:
+            [(row_count,)] = connection.execute(
+                f"copy (select * from {model} order by all) to ? (format csv, header)",
+                [path],
+            ).fetchall()
+        return row_count
 
     @override
     def write_partitions(
         self, model: str, *, column: str, directory: str, file_stem: str
     ) -> int:
-        with self.duckdb.get_connection() as connection:
+        with self._connection() as connection:
             partitions = connection.sql(
                 f"select {column}, count(*) from {model}"
                 f" group by {column} order by {column}"
@@ -148,12 +150,16 @@ class DuckDBWarehouseResource(WarehouseResource):
                 )
         return sum(count for _, count in partitions)
 
+    def _connection(self) -> AbstractContextManager[DuckDBPyConnection]:
+        """Connection to the database, retried while another process holds its lock"""
+        return DuckDBResource(database=self.database).get_connection()
+
     def _replace_table(
         self, schema: str, table: str, select_statement: str, parameters: list[Any]
     ) -> int:
         """Replace `schema`.`table` with the rows `select_statement` gives, returning
         its row count"""
-        with self.duckdb.get_connection() as connection:
+        with self._connection() as connection:
             connection.execute(f"create schema if not exists {schema}")
             connection.execute(
                 f"create or replace table {schema}.{table} as {select_statement}",

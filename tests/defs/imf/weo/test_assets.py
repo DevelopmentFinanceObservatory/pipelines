@@ -225,7 +225,7 @@ def _run_dc_export(tmp_path: Path) -> Path:
 
     result = imf_weo_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         export_file_store=file_store,
     )
     return exported_directory(result)

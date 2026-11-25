@@ -50,7 +50,7 @@ def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     """Test each seed row becomes a licence type or property node under the import's provenance"""
     result = dfo_shared_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(duckdb=create_seeds(tmp_path)),
+        warehouse=DuckDBWarehouseResource(database=create_seeds(tmp_path).database),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
     )
 

@@ -285,7 +285,7 @@ def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
     rows = mapping_rows()
 
     result = dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         dfo_ontology_landing=str(FIXTURES),
     )
 
@@ -304,13 +304,13 @@ def test_raw_code_mapping_table_replaces_what_it_finds(tmp_path: Path) -> None:
     write_mapping(tmp_path / "refreshed", fewer)
 
     dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         dfo_ontology_landing=str(FIXTURES),
     )
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(rows)
 
     dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         dfo_ontology_landing=str(tmp_path / "refreshed"),
     )
 
@@ -325,7 +325,7 @@ def test_raw_code_mapping_table_check_fails_when_the_mapping_has_no_rows(
     write_mapping(tmp_path / "empty", [])
 
     result = dfo_ontology_raw_code_mapping_table(
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         dfo_ontology_landing=str(tmp_path / "empty"),
     )
 
@@ -420,7 +420,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
         resources={
             "landing_file_store": file_store,
             "export_file_store": export_file_store,
-            "warehouse": DuckDBWarehouseResource(duckdb=duckdb),
+            "warehouse": DuckDBWarehouseResource(database=duckdb.database),
         },
         instance=observed_instance(),
     )

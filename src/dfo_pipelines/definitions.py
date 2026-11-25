@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.orchestration.environment import Environment, dfo_environment
 from dfo_pipelines.resources.climate_finance_export import (
@@ -31,9 +30,7 @@ def defs():
                     else dg.EnvVar("LANDING_STORE_URI")
                 ),
                 "export_file_store": UPathFileStoreResource(base_path="data/exports"),
-                "warehouse": DuckDBWarehouseResource(
-                    duckdb=DuckDBResource(database=dg.EnvVar("DUCKDB_PATH"))
-                ),
+                "warehouse": DuckDBWarehouseResource(database=dg.EnvVar("DUCKDB_PATH")),
                 "knowledge_graph": KnowledgeGraphResource(
                     project_id=dg.EnvVar("DCP_PROJECT_ID"),
                     region=dg.EnvVar("DCP_REGION"),

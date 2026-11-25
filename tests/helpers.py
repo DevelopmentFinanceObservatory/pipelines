@@ -153,7 +153,7 @@ class AutomationHarness:
                 base_path=str(tmp_path / "landing")
             ),
             "warehouse": DuckDBWarehouseResource(
-                duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
+                database=str(tmp_path / "database.duckdb")
             ),
             **(resources or {}),
         }

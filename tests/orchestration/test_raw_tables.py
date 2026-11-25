@@ -122,7 +122,7 @@ def load_raw_tables(
 
     return dg.materialize(
         [landing, assets],
-        resources={"warehouse": DuckDBWarehouseResource(duckdb=duckdb)},
+        resources={"warehouse": DuckDBWarehouseResource(database=duckdb.database)},
         raise_on_error=raise_on_error,
     )
 

@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import dagster as dg
 import pytest
-from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.data_commons.export import (
     DOCUMENTATION_FILES,
@@ -54,7 +53,7 @@ def _resources(tmp_path: Path) -> dict[str, dg.ConfigurableResource]:
     """A database and an export store under `tmp_path`"""
     return {
         "warehouse": DuckDBWarehouseResource(
-            duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
+            database=str(tmp_path / "database.duckdb")
         ),
         "export_file_store": UPathFileStoreResource(
             base_path=str(tmp_path / "processed")

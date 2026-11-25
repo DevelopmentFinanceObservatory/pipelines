@@ -25,8 +25,6 @@ from itertools import permutations
 from pathlib import Path
 from typing import Any
 
-import duckdb
-import pyarrow as pa
 from dcp_tools import CustomDataManager
 from dcp_tools.custom_data.models.common import mint_dcid
 from upath import UPath
@@ -229,12 +227,6 @@ def _file_pattern(stem: str) -> str:
     return f"{stem}_*.csv"
 
 
-def _write_csv(rows: pa.Table, path: str) -> None:
-    """Write `rows` to `path` as CSV with a header, formatted by DuckDB"""
-    with duckdb.connect() as connection:
-        connection.from_arrow(rows).write_csv(path, header=True)
-
-
 def export_bundle(
     spec: ExportSpec,
     *,
@@ -311,8 +303,9 @@ def export_bundle(
     log.info("Registering StatisticalVariable nodes")
     with tempfile.TemporaryDirectory() as staging_dir:
         statvars_csv = Path(staging_dir) / "statvars.csv"
-        statvars = warehouse.read_table(spec.statvar_model)
-        _write_csv(statvars, str(statvars_csv))
+        statvar_count = warehouse.write_table(
+            spec.statvar_model, path=str(statvars_csv)
+        )
         manager.add_variables_to_mcf_from_csv(
             statvars_csv,
             column_to_property_mapping=spec.statvar_column_to_property,
@@ -362,6 +355,6 @@ def export_bundle(
 
     return ExportMetadata(
         observation_count=observation_count,
-        statvar_count=statvars.num_rows,
+        statvar_count=statvar_count,
         observation_file_count=len(written_files),
     )

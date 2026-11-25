@@ -172,7 +172,7 @@ def _run_export(tmp_path: Path, export: Export) -> Path:
 
     result = export.asset(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         export_file_store=file_store,
     )
     return exported_directory(result)

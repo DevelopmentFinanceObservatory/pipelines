@@ -702,7 +702,7 @@ def run_export(tmp_path: Path) -> Path:
 
     result = world_bank_ids_dc_export(
         context=dg.build_asset_context(),
-        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        warehouse=DuckDBWarehouseResource(database=duckdb.database),
         export_file_store=file_store,
     )
     return exported_directory(result)

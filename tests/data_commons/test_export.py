@@ -165,7 +165,7 @@ def create_models(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
         connection.execute(ABOUT_OBSERVATIONS_SQL)
         for statement in statements:
             connection.execute(statement)
-    return DuckDBWarehouseResource(duckdb=duckdb)
+    return DuckDBWarehouseResource(database=duckdb.database)
 
 
 def run_export(tmp_path: Path) -> tuple[ExportMetadata, Path]:

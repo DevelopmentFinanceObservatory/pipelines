@@ -7,7 +7,6 @@ import httpx
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.extraction.oecd import (
@@ -284,12 +283,10 @@ def test_dac_column_renames_give_case_colliding_columns_distinct_names(
     """Test each case-colliding column pair of a published DAC file loads under
     distinct names"""
     path = OECD_TESTS / dataset / "fixtures" / "data.parquet"
-    warehouse = DuckDBWarehouseResource(
-        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
-    )
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
 
     warehouse.load_parquet(
         path=str(path), schema="oecd", table=dataset, renames=DAC_COLUMN_RENAMES
     )
 
-    assert renamed <= set(warehouse.read_table(f"oecd.{dataset}").column_names)
+    assert renamed <= set(warehouse.get_rows(f"oecd.{dataset}")[0])
