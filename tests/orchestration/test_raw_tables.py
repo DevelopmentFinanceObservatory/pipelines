@@ -8,7 +8,6 @@ import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.extraction.metadata import (
@@ -22,6 +21,7 @@ from dfo_pipelines.orchestration.raw_tables import (
     metadata_table_result,
     raw_table_result,
 )
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 
 def test_raw_table_result_reports_the_table_and_its_row_count() -> None:
@@ -108,7 +108,7 @@ def write_landing_directory(
 def load_raw_tables(
     assets: dg.AssetsDefinition,
     *,
-    duckdb: DuckDBResource,
+    warehouse: DuckDBWarehouseResource,
     directory: Path,
     raise_on_error: bool = True,
 ) -> dg.ExecuteInProcessResult:
@@ -120,7 +120,9 @@ def load_raw_tables(
         return str(directory)
 
     return dg.materialize(
-        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=raise_on_error
+        [landing, assets],
+        resources={"warehouse": warehouse},
+        raise_on_error=raise_on_error,
     )
 
 
@@ -141,23 +143,23 @@ def test_build_raw_table_assets_loads_each_file_and_the_metadata(
 ) -> None:
     """Test each file loads, renamed, into its table, and the metadata records each
     release, with the table name and rows on each asset"""
-    database = tmp_path / "database.duckdb"
-    duckdb_resource = DuckDBResource(database=str(database))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
     assets = build_example()
     write_landing_directory_of_rows(tmp_path / "raw", {"things": 3, "others": 2})
 
-    result = load_raw_tables(assets, duckdb=duckdb_resource, directory=tmp_path / "raw")
+    result = load_raw_tables(assets, warehouse=warehouse, directory=tmp_path / "raw")
 
     assert result.success
-    with duckdb.connect(str(database), read_only=True) as connection:
-        things = connection.sql("select * from example.raw_things")
-        others = connection.sql("select * from example.raw_others")
-        metadata = connection.sql("select * from example.raw_example_metadata")
-        assert (things.columns, len(things.fetchall())) == (["Code"], 3)
-        assert (others.columns, len(others.fetchall())) == (["code"], 2)
-        assert metadata.fetchall() == [
-            (DOWNLOADED_AT, date(2025, 12, 1), date(2025, 11, 1))
-        ]
+    things = warehouse.get_rows("example.raw_things")
+    others = warehouse.get_rows("example.raw_others")
+    [metadata] = warehouse.get_rows("example.raw_example_metadata")
+    assert (list(things[0]), len(things)) == (["Code"], 3)
+    assert (list(others[0]), len(others)) == (["code"], 2)
+    assert list(metadata.values()) == [
+        DOWNLOADED_AT,
+        date(2025, 12, 1),
+        date(2025, 11, 1),
+    ]
     assert {
         materialization.asset_key: materialization.metadata
         for materialization in result.asset_materializations_for_node(
@@ -186,7 +188,7 @@ def test_build_raw_table_assets_check_fails_only_on_the_empty_table(
 
     result = load_raw_tables(
         build_example(),
-        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        warehouse=DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb")),
         directory=tmp_path / "raw",
         raise_on_error=False,
     )
@@ -209,7 +211,7 @@ def test_build_raw_table_assets_failed_table_load_records_no_metadata(
 
     result = load_raw_tables(
         build_example(),
-        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        warehouse=DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb")),
         directory=tmp_path / "raw",
         raise_on_error=False,
     )
@@ -233,7 +235,7 @@ def test_build_raw_table_assets_refuses_an_incomplete_directory_naming_its_landi
 
     result = load_raw_tables(
         build_example(),
-        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        warehouse=DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb")),
         directory=tmp_path / "raw",
         raise_on_error=False,
     )
@@ -265,7 +267,7 @@ def test_build_raw_table_assets_mismatched_release_names_load_no_table(
 ) -> None:
     """Test metadata recording other releases than the assets expect fails the run
     before any table loads"""
-    duckdb_resource = DuckDBResource(database=str(tmp_path / "database.duckdb"))
+    warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
     write_landing_directory(
         tmp_path / "raw",
         tables={"things": pa.table({"Code": [1]}), "others": pa.table({"Code": [1]})},
@@ -274,17 +276,16 @@ def test_build_raw_table_assets_mismatched_release_names_load_no_table(
 
     result = load_raw_tables(
         build_example(),
-        duckdb=duckdb_resource,
+        warehouse=warehouse,
         directory=tmp_path / "raw",
         raise_on_error=False,
     )
 
     assert not result.success
     assert not result.asset_materializations_for_node("example_raw_tables")
-    # The failed run leaves its read-write connection open in this process, so a
-    # read-only one would clash with it.
-    with duckdb_resource.get_connection() as connection:
-        assert not connection.sql("select * from information_schema.tables").fetchall()
+    for table in ("raw_things", "raw_others", "raw_example_metadata"):
+        with pytest.raises(duckdb.CatalogException):
+            warehouse.get_rows(f"example.{table}")
 
 
 def test_build_raw_table_assets_defines_the_assets_downstream_of_the_directory() -> (

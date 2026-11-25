@@ -2,7 +2,6 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.data_commons.export import ExportSpec, export_bundle
@@ -10,6 +9,7 @@ from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import WarehouseResource
 
 
 def export_directory_result(
@@ -51,7 +51,7 @@ def build_dc_export_asset(
     )
     def dc_export(
         context: dg.AssetExecutionContext,
-        duckdb: DuckDBResource,
+        warehouse: WarehouseResource,
         export_file_store: UPathFileStoreResource,
     ) -> dg.MaterializeResult:
         with export_file_store.write_once_directory(
@@ -60,10 +60,9 @@ def build_dc_export_asset(
             run_id=context.run.run_id,
             log=context.log,
         ) as out_dir:
-            with duckdb.get_connection() as connection:
-                export_metadata = export_bundle(
-                    spec, connection=connection, out_dir=out_dir, log=context.log
-                )
+            export_metadata = export_bundle(
+                spec, warehouse=warehouse, out_dir=out_dir, log=context.log
+            )
             return export_directory_result(
                 out_dir,
                 {

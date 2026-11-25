@@ -7,7 +7,6 @@ from unittest.mock import patch
 import dagster as dg
 import pandas as pd
 import pytest
-from dagster_duckdb import DuckDBResource
 from oda_data.clean_data.schema import ODASchema
 from oda_reader.download.download_tools import CRS_FLOW_URL, MULTI_FLOW_URL
 from oda_reader.multisystem import MULTISYSTEM_BULK_LABEL
@@ -28,7 +27,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory
+from tests.helpers import exported_directory, warehouse_with_tables
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -1075,26 +1074,22 @@ from (values
 """
 
 
-def _create_dc_models(duckdb: DuckDBResource) -> None:
-    """Create the DC schema models the export reads, holding a small fixture bundle"""
-    with duckdb.get_connection() as connection:
-        connection.execute(
-            "create schema if not exists one_imputed_multilateral_sectors"
-        )
-        connection.execute(IMPUTED_PROVENANCE_SQL)
-        connection.execute(IMPUTED_STATVARS_SQL)
-        connection.execute(IMPUTED_OBSERVATIONS_SQL)
+# The DC schema models the export reads, holding a small fixture bundle
+DC_MODELS_SQL = (
+    "create schema if not exists one_imputed_multilateral_sectors",
+    IMPUTED_PROVENANCE_SQL,
+    IMPUTED_STATVARS_SQL,
+    IMPUTED_OBSERVATIONS_SQL,
+)
 
 
 def _run_export(tmp_path: Path) -> Path:
     """Materialize the export asset, returning the bundle directory"""
-    duckdb = DuckDBResource(database=str(tmp_path / "database.duckdb"))
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    _create_dc_models(duckdb)
 
     result = one_imputed_multilateral_sectors_dc_export(
         context=dg.build_asset_context(),
-        duckdb=duckdb,
+        warehouse=warehouse_with_tables(tmp_path, *DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

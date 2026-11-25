@@ -76,3 +76,20 @@ def test_read_extraction_metadata_raises_when_a_release_name_is_unexpected(
         read_extraction_metadata(
             UPath(tmp_path), release_names=(*RELEASE_DATES.keys(), "unmapped")
         )
+
+
+def test_extraction_metadata_as_row_puts_release_dates_after_the_download_in_order() -> (
+    None
+):
+    """Test the row holds the download instant, then each release date column in
+    the order of the releases"""
+    metadata = ExtractionMetadata(
+        downloaded_at=DOWNLOADED_AT,
+        release_dates={"multisystem": date(2026, 7, 15), "crs": date(2026, 8, 3)},
+    )
+
+    assert list(metadata.as_row().items()) == [
+        ("downloaded_at", DOWNLOADED_AT),
+        ("multisystem_release_date", date(2026, 7, 15)),
+        ("crs_release_date", date(2026, 8, 3)),
+    ]

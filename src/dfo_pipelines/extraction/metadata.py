@@ -37,6 +37,17 @@ class ExtractionMetadata:
     downloaded_at: datetime
     release_dates: Mapping[str, date]
 
+    def as_row(self) -> dict[str, Any]:
+        """The metadata as a table row: `downloaded_at`, then a `<name>_release_date`
+        column for each release date, in their order"""
+        return {
+            "downloaded_at": self.downloaded_at,
+            **{
+                f"{name}_release_date": release_date
+                for name, release_date in self.release_dates.items()
+            },
+        }
+
 
 def write_extraction_metadata(
     directory: UPath,

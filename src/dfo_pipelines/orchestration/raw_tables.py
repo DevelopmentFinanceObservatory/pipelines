@@ -3,12 +3,11 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.extraction.metadata import read_extraction_metadata
 from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
-from dfo_pipelines.warehouse import load_extraction_metadata, load_parquet
+from dfo_pipelines.resources.warehouse import WarehouseResource
 
 _RELEASE_NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 
@@ -126,39 +125,32 @@ def build_raw_table_assets(
             for raw_table in tables
         ],
     )
-    def raw_tables(duckdb: DuckDBResource, landing_directory: str):
+    def raw_tables(warehouse: WarehouseResource, landing_directory: str):
         directory = UPath(landing_directory)
-        with duckdb.get_connection() as connection:
-            try:
-                metadata = read_extraction_metadata(
-                    directory, release_names=release_names
-                )
-            except FileNotFoundError as error:
-                raise FileNotFoundError(
-                    f"{directory} was never completed; materialize "
-                    f"{landing_key.to_user_string()}"
-                ) from error
-            for raw_table in tables:
-                rows = load_parquet(
-                    connection,
-                    path=str(directory / f"{raw_table.file_stem}.parquet"),
-                    schema=group,
-                    table=raw_table.table,
-                    renames=raw_table.renames,
-                )
-                yield raw_table_result(
-                    f"{group}.{raw_table.table}",
-                    rows,
-                    asset_key=dg.AssetKey(raw_table.asset),
-                )
-            rows = load_extraction_metadata(
-                connection,
-                metadata=metadata,
+        try:
+            metadata = read_extraction_metadata(directory, release_names=release_names)
+        except FileNotFoundError as error:
+            raise FileNotFoundError(
+                f"{directory} was never completed; materialize "
+                f"{landing_key.to_user_string()}"
+            ) from error
+        for raw_table in tables:
+            rows = warehouse.load_parquet(
+                path=str(directory / f"{raw_table.file_stem}.parquet"),
                 schema=group,
-                table=metadata_table,
+                table=raw_table.table,
+                renames=raw_table.renames,
             )
-            yield metadata_table_result(
-                f"{group}.{metadata_table}", rows, asset_key=metadata_key
+            yield raw_table_result(
+                f"{group}.{raw_table.table}",
+                rows,
+                asset_key=dg.AssetKey(raw_table.asset),
             )
+        rows = warehouse.load_rows(
+            [metadata.as_row()], schema=group, table=metadata_table
+        )
+        yield metadata_table_result(
+            f"{group}.{metadata_table}", rows, asset_key=metadata_key
+        )
 
     return raw_tables

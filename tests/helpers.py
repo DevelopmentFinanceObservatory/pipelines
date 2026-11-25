@@ -7,10 +7,12 @@ from types import MappingProxyType
 from typing import Any, Self
 
 import dagster as dg
+import duckdb
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 # Instant the `download_clock` fixture stamps each download with. Late enough in
 # the UTC day that any zone east of UTC has moved to the next date.
@@ -102,10 +104,13 @@ def row_count(duckdb: DuckDBResource, table: str) -> int:
         return connection.sql(f"select count(*) from {table}").fetchall()[0][0]
 
 
-def column_list(duckdb: DuckDBResource, table: str) -> list:
-    """List columns in a database table"""
-    with duckdb.get_connection() as connection:
-        return connection.sql(f"select * from {table}").columns
+def warehouse_with_tables(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
+    """A DuckDB warehouse in `tmp_path` holding the tables `statements` create"""
+    database = str(tmp_path / "database.duckdb")
+    with duckdb.connect(database) as connection:
+        for statement in statements:
+            connection.execute(statement)
+    return DuckDBWarehouseResource(database=database)
 
 
 def logged_messages(
@@ -151,7 +156,9 @@ class AutomationHarness:
             "landing_file_store": UPathFileStoreResource(
                 base_path=str(tmp_path / "landing")
             ),
-            "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+            "warehouse": DuckDBWarehouseResource(
+                database=str(tmp_path / "database.duckdb")
+            ),
             **(resources or {}),
         }
         self._defs = dg.Definitions(
