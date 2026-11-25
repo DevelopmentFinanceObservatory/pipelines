@@ -19,7 +19,6 @@ from dfo_pipelines.resources.warehouse import (
 COLUMNS = ("code", "name", "value")
 DOWNLOADED_AT = datetime(2026, 8, 3, 23, 47, 5, tzinfo=UTC)
 RELEASE_DATES = {"crs": date(2026, 8, 3), "multisystem": date(2026, 7, 15)}
-_DATED_FIELDS = [("date", pa.int64()), ("variable", pa.string())]
 
 
 @pytest.fixture(params=["duckdb"])
@@ -282,10 +281,20 @@ def test_arrow_decimal_types_follow_the_declared_or_default_precision() -> None:
     }
 
 
-def test_arrow_decimal_types_fails_for_an_undeclared_bignumeric() -> None:
-    """Test a BIGNUMERIC without a declared precision fails, naming the column"""
+@pytest.mark.parametrize(
+    "field",
+    [
+        bigquery.SchemaField("total", "BIGNUMERIC"),
+        bigquery.SchemaField("total", "BIGNUMERIC", precision=40, scale=10),
+    ],
+)
+def test_arrow_decimal_types_fails_for_a_bignumeric_wider_than_duckdb(
+    field: bigquery.SchemaField,
+) -> None:
+    """Test a BIGNUMERIC undeclared or declared above 38 digits fails, naming the
+    column"""
     with pytest.raises(ValueError, match="'total'"):
-        arrow_decimal_types([bigquery.SchemaField("total", "BIGNUMERIC")])
+        arrow_decimal_types([field])
 
 
 def test_write_batches_to_duckdb_writes_the_csv_the_duckdb_warehouse_writes(
@@ -293,6 +302,7 @@ def test_write_batches_to_duckdb_writes_the_csv_the_duckdb_warehouse_writes(
 ) -> None:
     """Test batches with a wide decimal column give the same partitioned CSV files
     as the same rows loaded into the DuckDB warehouse"""
+    dated_fields = [("date", pa.int64()), ("variable", pa.string())]
     rows = {
         "date": [2001, 2000, 2001],
         "variable": ["b", "c", "a"],
@@ -300,13 +310,13 @@ def test_write_batches_to_duckdb_writes_the_csv_the_duckdb_warehouse_writes(
     }
     loaded = tmp_path / "loaded.parquet"
     pq.write_table(
-        pa.table(rows, pa.schema([*_DATED_FIELDS, ("value", pa.decimal128(10, 2))])),
+        pa.table(rows, pa.schema([*dated_fields, ("value", pa.decimal128(10, 2))])),
         loaded,
     )
     reference = DuckDBWarehouseResource(database=str(tmp_path / "reference.duckdb"))
     reference.load_parquet(path=str(loaded), schema="raw", table="t")
     streamed = pa.table(
-        rows, pa.schema([*_DATED_FIELDS, ("value", pa.decimal256(76, 38))])
+        rows, pa.schema([*dated_fields, ("value", pa.decimal256(76, 38))])
     ).to_batches(max_chunksize=2)
     database = str(tmp_path / "streamed.duckdb")
 

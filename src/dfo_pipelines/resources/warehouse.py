@@ -21,7 +21,8 @@ from dfo_pipelines.resources.base import StrictConfigurableResource
 class WarehouseResource(StrictConfigurableResource, ABC):
     """Database the raw files are loaded into and the dbt models are read from
 
-    Loads replace `schema`.`table` and return the table's row count. Reads name a model as `<schema>.<name>`.
+    Loads replace `schema`.`table` and return the table's row count. Reads name a
+    model as `<schema>.<name>`.
     """
 
     @abstractmethod
@@ -222,20 +223,20 @@ def arrow_decimal_types(
     default, 38 and 9.
 
     Raises:
-        ValueError: If a BIGNUMERIC field has no declared precision, since its
-            default exceeds DuckDB's 38 digits.
+        ValueError: If a BIGNUMERIC field's precision, declared or default, exceeds
+            DuckDB's 38 digits.
     """
     decimal_types = {}
     for field in fields:
         if field.field_type not in {"NUMERIC", "BIGNUMERIC"}:
             continue
-        if field.precision is not None:
+        if field.precision is not None and field.precision <= 38:
             decimal_types[field.name] = pa.decimal128(field.precision, field.scale or 0)
         elif field.field_type == "NUMERIC":
             decimal_types[field.name] = pa.decimal128(38, 9)
         else:
             raise ValueError(
-                f"BIGNUMERIC column {field.name!r} has no declared precision,"
+                f"BIGNUMERIC column {field.name!r} has a precision above 38,"
                 " so its values may not fit a DuckDB decimal"
             )
     return decimal_types
@@ -345,7 +346,7 @@ class BigQueryWarehouseResource(WarehouseResource):
 
     @override
     def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
-        with UPath(path).open(newline="") as file:
+        with UPath(path).open(encoding="utf-8-sig", newline="") as file:
             header = next(csv.reader(file))
         job_config = self._job_config(
             bigquery.SourceFormat.CSV,
@@ -374,15 +375,17 @@ class BigQueryWarehouseResource(WarehouseResource):
         file_stem: str,
         partition_column: str | None = None,
     ) -> int:
-        with self._client() as client, tempfile.TemporaryDirectory() as temporary:
+        with (
+            self._client() as client,
+            bigquery_storage.BigQueryReadClient() as read_client,
+            tempfile.TemporaryDirectory() as scratch_directory,
+        ):
             fields = client.get_table(model).schema
-            database = str(Path(temporary) / "warehouse.duckdb")
+            database = str(Path(scratch_directory) / "warehouse.duckdb")
             write_batches_to_duckdb(
                 client.query(f"select * from {model}")
                 .result()
-                .to_arrow_iterable(
-                    bqstorage_client=bigquery_storage.BigQueryReadClient()
-                ),
+                .to_arrow_iterable(bqstorage_client=read_client),
                 column_names=[field.name for field in fields],
                 decimal_types=arrow_decimal_types(fields),
                 database=database,
