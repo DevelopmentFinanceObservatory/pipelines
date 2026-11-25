@@ -16,7 +16,7 @@ from dfo_pipelines.defs.oecd.dac1.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.
 DAC1_TEST_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
@@ -175,7 +175,7 @@ def _run_dc_export(tmp_path: Path) -> Path:
 
     result = oecd_dac1_dc_export(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, DC_MODELS_SQL),
+        warehouse=warehouse_with_tables(tmp_path, DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

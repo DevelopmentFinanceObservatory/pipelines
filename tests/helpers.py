@@ -104,7 +104,7 @@ def row_count(duckdb: DuckDBResource, table: str) -> int:
         return connection.sql(f"select count(*) from {table}").fetchall()[0][0]
 
 
-def warehouse_with_models(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
+def warehouse_with_tables(tmp_path: Path, *statements: str) -> DuckDBWarehouseResource:
     """A DuckDB warehouse in `tmp_path` holding the tables `statements` create"""
     database = str(tmp_path / "database.duckdb")
     with duckdb.connect(database) as connection:

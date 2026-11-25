@@ -6,7 +6,7 @@ from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, meta, warehouse_with_models
+from tests.helpers import exported_directory, meta, warehouse_with_tables
 
 LICENSE_TYPES_SQL = """
 create or replace table dfo_shared.license_types as
@@ -46,7 +46,7 @@ def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     """Test each seed row becomes a licence type or property node under the import's provenance"""
     result = dfo_shared_dc_export(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, *SEEDS_SQL),
+        warehouse=warehouse_with_tables(tmp_path, *SEEDS_SQL),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
     )
 

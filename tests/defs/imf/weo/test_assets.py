@@ -20,7 +20,7 @@ from dfo_pipelines.defs.imf.weo.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_ROWS = len(pd.read_parquet(FIXTURES / "data.parquet"))
@@ -220,7 +220,7 @@ def _run_dc_export(tmp_path: Path) -> Path:
 
     result = imf_weo_dc_export(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, DC_MODELS_SQL),
+        warehouse=warehouse_with_tables(tmp_path, DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

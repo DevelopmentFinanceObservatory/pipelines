@@ -23,7 +23,7 @@ from dfo_pipelines.defs.world_bank.ids.assets import (
 )
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 SOURCE_RELEASE_DATE = date(2025, 12, 3)
 
@@ -698,7 +698,7 @@ def run_export(tmp_path: Path) -> Path:
 
     result = world_bank_ids_dc_export(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, *DC_MODELS_SQL),
+        warehouse=warehouse_with_tables(tmp_path, *DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

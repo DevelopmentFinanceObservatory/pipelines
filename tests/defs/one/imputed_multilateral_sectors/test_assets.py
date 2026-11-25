@@ -27,7 +27,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
 OECD_MODULE = "dfo_pipelines.extraction.oecd"
@@ -1089,7 +1089,7 @@ def _run_export(tmp_path: Path) -> Path:
 
     result = one_imputed_multilateral_sectors_dc_export(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, *DC_MODELS_SQL),
+        warehouse=warehouse_with_tables(tmp_path, *DC_MODELS_SQL),
         export_file_store=file_store,
     )
     return exported_directory(result)

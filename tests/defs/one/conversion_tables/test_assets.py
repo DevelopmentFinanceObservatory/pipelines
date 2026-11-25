@@ -14,7 +14,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
 
@@ -114,7 +114,7 @@ def _run_export(tmp_path: Path, table: str) -> Path:
     """Materialize one table's export asset over hand-written dc models"""
     _, export_asset = TABLES[table]
     file_store = UPathFileStoreResource(base_path=str(tmp_path / "processed"))
-    warehouse = warehouse_with_models(
+    warehouse = warehouse_with_tables(
         tmp_path,
         "create schema if not exists one_conversion_tables",
         _provenance_sql(table),

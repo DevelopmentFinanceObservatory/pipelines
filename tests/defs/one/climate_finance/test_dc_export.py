@@ -16,7 +16,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from tests.helpers import exported_directory, warehouse_with_models
+from tests.helpers import exported_directory, warehouse_with_tables
 
 DISBURSEMENT_DCID = (
     "dcid:Amount_FinancialFlow_Gross_Disbursement_ClimateChangePolicyObjective_Nominal"
@@ -169,7 +169,7 @@ def _run_export(tmp_path: Path, export: Export) -> Path:
 
     result = export.asset(
         context=dg.build_asset_context(),
-        warehouse=warehouse_with_models(tmp_path, *_dc_models_sql(export)),
+        warehouse=warehouse_with_tables(tmp_path, *_dc_models_sql(export)),
         export_file_store=file_store,
     )
     return exported_directory(result)
