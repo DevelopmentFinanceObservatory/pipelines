@@ -146,8 +146,8 @@ def build_raw_table_assets(
                 rows,
                 asset_key=dg.AssetKey(raw_table.asset),
             )
-        rows = warehouse.load_extraction_metadata(
-            metadata=metadata, schema=group, table=metadata_table
+        rows = warehouse.load_rows(
+            [metadata.as_row()], schema=group, table=metadata_table
         )
         yield metadata_table_result(
             f"{group}.{metadata_table}", rows, asset_key=metadata_key

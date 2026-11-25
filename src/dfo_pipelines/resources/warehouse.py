@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from typing import Any, override
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from duckdb import DuckDBPyConnection
 from upath import UPath
 
-from dfo_pipelines.extraction.metadata import ExtractionMetadata
 from dfo_pipelines.resources.base import StrictConfigurableResource
 
 
@@ -35,11 +35,14 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """
 
     @abstractmethod
-    def load_extraction_metadata(
-        self, *, metadata: ExtractionMetadata, schema: str, table: str
+    def load_rows(
+        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
     ) -> int:
-        """Load one row holding `downloaded_at`, then a `<name>_release_date` column
-        for each of `metadata`'s release dates, in their order
+        """Load `rows`, with columns in the order of the first row's keys
+
+        Column types follow the Python values: a timezone-aware `datetime` gives a
+        timestamp with time zone and a `date` a date. A column holding only `None`
+        has no type to take.
         """
 
     @abstractmethod
@@ -93,30 +96,32 @@ class DuckDBWarehouseResource(WarehouseResource):
                 '"' + alias.replace('"', '""') + '"' for alias in aliases
             )
             select_statement += f" as source({columns})"
-        return self._replace_table(schema, table, select_statement, [path])
+        with self._connection() as connection:
+            return self._replace_table(
+                connection, schema, table, select_statement, [path]
+            )
 
     @override
-    def load_extraction_metadata(
-        self, *, metadata: ExtractionMetadata, schema: str, table: str
+    def load_rows(
+        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
     ) -> int:
-        release_columns = ", ".join(
-            f"cast(? as date) as {name}_release_date" for name in metadata.release_dates
-        )
-        return self._replace_table(
-            schema,
-            table,
-            f"select cast(? as timestamptz) as downloaded_at, {release_columns}",
-            [metadata.downloaded_at, *metadata.release_dates.values()],
-        )
+        rows_to_load = pa.Table.from_pylist(list(rows))
+        with self._connection() as connection:
+            connection.register("rows_to_load", rows_to_load)
+            return self._replace_table(
+                connection, schema, table, "select * from rows_to_load", []
+            )
 
     @override
     def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
-        return self._replace_table(
-            schema,
-            table,
-            "select * from read_csv(?, header = true, all_varchar = true)",
-            [path],
-        )
+        with self._connection() as connection:
+            return self._replace_table(
+                connection,
+                schema,
+                table,
+                "select * from read_csv(?, header = true, all_varchar = true)",
+                [path],
+            )
 
     @override
     def get_rows(self, model: str) -> list[dict[str, Any]]:
@@ -154,18 +159,22 @@ class DuckDBWarehouseResource(WarehouseResource):
         """Connection to the database, retried while another process holds its lock"""
         return DuckDBResource(database=self.database).get_connection()
 
+    @staticmethod
     def _replace_table(
-        self, schema: str, table: str, select_statement: str, parameters: list[Any]
+        connection: DuckDBPyConnection,
+        schema: str,
+        table: str,
+        select_statement: str,
+        parameters: list[Any],
     ) -> int:
         """Replace `schema`.`table` with the rows `select_statement` gives, returning
         its row count"""
-        with self._connection() as connection:
-            connection.execute(f"create schema if not exists {schema}")
-            connection.execute(
-                f"create or replace table {schema}.{table} as {select_statement}",
-                parameters,
-            )
-            [(row_count,)] = connection.sql(
-                f"select count(*) from {schema}.{table}"
-            ).fetchall()
-            return row_count
+        connection.execute(f"create schema if not exists {schema}")
+        connection.execute(
+            f"create or replace table {schema}.{table} as {select_statement}",
+            parameters,
+        )
+        [(row_count,)] = connection.sql(
+            f"select count(*) from {schema}.{table}"
+        ).fetchall()
+        return row_count

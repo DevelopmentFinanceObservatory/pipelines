@@ -5,7 +5,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from dfo_pipelines.extraction.metadata import ExtractionMetadata
 from dfo_pipelines.resources.warehouse import (
     DuckDBWarehouseResource,
     WarehouseResource,
@@ -122,60 +121,40 @@ def test_load_parquet_aliases_columns_by_position(
     ]
 
 
-def test_load_extraction_metadata_replaces_the_previous_row(
-    warehouse: WarehouseResource,
-) -> None:
-    """Test a rerun leaves one row, holding what it was given"""
-    warehouse.load_extraction_metadata(
-        metadata=ExtractionMetadata(
-            downloaded_at=DOWNLOADED_AT, release_dates=RELEASE_DATES
-        ),
+def test_load_rows_replaces_the_previous_rows(warehouse: WarehouseResource) -> None:
+    """Test a reload leaves only the rows it was given"""
+    warehouse.load_rows(
+        [{"downloaded_at": DOWNLOADED_AT}, {"downloaded_at": DOWNLOADED_AT}],
         schema="raw",
         table="metadata",
     )
-
     later = datetime(2026, 9, 8, 11, 2, tzinfo=UTC)
-    later_release_dates = {"crs": date(2026, 9, 7), "multisystem": date(2026, 9, 1)}
-    rows = warehouse.load_extraction_metadata(
-        metadata=ExtractionMetadata(
-            downloaded_at=later, release_dates=later_release_dates
-        ),
-        schema="raw",
-        table="metadata",
+
+    rows = warehouse.load_rows(
+        [{"downloaded_at": later}], schema="raw", table="metadata"
     )
 
     assert rows == 1
-    assert warehouse.get_rows("raw.metadata") == [
-        {
-            "downloaded_at": later,
-            "crs_release_date": later_release_dates["crs"],
-            "multisystem_release_date": later_release_dates["multisystem"],
-        }
-    ]
+    assert warehouse.get_rows("raw.metadata") == [{"downloaded_at": later}]
 
 
-def test_load_extraction_metadata_creates_columns_in_the_order_of_the_releases(
+def test_load_rows_types_columns_from_their_values_in_the_order_given(
     warehouse: WarehouseResource,
 ) -> None:
-    """Test the release date columns follow the order of the metadata's releases"""
-    warehouse.load_extraction_metadata(
-        metadata=ExtractionMetadata(
-            downloaded_at=DOWNLOADED_AT,
-            release_dates={
-                "multisystem": RELEASE_DATES["multisystem"],
-                "crs": RELEASE_DATES["crs"],
-            },
-        ),
-        schema="raw",
-        table="metadata",
-    )
+    """Test a timezone-aware instant and a date keep their types, and the columns
+    follow the row's keys"""
+    row = {
+        "downloaded_at": DOWNLOADED_AT,
+        "multisystem_release_date": RELEASE_DATES["multisystem"],
+        "crs_release_date": RELEASE_DATES["crs"],
+    }
 
-    [row] = warehouse.get_rows("raw.metadata")
-    assert list(row.items()) == [
-        ("downloaded_at", DOWNLOADED_AT),
-        ("multisystem_release_date", RELEASE_DATES["multisystem"]),
-        ("crs_release_date", RELEASE_DATES["crs"]),
-    ]
+    warehouse.load_rows([row], schema="raw", table="metadata")
+
+    [loaded] = warehouse.get_rows("raw.metadata")
+    assert list(loaded.items()) == list(row.items())
+    assert loaded["downloaded_at"].utcoffset() is not None
+    assert type(loaded["crs_release_date"]) is date
 
 
 def test_load_csv_as_strings_keeps_every_value_as_written(
