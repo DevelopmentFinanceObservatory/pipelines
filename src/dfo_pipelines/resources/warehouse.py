@@ -1,18 +1,16 @@
 import csv
-import itertools
 import tempfile
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any, override
 
-import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from duckdb import DuckDBPyConnection
-from google.cloud import bigquery, bigquery_storage
+from google.cloud import bigquery
 from upath import UPath
 
 from dfo_pipelines.resources.base import StrictConfigurableResource
@@ -189,67 +187,6 @@ class DuckDBWarehouseResource(WarehouseResource):
         return sum(count for _, count in partitions)
 
 
-def arrow_decimal_types(
-    fields: Sequence[bigquery.SchemaField],
-) -> dict[str, pa.Decimal128Type]:
-    """The decimal type DuckDB can hold for each NUMERIC or BIGNUMERIC field, keyed
-    on its name
-
-    A field takes its declared precision and scale, and an undeclared NUMERIC its
-    default, 38 and 9.
-
-    Raises:
-        ValueError: If a BIGNUMERIC field's precision, declared or default, exceeds
-            DuckDB's 38 digits.
-    """
-    decimal_types = {}
-    for field in fields:
-        if field.field_type not in {"NUMERIC", "BIGNUMERIC"}:
-            continue
-        if field.precision is not None and field.precision <= 38:
-            decimal_types[field.name] = pa.decimal128(field.precision, field.scale or 0)
-        elif field.field_type == "NUMERIC":
-            decimal_types[field.name] = pa.decimal128(38, 9)
-        else:
-            raise ValueError(
-                f"BIGNUMERIC column {field.name!r} has a precision above 38,"
-                " so its values may not fit a DuckDB decimal"
-            )
-    return decimal_types
-
-
-def write_batches_to_duckdb(
-    batches: Iterable[pa.RecordBatch],
-    *,
-    column_names: Sequence[str],
-    decimal_types: Mapping[str, pa.Decimal128Type],
-    database: str,
-    model: str,
-) -> None:
-    """Create table `model` (`<schema>.<name>`) in the DuckDB `database` from
-    `batches`, casting each column in `decimal_types` to its type
-
-    Without batches the table has `column_names` as string columns.
-    """
-    batches = iter(batches)
-    first = next(batches, None)
-    if first is None:
-        schema = pa.schema((name, pa.string()) for name in column_names)
-    else:
-        schema = pa.schema(
-            field.with_type(decimal_types.get(field.name, field.type))
-            for field in first.schema
-        )
-        batches = itertools.chain([first], batches)
-    reader = pa.RecordBatchReader.from_batches(
-        schema, (batch.cast(schema) for batch in batches)
-    )
-    model_schema, _ = model.split(".")
-    with duckdb.connect(database) as connection:
-        connection.execute(f"create schema if not exists {model_schema}")
-        connection.execute(f"create table {model} as select * from reader")
-
-
 class BigQueryWarehouseResource(WarehouseResource):
     """Warehouse in BigQuery, whose schemas are datasets that must already exist"""
 
@@ -365,25 +302,4 @@ class BigQueryWarehouseResource(WarehouseResource):
         file_stem: str,
         partition_column: str | None = None,
     ) -> int:
-        with (
-            self._client() as client,
-            bigquery_storage.BigQueryReadClient() as read_client,
-            tempfile.TemporaryDirectory() as scratch_directory,
-        ):
-            fields = client.get_table(model).schema
-            database = str(Path(scratch_directory) / "warehouse.duckdb")
-            write_batches_to_duckdb(
-                client.query(f"select * from {model}")
-                .result()
-                .to_arrow_iterable(bqstorage_client=read_client),
-                column_names=[field.name for field in fields],
-                decimal_types=arrow_decimal_types(fields),
-                database=database,
-                model=model,
-            )
-            return DuckDBWarehouseResource(database=database).write_csv(
-                model,
-                directory=directory,
-                file_stem=file_stem,
-                partition_column=partition_column,
-            )
+        raise NotImplementedError("Exporting from BigQuery is tracked in pipelines#165")

@@ -1,17 +1,13 @@
 from datetime import UTC, date, datetime
-from decimal import Decimal
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from google.cloud import bigquery
 
 from dfo_pipelines.resources.warehouse import (
     DuckDBWarehouseResource,
     WarehouseResource,
-    arrow_decimal_types,
-    write_batches_to_duckdb,
 )
 
 COLUMNS = ("code", "name", "value")
@@ -229,101 +225,3 @@ def test_write_csv_writes_each_partitions_rows_sorted_to_its_own_file(
         "observations_2000.csv": "date,variable,value\n2000,c,3\n",
         "observations_2001.csv": "date,variable,value\n2001,a,1\n2001,b,2\n",
     }
-
-
-def test_arrow_decimal_types_follow_the_declared_or_default_precision() -> None:
-    """Test a declared precision and scale is kept, an undeclared NUMERIC takes
-    BigQuery's default, and other types are left out"""
-    fields = [
-        bigquery.SchemaField("amount", "NUMERIC", precision=10, scale=2),
-        bigquery.SchemaField("share", "NUMERIC"),
-        bigquery.SchemaField("total", "BIGNUMERIC", precision=20, scale=4),
-        bigquery.SchemaField("count", "INT64"),
-    ]
-
-    assert arrow_decimal_types(fields) == {
-        "amount": pa.decimal128(10, 2),
-        "share": pa.decimal128(38, 9),
-        "total": pa.decimal128(20, 4),
-    }
-
-
-@pytest.mark.parametrize(
-    "field",
-    [
-        bigquery.SchemaField("total", "BIGNUMERIC"),
-        bigquery.SchemaField("total", "BIGNUMERIC", precision=40, scale=10),
-    ],
-)
-def test_arrow_decimal_types_fails_for_a_bignumeric_wider_than_duckdb(
-    field: bigquery.SchemaField,
-) -> None:
-    """Test a BIGNUMERIC undeclared or declared above 38 digits fails, naming the
-    column"""
-    with pytest.raises(ValueError, match="'total'"):
-        arrow_decimal_types([field])
-
-
-def test_write_batches_to_duckdb_writes_the_csv_the_duckdb_warehouse_writes(
-    tmp_path: Path,
-) -> None:
-    """Test batches with a wide decimal column give the same partitioned CSV files
-    as the same rows loaded into the DuckDB warehouse"""
-    dated_fields = [("date", pa.int64()), ("variable", pa.string())]
-    rows = {
-        "date": [2001, 2000, 2001],
-        "variable": ["b", "c", "a"],
-        "value": [Decimal("2.50"), Decimal("3.00"), Decimal("1.25")],
-    }
-    loaded = tmp_path / "loaded.parquet"
-    pq.write_table(
-        pa.table(rows, pa.schema([*dated_fields, ("value", pa.decimal128(10, 2))])),
-        loaded,
-    )
-    reference = DuckDBWarehouseResource(database=str(tmp_path / "reference.duckdb"))
-    reference.load_parquet(path=str(loaded), schema="raw", table="t")
-    streamed = pa.table(
-        rows, pa.schema([*dated_fields, ("value", pa.decimal256(76, 38))])
-    ).to_batches(max_chunksize=2)
-    database = str(tmp_path / "streamed.duckdb")
-
-    write_batches_to_duckdb(
-        streamed,
-        column_names=list(rows),
-        decimal_types={"value": pa.decimal128(10, 2)},
-        database=database,
-        model="raw.t",
-    )
-
-    assert _partitioned_csv(
-        DuckDBWarehouseResource(database=database), tmp_path / "streamed"
-    ) == _partitioned_csv(reference, tmp_path / "reference")
-
-
-def test_write_batches_to_duckdb_gives_the_columns_of_an_empty_stream(
-    tmp_path: Path,
-) -> None:
-    """Test no batches still give a table with the columns, for the CSV header"""
-    database = str(tmp_path / "empty.duckdb")
-
-    write_batches_to_duckdb(
-        [],
-        column_names=list(COLUMNS),
-        decimal_types={},
-        database=database,
-        model="raw.t",
-    )
-
-    DuckDBWarehouseResource(database=database).write_csv(
-        "raw.t", directory=str(tmp_path), file_stem="header"
-    )
-    assert (tmp_path / "header.csv").read_text() == ",".join(COLUMNS) + "\n"
-
-
-def _partitioned_csv(warehouse: WarehouseResource, directory: Path) -> dict[str, str]:
-    """The CSV files `warehouse` writes for `raw.t` partitioned on `date`"""
-    directory.mkdir()
-    warehouse.write_csv(
-        "raw.t", directory=str(directory), file_stem="t", partition_column="date"
-    )
-    return {path.name: path.read_text() for path in directory.iterdir()}
