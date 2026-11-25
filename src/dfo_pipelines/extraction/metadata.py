@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, NamedTuple
 
@@ -21,6 +22,31 @@ class FetchedRelease(NamedTuple):
 
     release_dates: Mapping[str, date]
     metadata: Mapping[str, Any]
+
+
+@dataclass(frozen=True, kw_only=True)
+class ExtractionMetadata:
+    """What an extraction recorded about the files it wrote.
+
+    Attributes:
+        downloaded_at: Instant the source files were fetched.
+        release_dates: Date each named source released the fetched data,
+            keyed by source name.
+    """
+
+    downloaded_at: datetime
+    release_dates: Mapping[str, date]
+
+    def as_row(self) -> dict[str, Any]:
+        """The metadata as a table row: `downloaded_at`, then a `<name>_release_date`
+        column for each release date, in their order"""
+        return {
+            "downloaded_at": self.downloaded_at,
+            **{
+                f"{name}_release_date": release_date
+                for name, release_date in self.release_dates.items()
+            },
+        }
 
 
 def write_extraction_metadata(
@@ -52,8 +78,8 @@ def write_extraction_metadata(
 
 def read_extraction_metadata(
     directory: UPath, *, release_names: Collection[str]
-) -> dict[str, Any]:
-    """Read the extraction recorded in `directory`, as its metadata table's row.
+) -> ExtractionMetadata:
+    """Read the extraction recorded in `directory`.
 
     Args:
         directory: Directory holding the files the extraction wrote.
@@ -61,8 +87,7 @@ def read_extraction_metadata(
             match.
 
     Returns:
-        dict[str, Any]: `downloaded_at`, then each `<name>_release_date`, in the
-            order of `release_names`.
+        ExtractionMetadata: The extraction recorded there.
 
     Raises:
         FileNotFoundError: If the directory holds no record.
@@ -85,10 +110,10 @@ def read_extraction_metadata(
             f"{path} release date keys do not match {sorted(expected_keys)}: "
             f"missing {sorted(missing)}, unexpected {sorted(unexpected)}"
         )
-    return {
-        "downloaded_at": datetime.fromisoformat(recorded["downloaded_at"]),
-        **{
-            f"{name}_release_date": date.fromisoformat(recorded[f"{name}_release_date"])
+    return ExtractionMetadata(
+        downloaded_at=datetime.fromisoformat(recorded["downloaded_at"]),
+        release_dates={
+            name: date.fromisoformat(recorded[f"{name}_release_date"])
             for name in release_names
         },
-    }
+    )

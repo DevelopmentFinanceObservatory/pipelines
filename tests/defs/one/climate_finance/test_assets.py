@@ -182,7 +182,7 @@ def test_landing_copies_the_observed_export(export: Path, tmp_path: Path) -> Non
     assert metadata["version"] == dg.TextMetadataValue(NAME)
     assert metadata["source_release_date"] == dg.TextMetadataValue("2026-11-10")
     recorded = read_extraction_metadata(UPath(directory), release_names=("source",))
-    assert recorded["source_release_date"].isoformat() == "2026-11-10"
+    assert recorded.release_dates["source"].isoformat() == "2026-11-10"
 
 
 @pytest.mark.parametrize("stem", STEMS)
