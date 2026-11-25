@@ -7,6 +7,7 @@ from dfo_pipelines.defs.dfo.shared.assets import (
     dfo_shared_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import exported_directory, meta
 
 LICENSE_TYPES_SQL = """
@@ -49,7 +50,7 @@ def test_dc_export_writes_a_node_for_each_seed_row(tmp_path: Path) -> None:
     """Test each seed row becomes a licence type or property node under the import's provenance"""
     result = dfo_shared_dc_export(
         context=dg.build_asset_context(),
-        duckdb=create_seeds(tmp_path),
+        warehouse=DuckDBWarehouseResource(duckdb=create_seeds(tmp_path)),
         export_file_store=UPathFileStoreResource(base_path=str(tmp_path / "processed")),
     )
 

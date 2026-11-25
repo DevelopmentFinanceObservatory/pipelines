@@ -28,6 +28,7 @@ from dfo_pipelines.defs.one.imputed_multilateral_sectors.assets import (
 from dfo_pipelines.extraction.oecd import CRS_BULK_LABEL
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import exported_directory
 
 ASSETS_MODULE = "dfo_pipelines.defs.one.imputed_multilateral_sectors.assets"
@@ -1094,7 +1095,7 @@ def _run_export(tmp_path: Path) -> Path:
 
     result = one_imputed_multilateral_sectors_dc_export(
         context=dg.build_asset_context(),
-        duckdb=duckdb,
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
         export_file_store=file_store,
     )
     return exported_directory(result)

@@ -3,11 +3,11 @@ from functools import partial
 from pathlib import Path
 from unittest.mock import ANY, Mock, call, patch
 
-import duckdb
 import httpx
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from dagster_duckdb import DuckDBResource
 from upath import UPath
 
 from dfo_pipelines.extraction.oecd import (
@@ -17,7 +17,7 @@ from dfo_pipelines.extraction.oecd import (
     parse_release_date,
     resolve_bulk_file,
 )
-from dfo_pipelines.warehouse import load_parquet
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 # Stand-in for a resolved bulk-download URL: never fetched, the GET is mocked.
 BULK_FILE_URL = "https://webfs-dcd.oecd.org/data/dac1/DAC1.parquet"
@@ -279,19 +279,17 @@ RECIPIENT_COLUMNS = {"recipient_code", "recipient_name"}
     ],
 )
 def test_dac_column_renames_give_case_colliding_columns_distinct_names(
-    dataset: str, renamed: set[str]
+    dataset: str, renamed: set[str], tmp_path: Path
 ) -> None:
     """Test each case-colliding column pair of a published DAC file loads under
     distinct names"""
     path = OECD_TESTS / dataset / "fixtures" / "data.parquet"
-    connection = duckdb.connect()
-
-    load_parquet(
-        connection,
-        path=str(path),
-        schema="oecd",
-        table=dataset,
-        renames=DAC_COLUMN_RENAMES,
+    warehouse = DuckDBWarehouseResource(
+        duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
     )
 
-    assert renamed <= set(connection.sql(f"select * from oecd.{dataset}").columns)
+    warehouse.load_parquet(
+        path=str(path), schema="oecd", table=dataset, renames=DAC_COLUMN_RENAMES
+    )
+
+    assert renamed <= set(warehouse.read_table(f"oecd.{dataset}").column_names)

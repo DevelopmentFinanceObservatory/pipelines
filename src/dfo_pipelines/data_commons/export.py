@@ -25,13 +25,14 @@ from itertools import permutations
 from pathlib import Path
 from typing import Any
 
+import duckdb
+import pyarrow as pa
 from dcp_tools import CustomDataManager
 from dcp_tools.custom_data.models.common import mint_dcid
-from duckdb import DuckDBPyConnection
 from upath import UPath
 
 from dfo_pipelines.data_commons.mcf import escape_markdown
-from dfo_pipelines.warehouse import get_model_rows
+from dfo_pipelines.resources.warehouse import WarehouseResource
 
 # The observations are written one file per distinct value of this column. Every
 # pipeline's observation model carries the observation date in `date`, so the split
@@ -228,15 +229,16 @@ def _file_pattern(stem: str) -> str:
     return f"{stem}_*.csv"
 
 
-def _observation_file_name(stem: str, partition: Any) -> str:
-    """Name of the file holding one partition of one observation model"""
-    return f"{stem}_{partition}.csv"
+def _write_csv(rows: pa.Table, path: str) -> None:
+    """Write `rows` to `path` as CSV with a header, formatted by DuckDB"""
+    with duckdb.connect() as connection:
+        connection.from_arrow(rows).write_csv(path, header=True)
 
 
 def export_bundle(
     spec: ExportSpec,
     *,
-    connection: DuckDBPyConnection,
+    warehouse: WarehouseResource,
     out_dir: UPath,
     log: logging.Logger,
 ) -> ExportMetadata:
@@ -249,7 +251,7 @@ def export_bundle(
     Args:
         spec: Models to read, and how their columns map onto Data Commons
             properties.
-        connection: Connection to the database holding the models.
+        warehouse: Warehouse holding the models.
         out_dir: Directory the bundle is written to.
         log: Logger to use, e.g. an asset's `context.log`.
 
@@ -274,11 +276,11 @@ def export_bundle(
 
     if spec.source_model is not None:
         log.info("Registering Source nodes")
-        (source,) = get_model_rows(connection, spec.source_model)
+        (source,) = warehouse.get_rows(spec.source_model)
         manager.add_source(**source)
 
     log.info("Registering Provenance nodes")
-    (provenance,) = get_model_rows(connection, spec.provenance_model)
+    (provenance,) = warehouse.get_rows(spec.provenance_model)
     if missing := spec.provenance_column_to_property.keys() - provenance.keys():
         raise ValueError(
             f"{spec.provenance_model} lacks the mapped columns {sorted(missing)}"
@@ -309,11 +311,8 @@ def export_bundle(
     log.info("Registering StatisticalVariable nodes")
     with tempfile.TemporaryDirectory() as staging_dir:
         statvars_csv = Path(staging_dir) / "statvars.csv"
-        (statvar_count,) = connection.execute(
-            f"copy (select * from {spec.statvar_model} order by all) to ?"
-            " (format csv, header)",
-            [str(statvars_csv)],
-        ).fetchall()[0]
+        statvars = warehouse.read_table(spec.statvar_model)
+        _write_csv(statvars, str(statvars_csv))
         manager.add_variables_to_mcf_from_csv(
             statvars_csv,
             column_to_property_mapping=spec.statvar_column_to_property,
@@ -339,30 +338,16 @@ def export_bundle(
 
     log.info("Writing observations")
     observation_count = 0
-    observation_file_count = 0
-    written_files = []
     for observations in spec.observation_inputs:
-        partitions = connection.sql(
-            f"""
-                select {PARTITION_COLUMN}, count(*)
-                from {observations.model}
-                group by {PARTITION_COLUMN}
-                order by {PARTITION_COLUMN}
-                """
-        ).fetchall()
-        for partition, partition_count in partitions:
-            observations_file = _observation_file_name(
-                observations.file_stem, partition
-            )
-            connection.sql(
-                f"select * from {observations.model} where {PARTITION_COLUMN} = ?"
-                " order by all",
-                params=[partition],
-            ).write_csv(str(out_dir / observations_file), header=True)
-            log.debug(f"Wrote {partition_count} observations to {observations_file}")
-            written_files.append(observations_file)
-        observation_count += sum(count for _, count in partitions)
-        observation_file_count += len(partitions)
+        rows = warehouse.write_partitions(
+            observations.model,
+            column=PARTITION_COLUMN,
+            directory=str(out_dir),
+            file_stem=observations.file_stem,
+        )
+        log.debug(f"Wrote {rows} observations of {observations.model}")
+        observation_count += rows
+    written_files = sorted(path.name for path in out_dir.glob("*.csv"))
 
     # Each file must be imported once, under its own input's column mapping.
     patterns = [_file_pattern(inputs.file_stem) for inputs in spec.observation_inputs]
@@ -377,6 +362,6 @@ def export_bundle(
 
     return ExportMetadata(
         observation_count=observation_count,
-        statvar_count=statvar_count,
-        observation_file_count=observation_file_count,
+        statvar_count=statvars.num_rows,
+        observation_file_count=len(written_files),
     )

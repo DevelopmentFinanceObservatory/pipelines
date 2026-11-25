@@ -22,6 +22,7 @@ from dfo_pipelines.orchestration.raw_tables import (
     metadata_table_result,
     raw_table_result,
 )
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 
 def test_raw_table_result_reports_the_table_and_its_row_count() -> None:
@@ -120,7 +121,9 @@ def load_raw_tables(
         return str(directory)
 
     return dg.materialize(
-        [landing, assets], resources={"duckdb": duckdb}, raise_on_error=raise_on_error
+        [landing, assets],
+        resources={"warehouse": DuckDBWarehouseResource(duckdb=duckdb)},
+        raise_on_error=raise_on_error,
     )
 
 

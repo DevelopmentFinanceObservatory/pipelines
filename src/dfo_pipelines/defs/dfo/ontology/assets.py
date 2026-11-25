@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 from dfo_ontology.config import Config
 from upath import UPath
@@ -19,6 +18,7 @@ from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
 from dfo_pipelines.orchestration.subprocesses import run_logged
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import WarehouseResource
 
 IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
@@ -125,22 +125,13 @@ dfo_ontology_landing = build_landing_asset(
     ],
 )
 def dfo_ontology_raw_code_mapping_table(
-    duckdb: DuckDBResource, dfo_ontology_landing: str
+    warehouse: WarehouseResource, dfo_ontology_landing: str
 ) -> dg.MaterializeResult:
     """Raw DFO ontology code mapping database table"""
     schema = "dfo_ontology"
     table = "raw_code_mapping"
     code_mapping = str(UPath(dfo_ontology_landing) / CODE_MAPPING_CSV)
-    with duckdb.get_connection() as connection:
-        connection.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        connection.execute(
-            f"CREATE OR REPLACE TABLE {schema}.{table} AS "
-            "SELECT * FROM read_csv(?, header = true, all_varchar = true)",
-            [code_mapping],
-        )
-        rows = (connection.sql(f"SELECT COUNT(*) FROM {schema}.{table}").fetchall())[0][
-            0
-        ]
+    rows = warehouse.load_csv_as_strings(path=code_mapping, schema=schema, table=table)
     return raw_table_result(f"{schema}.{table}", rows)
 
 

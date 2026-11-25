@@ -17,6 +17,7 @@ from dfo_pipelines.orchestration.automation import (
 )
 from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 EXPORT_KEY = dg.AssetKey("example_dc_export")
 RATE_DIAGNOSTIC = dg.AssetKey(["example", "int_example_rates"])
@@ -52,7 +53,9 @@ def _spec(docs_dir: Path, *, source_model: str | None) -> ExportSpec:
 def _resources(tmp_path: Path) -> dict[str, dg.ConfigurableResource]:
     """A database and an export store under `tmp_path`"""
     return {
-        "duckdb": DuckDBResource(database=str(tmp_path / "database.duckdb")),
+        "warehouse": DuckDBWarehouseResource(
+            duckdb=DuckDBResource(database=str(tmp_path / "database.duckdb"))
+        ),
         "export_file_store": UPathFileStoreResource(
             base_path=str(tmp_path / "processed")
         ),

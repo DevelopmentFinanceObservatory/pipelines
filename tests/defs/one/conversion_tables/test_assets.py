@@ -15,6 +15,7 @@ from dfo_pipelines.defs.one.conversion_tables.assets import (
     one_conversion_tables_imf_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import exported_directory
 
 DOCS_DIR = Path(__file__).parents[4] / "docs" / "one" / "conversion_tables"
@@ -124,7 +125,7 @@ def _run_export(tmp_path: Path, table: str) -> Path:
 
     result = export_asset(
         context=dg.build_asset_context(),
-        duckdb=duckdb,
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
         export_file_store=file_store,
     )
     return exported_directory(result)

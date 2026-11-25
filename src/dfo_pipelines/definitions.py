@@ -12,6 +12,7 @@ from dfo_pipelines.resources.knowledge_graph import KnowledgeGraphResource
 from dfo_pipelines.resources.skills_repository import (
     SkillsRepositoryResource,
 )
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 
 
 @dg.definitions
@@ -30,7 +31,9 @@ def defs():
                     else dg.EnvVar("LANDING_STORE_URI")
                 ),
                 "export_file_store": UPathFileStoreResource(base_path="data/exports"),
-                "duckdb": DuckDBResource(database=dg.EnvVar("DUCKDB_PATH")),
+                "warehouse": DuckDBWarehouseResource(
+                    duckdb=DuckDBResource(database=dg.EnvVar("DUCKDB_PATH"))
+                ),
                 "knowledge_graph": KnowledgeGraphResource(
                     project_id=dg.EnvVar("DCP_PROJECT_ID"),
                     region=dg.EnvVar("DCP_REGION"),

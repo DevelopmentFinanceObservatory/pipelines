@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import dagster as dg
-from dagster_duckdb import DuckDBResource
 from dcp_tools import CustomDataManager
 
 from dfo_pipelines.data_commons.mcf import escape_markdown
@@ -10,7 +9,7 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
-from dfo_pipelines.warehouse import get_model_rows
+from dfo_pipelines.resources.warehouse import WarehouseResource
 
 IMPORT_NAME = "dfo_shared"
 LICENSE_TYPES_SEED = "dfo_shared.license_types"
@@ -27,7 +26,7 @@ PROPERTIES_SEED = "dfo_shared.properties"
 )
 def dfo_shared_dc_export(
     context: dg.AssetExecutionContext,
-    duckdb: DuckDBResource,
+    warehouse: WarehouseResource,
     export_file_store: UPathFileStoreResource,
 ) -> dg.MaterializeResult:
     """Data Commons export for the nodes more than one pipeline links to
@@ -50,9 +49,8 @@ def dfo_shared_dc_export(
         source="dcid:source/ONEData",
     )
 
-    with duckdb.get_connection() as connection:
-        license_types = get_model_rows(connection, LICENSE_TYPES_SEED)
-        properties = get_model_rows(connection, PROPERTIES_SEED)
+    license_types = warehouse.get_rows(LICENSE_TYPES_SEED)
+    properties = warehouse.get_rows(PROPERTIES_SEED)
     for license_type in license_types:
         manager.add_node(
             dcid=license_type["dcid"],

@@ -17,6 +17,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     unfccc_btr_dc_export,
 )
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import exported_directory
 
 DISBURSEMENT_DCID = (
@@ -171,7 +172,7 @@ def _run_export(tmp_path: Path, export: Export) -> Path:
 
     result = export.asset(
         context=dg.build_asset_context(),
-        duckdb=duckdb,
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
         export_file_store=file_store,
     )
     return exported_directory(result)

@@ -25,6 +25,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.orchestration.landing import Observation
 from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.warehouse import DuckDBWarehouseResource
 from tests.helpers import (
     column_list,
     exported_directory,
@@ -284,7 +285,8 @@ def test_raw_code_mapping_table_loads_every_mapping(tmp_path: Path) -> None:
     rows = mapping_rows()
 
     result = dfo_ontology_raw_code_mapping_table(
-        duckdb=duckdb, dfo_ontology_landing=str(FIXTURES)
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        dfo_ontology_landing=str(FIXTURES),
     )
 
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(rows)
@@ -302,12 +304,14 @@ def test_raw_code_mapping_table_replaces_what_it_finds(tmp_path: Path) -> None:
     write_mapping(tmp_path / "refreshed", fewer)
 
     dfo_ontology_raw_code_mapping_table(
-        duckdb=duckdb, dfo_ontology_landing=str(FIXTURES)
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        dfo_ontology_landing=str(FIXTURES),
     )
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(rows)
 
     dfo_ontology_raw_code_mapping_table(
-        duckdb=duckdb, dfo_ontology_landing=str(tmp_path / "refreshed")
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        dfo_ontology_landing=str(tmp_path / "refreshed"),
     )
 
     assert row_count(duckdb, "dfo_ontology.raw_code_mapping") == len(fewer)
@@ -321,7 +325,8 @@ def test_raw_code_mapping_table_check_fails_when_the_mapping_has_no_rows(
     write_mapping(tmp_path / "empty", [])
 
     result = dfo_ontology_raw_code_mapping_table(
-        duckdb=duckdb, dfo_ontology_landing=str(tmp_path / "empty")
+        warehouse=DuckDBWarehouseResource(duckdb=duckdb),
+        dfo_ontology_landing=str(tmp_path / "empty"),
     )
 
     assert isinstance(result, dg.MaterializeResult)
@@ -415,7 +420,7 @@ def test_the_compiled_ontology_reaches_the_table_and_the_bundle(
         resources={
             "landing_file_store": file_store,
             "export_file_store": export_file_store,
-            "duckdb": duckdb,
+            "warehouse": DuckDBWarehouseResource(duckdb=duckdb),
         },
         instance=observed_instance(),
     )
