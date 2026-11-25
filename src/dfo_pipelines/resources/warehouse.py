@@ -3,6 +3,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
+from datetime import date
 from pathlib import Path
 from typing import Any, override
 
@@ -266,10 +267,24 @@ class BigQueryWarehouseResource(WarehouseResource):
     def load_rows(
         self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
     ) -> int:
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "rows.parquet"
-            pq.write_table(pa.Table.from_pylist(list(rows)), path)
-            return self._load_file(path, schema=schema, table=table)
+        # JSON has no date types, so dates go as ISO strings for autodetect to type
+        json_rows = [
+            {
+                name: value.isoformat() if isinstance(value, date) else value
+                for name, value in row.items()
+            }
+            for row in rows
+        ]
+        with self._client() as client:
+            return self._row_count(
+                client.load_table_from_json(
+                    json_rows,
+                    f"{schema}.{table}",
+                    job_config=self._job_config(
+                        bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
+                    ),
+                )
+            )
 
     @override
     def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
