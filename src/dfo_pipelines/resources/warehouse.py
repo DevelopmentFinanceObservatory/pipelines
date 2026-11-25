@@ -79,6 +79,30 @@ class DuckDBWarehouseResource(WarehouseResource):
 
     database: str
 
+    def _connection(self) -> AbstractContextManager[DuckDBPyConnection]:
+        """Connection to the database, retried while another process holds its lock"""
+        return DuckDBResource(database=self.database).get_connection()
+
+    @staticmethod
+    def _replace_table(
+        connection: DuckDBPyConnection,
+        schema: str,
+        table: str,
+        select_statement: str,
+        parameters: list[Any],
+    ) -> int:
+        """Replace `schema`.`table` with the rows `select_statement` gives, returning
+        its row count"""
+        connection.execute(f"create schema if not exists {schema}")
+        connection.execute(
+            f"create or replace table {schema}.{table} as {select_statement}",
+            parameters,
+        )
+        [(row_count,)] = connection.sql(
+            f"select count(*) from {schema}.{table}"
+        ).fetchall()
+        return row_count
+
     @override
     def load_parquet(
         self,
@@ -157,27 +181,3 @@ class DuckDBWarehouseResource(WarehouseResource):
                     str(UPath(directory) / f"{file_stem}_{value}.csv"), header=True
                 )
         return sum(count for _, count in partitions)
-
-    def _connection(self) -> AbstractContextManager[DuckDBPyConnection]:
-        """Connection to the database, retried while another process holds its lock"""
-        return DuckDBResource(database=self.database).get_connection()
-
-    @staticmethod
-    def _replace_table(
-        connection: DuckDBPyConnection,
-        schema: str,
-        table: str,
-        select_statement: str,
-        parameters: list[Any],
-    ) -> int:
-        """Replace `schema`.`table` with the rows `select_statement` gives, returning
-        its row count"""
-        connection.execute(f"create schema if not exists {schema}")
-        connection.execute(
-            f"create or replace table {schema}.{table} as {select_statement}",
-            parameters,
-        )
-        [(row_count,)] = connection.sql(
-            f"select count(*) from {schema}.{table}"
-        ).fetchall()
-        return row_count
