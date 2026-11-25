@@ -302,4 +302,4 @@ class BigQueryWarehouseResource(WarehouseResource):
         file_stem: str,
         partition_column: str | None = None,
     ) -> int:
-        raise NotImplementedError("Exporting from BigQuery is tracked in pipelines#165")
+        raise NotImplementedError
