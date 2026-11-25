@@ -22,7 +22,9 @@ from dfo_pipelines.orchestration.dc_export import build_dc_export_asset
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import RawTableSpec, build_raw_table_assets
-from dfo_pipelines.orchestration.resources import ClimateFinanceExportResource
+from dfo_pipelines.orchestration.resources.climate_finance_export import (
+    ClimateFinanceExportResource,
+)
 
 SCHEMA = "one_climate_finance"
 

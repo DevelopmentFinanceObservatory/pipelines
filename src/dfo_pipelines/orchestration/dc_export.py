@@ -9,7 +9,7 @@ from dfo_pipelines.data_commons.export import ExportSpec, export_bundle
 from dfo_pipelines.orchestration.automation import (
     EAGER_ON_DEPS_OR_CODE_CHANGE_WHEN_CHECKS_PASS,
 )
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
 
 
 def export_directory_result(

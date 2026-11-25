@@ -3,7 +3,7 @@ from unittest.mock import patch
 import dagster as dg
 
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
-from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
+from dfo_pipelines.orchestration.resources.knowledge_graph import KnowledgeGraphResource
 from tests.helpers import project_definitions
 
 ONTOLOGY_INGESTION = dg.AssetKey("dfo_ontology_dc_ingestion")

@@ -4,11 +4,13 @@ import dagster as dg
 from dagster_duckdb import DuckDBResource
 
 from dfo_pipelines.orchestration.environment import Environment, dfo_environment
-from dfo_pipelines.orchestration.resources import (
+from dfo_pipelines.orchestration.resources.climate_finance_export import (
     ClimateFinanceExportResource,
-    KnowledgeGraphResource,
+)
+from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.orchestration.resources.knowledge_graph import KnowledgeGraphResource
+from dfo_pipelines.orchestration.resources.skills_repository import (
     SkillsRepositoryResource,
-    UPathFileStoreResource,
 )
 
 

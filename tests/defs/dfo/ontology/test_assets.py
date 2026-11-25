@@ -24,7 +24,7 @@ from dfo_pipelines.defs.dfo.ontology.assets import (
 )
 from dfo_pipelines.extraction.metadata import METADATA_FILE_NAME
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from dfo_pipelines.orchestration.resources.file_store import UPathFileStoreResource
 from tests.helpers import (
     column_list,
     exported_directory,
