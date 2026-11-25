@@ -82,9 +82,8 @@ def test_load_parquet_loads_an_empty_file_as_an_empty_table(
     )
 
     assert rows == 0
-    header = tmp_path / "header.csv"
-    warehouse.write_csv("raw.t", path=str(header))
-    assert header.read_text() == ",".join(COLUMNS) + "\n"
+    warehouse.write_csv("raw.t", directory=str(tmp_path), file_stem="header")
+    assert (tmp_path / "header.csv").read_text() == ",".join(COLUMNS) + "\n"
 
 
 def test_load_parquet_replaces_an_existing_table(
@@ -188,21 +187,24 @@ def test_load_csv_as_strings_replaces_an_existing_table(
     assert warehouse.get_rows("raw.codes") == [{"code": "4"}]
 
 
-def test_write_csv_writes_every_row_sorted_by_every_column(
+def test_write_csv_writes_every_row_sorted_by_every_column_to_one_file(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
-    """Test the file holds the header then every row, sorted by the first column,
-    then the next, and the row count is returned"""
+    """Test one file named for the stem holds the header then every row, sorted by
+    the first column, then the next, and the row count is returned"""
     _load_dated_rows(warehouse, tmp_path)
-    path = tmp_path / "t.csv"
+    directory = tmp_path / "out"
+    directory.mkdir()
 
-    rows = warehouse.write_csv("raw.t", path=str(path))
+    rows = warehouse.write_csv("raw.t", directory=str(directory), file_stem="t")
 
     assert rows == 3
-    assert path.read_text() == "date,variable,value\n2000,c,3\n2001,a,1\n2001,b,2\n"
+    assert {path.name: path.read_text() for path in directory.iterdir()} == {
+        "t.csv": "date,variable,value\n2000,c,3\n2001,a,1\n2001,b,2\n"
+    }
 
 
-def test_write_csv_partitions_writes_each_values_rows_sorted_to_its_own_file(
+def test_write_csv_writes_each_partitions_rows_sorted_to_its_own_file(
     warehouse: WarehouseResource, tmp_path: Path
 ) -> None:
     """Test each value gets a file named for it holding only its rows, sorted, and
@@ -211,8 +213,11 @@ def test_write_csv_partitions_writes_each_values_rows_sorted_to_its_own_file(
     directory = tmp_path / "bundle"
     directory.mkdir()
 
-    rows = warehouse.write_csv_partitions(
-        "raw.t", column="date", directory=str(directory), file_stem="observations"
+    rows = warehouse.write_csv(
+        "raw.t",
+        directory=str(directory),
+        file_stem="observations",
+        partition_column="date",
     )
 
     assert rows == 3

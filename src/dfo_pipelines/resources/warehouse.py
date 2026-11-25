@@ -56,21 +56,21 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """Every row of `model` as a dict, keyed on column name"""
 
     @abstractmethod
-    def write_csv(self, model: str, *, path: str) -> int:
-        """Write every row of `model` to `path` as a CSV file with a header, sorted
-        ascending on every column in table order, nulls last, returning the count
-        of rows written
-        """
-
-    @abstractmethod
-    def write_csv_partitions(
-        self, model: str, *, column: str, directory: str, file_stem: str
+    def write_csv(
+        self,
+        model: str,
+        *,
+        directory: str,
+        file_stem: str,
+        partition_column: str | None = None,
     ) -> int:
-        """Write the rows of `model` to `directory` as CSV files with a header, one
-        or more for each value of `column`, returning the count of rows written
+        """Write the rows of `model` to `directory` as CSV files with a header,
+        returning the count of rows written
 
-        Each file is named `<file_stem>_<value>`, then optionally a shard suffix,
-        then `.csv`. Rows are sorted as `write_csv` sorts them.
+        With `partition_column`, there is one or more files for each of its values,
+        named `<file_stem>_<value>`; without it, `<file_stem>`. Either name may take
+        a shard suffix before `.csv`. Rows are sorted ascending on every column in
+        table order, nulls last.
         """
 
 
@@ -129,26 +129,29 @@ class DuckDBWarehouseResource(WarehouseResource):
             return connection.sql(f"select * from {model}").to_arrow_table().to_pylist()
 
     @override
-    def write_csv(self, model: str, *, path: str) -> int:
-        with self._connection() as connection:
-            [(row_count,)] = connection.execute(
-                f"copy (select * from {model} order by all) to ? (format csv, header)",
-                [path],
-            ).fetchall()
-        return row_count
-
-    @override
-    def write_csv_partitions(
-        self, model: str, *, column: str, directory: str, file_stem: str
+    def write_csv(
+        self,
+        model: str,
+        *,
+        directory: str,
+        file_stem: str,
+        partition_column: str | None = None,
     ) -> int:
         with self._connection() as connection:
+            if partition_column is None:
+                [(row_count,)] = connection.execute(
+                    f"copy (select * from {model} order by all) to ?"
+                    " (format csv, header)",
+                    [str(UPath(directory) / f"{file_stem}.csv")],
+                ).fetchall()
+                return row_count
             partitions = connection.sql(
-                f"select {column}, count(*) from {model}"
-                f" group by {column} order by {column}"
+                f"select {partition_column}, count(*) from {model}"
+                f" group by {partition_column} order by {partition_column}"
             ).fetchall()
             for value, _ in partitions:
                 connection.sql(
-                    f"select * from {model} where {column} = ? order by all",
+                    f"select * from {model} where {partition_column} = ? order by all",
                     params=[value],
                 ).write_csv(
                     str(UPath(directory) / f"{file_stem}_{value}.csv"), header=True
