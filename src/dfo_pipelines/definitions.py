@@ -33,11 +33,13 @@ def defs():
                     else dg.EnvVar("LANDING_STORE_URI")
                 ),
                 "export_file_store": UPathFileStoreResource(base_path="data/exports"),
-                "warehouse": DuckDBWarehouseResource(database=dg.EnvVar("DUCKDB_PATH"))
-                if environment is Environment.LOCAL
-                else BigQueryWarehouseResource(
-                    project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
-                    location=dg.EnvVar("BIGQUERY_LOCATION"),
+                "warehouse": (
+                    DuckDBWarehouseResource(database=dg.EnvVar("DUCKDB_PATH"))
+                    if environment is Environment.LOCAL
+                    else BigQueryWarehouseResource(
+                        project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
+                        location=dg.EnvVar("BIGQUERY_LOCATION"),
+                    )
                 ),
                 "knowledge_graph": KnowledgeGraphResource(
                     project_id=dg.EnvVar("DCP_PROJECT_ID"),
