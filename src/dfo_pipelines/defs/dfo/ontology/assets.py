@@ -128,10 +128,11 @@ def dfo_ontology_raw_code_mapping_table(
     warehouse: WarehouseResource, dfo_ontology_landing: str
 ) -> dg.MaterializeResult:
     """Raw DFO ontology code mapping database table"""
-    table = "dfo_ontology.raw_code_mapping"
+    schema = "dfo_ontology"
+    table = "raw_code_mapping"
     code_mapping = str(UPath(dfo_ontology_landing) / CODE_MAPPING_CSV)
-    rows = warehouse.load_csv_as_strings(code_mapping, table=table)
-    return raw_table_result(table, rows)
+    rows = warehouse.load_csv_as_strings(path=code_mapping, schema=schema, table=table)
+    return raw_table_result(f"{schema}.{table}", rows)
 
 
 @dg.asset(

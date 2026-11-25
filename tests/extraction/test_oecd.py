@@ -286,7 +286,7 @@ def test_dac_column_renames_give_case_colliding_columns_distinct_names(
     warehouse = DuckDBWarehouseResource(database=str(tmp_path / "database.duckdb"))
 
     warehouse.load_parquet(
-        str(path), table=f"oecd.{dataset}", renames=DAC_COLUMN_RENAMES
+        path=str(path), schema="oecd", table=dataset, renames=DAC_COLUMN_RENAMES
     )
 
     assert renamed <= set(warehouse.get_rows(f"oecd.{dataset}")[0])
