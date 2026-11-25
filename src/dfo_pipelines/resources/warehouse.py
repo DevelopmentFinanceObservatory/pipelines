@@ -1,12 +1,16 @@
+import csv
+import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
+from pathlib import Path
 from typing import Any, override
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from dagster_duckdb import DuckDBResource
 from duckdb import DuckDBPyConnection
+from google.cloud import bigquery
 from upath import UPath
 
 from dfo_pipelines.resources.base import StrictConfigurableResource
@@ -15,8 +19,8 @@ from dfo_pipelines.resources.base import StrictConfigurableResource
 class WarehouseResource(StrictConfigurableResource, ABC):
     """Database the raw files are loaded into and the dbt models are read from
 
-    Loads replace `schema`.`table`, creating the schema if needed, and return the
-    table's row count. Reads name a model as `<schema>.<name>`.
+    Loads replace `schema`.`table` and return the table's row count. Reads name a
+    model as `<schema>.<name>`.
     """
 
     @abstractmethod
@@ -75,7 +79,7 @@ class WarehouseResource(StrictConfigurableResource, ABC):
 
 
 class DuckDBWarehouseResource(WarehouseResource):
-    """Warehouse in a DuckDB database"""
+    """Warehouse in a DuckDB database, whose loads create the schema if needed"""
 
     database: str
 
@@ -181,3 +185,121 @@ class DuckDBWarehouseResource(WarehouseResource):
                     str(UPath(directory) / f"{file_stem}_{value}.csv"), header=True
                 )
         return sum(count for _, count in partitions)
+
+
+class BigQueryWarehouseResource(WarehouseResource):
+    """Warehouse in BigQuery, whose schemas are datasets that must already exist"""
+
+    project: str
+    location: str
+
+    def _client(self) -> bigquery.Client:
+        """Client for the project, using application default credentials"""
+        return bigquery.Client(project=self.project, location=self.location)
+
+    @staticmethod
+    def _job_config(source_format: str, **options: Any) -> bigquery.LoadJobConfig:
+        """Load job configuration replacing the destination table"""
+        return bigquery.LoadJobConfig(
+            source_format=source_format,
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            **options,
+        )
+
+    @staticmethod
+    def _row_count(job: bigquery.LoadJob) -> int:
+        """Rows loaded by `job`, once it has finished"""
+        job.result()
+        # The API leaves out a count of zero
+        return job.output_rows or 0
+
+    def _load_file(self, path: Path, *, schema: str, table: str) -> int:
+        """Load the local parquet file at `path`"""
+        with self._client() as client, path.open("rb") as file:
+            return self._row_count(
+                client.load_table_from_file(
+                    file,
+                    f"{schema}.{table}",
+                    job_config=self._job_config(bigquery.SourceFormat.PARQUET),
+                )
+            )
+
+    @override
+    def load_parquet(
+        self,
+        *,
+        path: str,
+        schema: str,
+        table: str,
+        renames: Mapping[str, str] | None = None,
+    ) -> int:
+        if renames:
+            # BigQuery rejects a file whose column names differ only in case
+            with (
+                UPath(path).open("rb") as published,
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                source = pq.ParquetFile(published)
+                renamed_schema = pa.schema(
+                    field.with_name(renames.get(field.name, field.name))
+                    for field in source.schema_arrow
+                )
+                renamed = Path(directory) / "renamed.parquet"
+                with pq.ParquetWriter(renamed, renamed_schema) as writer:
+                    for batch in source.iter_batches():
+                        writer.write_batch(
+                            pa.RecordBatch.from_arrays(
+                                batch.columns, schema=renamed_schema
+                            )
+                        )
+                return self._load_file(renamed, schema=schema, table=table)
+        with self._client() as client:
+            return self._row_count(
+                client.load_table_from_uri(
+                    path,
+                    f"{schema}.{table}",
+                    job_config=self._job_config(bigquery.SourceFormat.PARQUET),
+                )
+            )
+
+    @override
+    def load_rows(
+        self, rows: Sequence[Mapping[str, Any]], *, schema: str, table: str
+    ) -> int:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rows.parquet"
+            pq.write_table(pa.Table.from_pylist(list(rows)), path)
+            return self._load_file(path, schema=schema, table=table)
+
+    @override
+    def load_csv_as_strings(self, *, path: str, schema: str, table: str) -> int:
+        with UPath(path).open(encoding="utf-8-sig", newline="") as file:
+            header = next(csv.reader(file))
+        job_config = self._job_config(
+            bigquery.SourceFormat.CSV,
+            schema=[bigquery.SchemaField(name, "STRING") for name in header],
+            skip_leading_rows=1,
+            allow_quoted_newlines=True,
+        )
+        with self._client() as client:
+            return self._row_count(
+                client.load_table_from_uri(
+                    path, f"{schema}.{table}", job_config=job_config
+                )
+            )
+
+    @override
+    def get_rows(self, model: str) -> list[dict[str, Any]]:
+        with self._client() as client:
+            return client.query(f"select * from {model}").to_arrow().to_pylist()
+
+    @override
+    def write_csv(
+        self,
+        model: str,
+        *,
+        directory: str,
+        file_stem: str,
+        partition_column: str | None = None,
+    ) -> int:
+        raise NotImplementedError

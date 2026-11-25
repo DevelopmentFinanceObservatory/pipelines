@@ -3,6 +3,7 @@ import pytest
 
 from dfo_pipelines.definitions import defs
 from dfo_pipelines.orchestration.environment import Environment, dfo_environment
+from dfo_pipelines.resources.warehouse import BigQueryWarehouseResource
 
 
 @pytest.mark.parametrize("environment", list(Environment))
@@ -54,3 +55,19 @@ def test_defs_bind_the_dev_landing_store_to_its_variable(
 
     assert resources is not None
     assert resources["landing_file_store"].base_path == dg.EnvVar("LANDING_STORE_URI")
+
+
+def test_defs_bind_the_dev_warehouse_to_bigquery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the dev environment reads the BigQuery project and location from their
+    variables"""
+    monkeypatch.setenv("DFO_ENVIRONMENT", Environment.DEV.value)
+
+    resources = defs().resources
+
+    assert resources is not None
+    assert resources["warehouse"] == BigQueryWarehouseResource(
+        project=dg.EnvVar("BIGQUERY_PROJECT_ID"),
+        location=dg.EnvVar("BIGQUERY_LOCATION"),
+    )
