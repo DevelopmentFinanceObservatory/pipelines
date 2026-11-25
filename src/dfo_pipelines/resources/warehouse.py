@@ -80,11 +80,6 @@ class WarehouseResource(StrictConfigurableResource, ABC):
         """
 
 
-def aliased_column_names(names: Sequence[str], renames: Mapping[str, str]) -> list[str]:
-    """`names` with each one in `renames` replaced by its new name, in order"""
-    return [renames.get(name, name) for name in names]
-
-
 class DuckDBWarehouseResource(WarehouseResource):
     """Warehouse in a DuckDB database, whose loads create the schema if needed"""
 
@@ -125,7 +120,8 @@ class DuckDBWarehouseResource(WarehouseResource):
     ) -> int:
         select_statement = "select * from read_parquet(?)"
         if renames:
-            aliases = aliased_column_names(pq.read_schema(path).names, renames)
+            published = pq.read_schema(path).names
+            aliases = [renames.get(name, name) for name in published]
             columns = ", ".join(
                 '"' + alias.replace('"', '""') + '"' for alias in aliases
             )
@@ -191,26 +187,6 @@ class DuckDBWarehouseResource(WarehouseResource):
                     str(UPath(directory) / f"{file_stem}_{value}.csv"), header=True
                 )
         return sum(count for _, count in partitions)
-
-
-def write_renamed_parquet(
-    source: str, destination: Path, renames: Mapping[str, str]
-) -> None:
-    """Copy the parquet file at `source` to `destination` a batch at a time, with
-    its columns renamed by position as `aliased_column_names` gives"""
-    with UPath(source).open("rb") as source_file:
-        parquet_file = pq.ParquetFile(source_file)
-        published = parquet_file.schema_arrow
-        aliases = aliased_column_names(published.names, renames)
-        schema = pa.schema(
-            field.with_name(alias)
-            for field, alias in zip(published, aliases, strict=True)
-        )
-        with pq.ParquetWriter(destination, schema) as writer:
-            for batch in parquet_file.iter_batches():
-                writer.write_batch(
-                    pa.RecordBatch.from_arrays(batch.columns, schema=schema)
-                )
 
 
 def arrow_decimal_types(
@@ -322,9 +298,23 @@ class BigQueryWarehouseResource(WarehouseResource):
     ) -> int:
         if renames:
             # BigQuery rejects a file whose column names differ only in case
-            with tempfile.TemporaryDirectory() as directory:
+            with (
+                UPath(path).open("rb") as published,
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                source = pq.ParquetFile(published)
+                renamed_schema = pa.schema(
+                    field.with_name(renames.get(field.name, field.name))
+                    for field in source.schema_arrow
+                )
                 renamed = Path(directory) / "renamed.parquet"
-                write_renamed_parquet(path, renamed, renames)
+                with pq.ParquetWriter(renamed, renamed_schema) as writer:
+                    for batch in source.iter_batches():
+                        writer.write_batch(
+                            pa.RecordBatch.from_arrays(
+                                batch.columns, schema=renamed_schema
+                            )
+                        )
                 return self._load_file(renamed, schema=schema, table=table)
         with self._client() as client:
             return self._row_count(

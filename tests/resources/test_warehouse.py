@@ -10,10 +10,8 @@ from google.cloud import bigquery
 from dfo_pipelines.resources.warehouse import (
     DuckDBWarehouseResource,
     WarehouseResource,
-    aliased_column_names,
     arrow_decimal_types,
     write_batches_to_duckdb,
-    write_renamed_parquet,
 )
 
 COLUMNS = ("code", "name", "value")
@@ -231,37 +229,6 @@ def test_write_csv_writes_each_partitions_rows_sorted_to_its_own_file(
         "observations_2000.csv": "date,variable,value\n2000,c,3\n",
         "observations_2001.csv": "date,variable,value\n2001,a,1\n2001,b,2\n",
     }
-
-
-def test_aliased_column_names_renames_by_name_and_keeps_the_rest_in_order() -> None:
-    """Test names differing only by case take their own new names, others stay"""
-    aliases = aliased_column_names(
-        ["DONOR", "Donor", "value"], {"DONOR": "donor_code", "Donor": "donor_name"}
-    )
-
-    assert aliases == ["donor_code", "donor_name", "value"]
-
-
-def test_write_renamed_parquet_keeps_every_row_under_the_new_names(
-    tmp_path: Path,
-) -> None:
-    """Test columns whose names differ only by case are renamed apart, with their
-    values and types"""
-    destination = tmp_path / "renamed.parquet"
-
-    write_renamed_parquet(
-        _write(tmp_path / "data.parquet", 2, ("DONOR", "Donor", "value")),
-        destination,
-        {"DONOR": "donor_code", "Donor": "donor_name"},
-    )
-
-    assert pq.read_table(destination) == pa.table(
-        {
-            "donor_code": pa.array([0, 1], pa.int64()),
-            "donor_name": pa.array(["name 0", "name 1"], pa.string()),
-            "value": pa.array([0, 10], pa.int64()),
-        }
-    )
 
 
 def test_arrow_decimal_types_follow_the_declared_or_default_precision() -> None:
