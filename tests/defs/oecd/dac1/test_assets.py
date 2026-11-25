@@ -16,7 +16,7 @@ from dfo_pipelines.defs.oecd.dac1.assets import (
     oecd_dac1_source,
 )
 from dfo_pipelines.orchestration.landing import Observation
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import exported_directory
 
 # Stand-in for the resolved bulk-download URL: never fetched, the lookup is mocked.

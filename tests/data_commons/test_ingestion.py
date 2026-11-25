@@ -9,7 +9,7 @@ from dcp_tools.gcp_utilities.settings import KGSettings
 from upath import UPath
 
 from dfo_pipelines.data_commons.ingestion import ingest_bundle
-from dfo_pipelines.orchestration.resources import KnowledgeGraphResource
+from dfo_pipelines.resources.knowledge_graph import KnowledgeGraphResource
 
 LOG = logging.getLogger(__name__)
 

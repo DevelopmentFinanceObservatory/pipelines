@@ -16,7 +16,7 @@ from dfo_pipelines.defs.one.climate_finance.assets import (
     one_climate_finance_dc_export,
     unfccc_btr_dc_export,
 )
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 from tests.helpers import exported_directory
 
 DISBURSEMENT_DCID = (

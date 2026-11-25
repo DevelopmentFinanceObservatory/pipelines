@@ -25,11 +25,11 @@ from dfo_pipelines.orchestration.automation import EAGER_WHEN_CHECKS_PASS
 from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
-from dfo_pipelines.orchestration.resources import (
-    SkillsRepositoryResource,
-    UPathFileStoreResource,
-)
 from dfo_pipelines.orchestration.subprocesses import run_logged
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
+from dfo_pipelines.resources.skills_repository import (
+    SkillsRepositoryResource,
+)
 
 IMPORT_NAME = "dfo_skills"
 # Where the skills repository keeps the skills it offers for install, which

@@ -17,8 +17,8 @@ from dfo_pipelines.orchestration.dc_export import export_directory_result
 from dfo_pipelines.orchestration.dc_ingestion import build_dc_ingestion_asset
 from dfo_pipelines.orchestration.landing import Observation, build_landing_asset
 from dfo_pipelines.orchestration.raw_tables import raw_table_result
-from dfo_pipelines.orchestration.resources import UPathFileStoreResource
 from dfo_pipelines.orchestration.subprocesses import run_logged
+from dfo_pipelines.resources.file_store import UPathFileStoreResource
 
 IMPORT_NAME = "dfo_ontology"
 ONTOLOGY_MCF = "dfo.mcf"
