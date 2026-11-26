@@ -56,7 +56,7 @@ published_totals as (
     select
         import_name,
         year,
-        sum(cast(value as decimal(38, 12))) as total,
+        sum(value) as total,
         count(*) as observation_count
     from observations
     group by import_name, year

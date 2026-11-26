@@ -26,7 +26,7 @@ published_totals as (
     select
         date as year,
         unit,
-        sum(cast(value as decimal(38, 12))) as total,
+        sum(value) as total,
         count(*) as observation_count
     from {{ ref("dc_dac2a_observations") }}
     group by date, unit
