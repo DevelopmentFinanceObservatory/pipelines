@@ -119,7 +119,7 @@ select
     date::integer as date,
     entity1,
     entity2,
-    value::decimal(18, 5) as value,
+    value::double as value,
     unit
 from (values
     ('{ONE_CONSTRAINT_STATVAR}', 2000, 'Entity1', 'Entity2', 1.5, 'Unit1'),
@@ -219,7 +219,7 @@ def test_export_bundle_writes_one_observations_file_per_partition(
 
     assert (out_dir / "observations_2000.csv").read_text() == (
         "variable,date,entity1,entity2,value,unit\n"
-        f"{ONE_CONSTRAINT_STATVAR},2000,Entity1,Entity2,1.50000,Unit1\n"
+        f"{ONE_CONSTRAINT_STATVAR},2000,Entity1,Entity2,1.5,Unit1\n"
     )
     assert len((out_dir / "observations_2001.csv").read_text().splitlines()) == 3
 
@@ -618,6 +618,31 @@ def test_documentation_version_changes_with_each_documentation_edit(
     after = spec_with_documentation(tmp_path, "after", edited)
 
     assert after.documentation_version != before.documentation_version
+
+
+def test_export_bundle_leaves_unreleased_changelog_entries_out(tmp_path: Path) -> None:
+    """Test an `Unreleased` release stays out of the provenance, and dated ones stay in"""
+    released = "## 2026-01-01\n\n### Added\n\n- Dataset added to the graph.\n"
+    unreleased = "## Unreleased Rounding\n\n### Fixed\n\n- Values rounded later.\n\n"
+    spec = spec_with_documentation(
+        tmp_path,
+        "docs",
+        ["## Step one\n\nWhat the step does.\n", unreleased + released],
+    )
+
+    export_bundle(
+        spec,
+        warehouse=warehouse_with_tables(tmp_path, *MODELS_SQL),
+        out_dir=UPath(tmp_path / "bundle"),
+        log=LOG,
+    )
+
+    provenance = (tmp_path / "bundle" / "provenance.mcf").read_text()
+    assert (
+        'dataTransformationChangelog: "## 2026-01-01\\n\\n### Added\\n\\n'
+        '- Dataset added to the graph.\\n"'
+    ) in provenance
+    assert "Unreleased" not in provenance
 
 
 def test_export_bundle_requires_exactly_one_provenance(tmp_path: Path) -> None:

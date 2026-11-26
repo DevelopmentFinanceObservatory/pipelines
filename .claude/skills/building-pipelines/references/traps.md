@@ -52,11 +52,13 @@ A filter listing today's values silently drops any value the publisher adds late
 
 `concat()` skips NULLs, so a dcid built with it is never null and its `not_null` test is vacuous; `||` propagates them. A `coalesce` hides an unmapped value along with a missing one, so apply it only where a missing value has a meaning.
 
-### Round once, after the sum
+### Types and rounding
 
-A source reporting in millions, cast to `decimal(18,5)` in staging, rounds every row to ten dollars before it is summed, so aggregates lose value and small amounts publish as zero. Keep full precision, `decimal(38,12)`, from staging through aggregation and round only in the observation model.
+Every value is a `double` from staging to publication. A narrowing cast before the last sum, such as `decimal(18,5)` on a source reporting in millions, rounds every row to ten dollars, so aggregates lose value and small amounts publish as zero.
 
-Guard it with a singular test that reconciles each year's published total with the source to within half a cent per observation. A unit test cannot: dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
+Round once, after the last sum, in the model that sets the unit. Every published value is a `double` through the `round_significant` macro, which keeps the 15 significant digits a Data Commons value carries (its API serves float64). Round a summed currency amount to cents first.
+
+Guard the sum with a singular test that casts the published values to `decimal(38,12)` before summing and reconciles each year's total with the source to within half a cent per observation. A unit test cannot, because dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
 
 ### A seed only tests read is no model's parent
 

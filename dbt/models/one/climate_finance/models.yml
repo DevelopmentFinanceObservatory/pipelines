@@ -54,32 +54,32 @@ models:
           The CRS Bi_Multi code of the flows behind the row. Provided rows carry
           2, core contributions.
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate finance, current USD
         data_tests:
           - not_null
       - name: adaptation
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards adaptation, current USD
         data_tests:
           - not_null
       - name: mitigation
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards mitigation, current USD
         data_tests:
           - not_null
       - name: cross_cutting
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards both adaptation and mitigation, current USD
         data_tests:
           - not_null
       - name: unsplit
-        data_type: decimal(38,12)
+        data_type: double
         description: The attributed part with no split by objective, current USD
         data_tests:
           - not_null
       - name: no_adaptation_marker
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part of value with no adaptation marker, held in mitigation, current
           USD
@@ -120,22 +120,22 @@ models:
           The CRS Bi_Multi code: 1 bilateral, 4 a multilateral's own outflows, 6
           private grants
       - name: climate_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate-related commitment, current USD
         data_tests:
           - not_null
       - name: adaptation_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to adaptation, including the overlap, current USD
         data_tests:
           - not_null
       - name: mitigation_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to mitigation, including the overlap, current USD
         data_tests:
           - not_null
       - name: overlap_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to both adaptation and mitigation, current USD
         data_tests:
           - not_null
@@ -177,7 +177,7 @@ models:
         data_tests:
           - not_null
       - name: face_usd_at_dac
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           Face value as the party reports it in its own currency, converted to
           USD at the OECD DAC exchange rate
@@ -245,32 +245,32 @@ models:
           The CRS Bi_Multi code of the flows behind the row. Provided rows carry
           2, core contributions.
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate finance, current USD
         data_tests:
           - not_null
       - name: adaptation
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards adaptation, current USD
         data_tests:
           - not_null
       - name: mitigation
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards mitigation, current USD
         data_tests:
           - not_null
       - name: cross_cutting
-        data_type: decimal(38,12)
+        data_type: double
         description: The part counted towards both adaptation and mitigation, current USD
         data_tests:
           - not_null
       - name: unsplit
-        data_type: decimal(38,12)
+        data_type: double
         description: The attributed part with no split by objective, current USD
         data_tests:
           - not_null
       - name: no_adaptation_marker
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part of value with no adaptation marker, held in mitigation, current
           USD
@@ -321,22 +321,22 @@ models:
           The CRS Bi_Multi code: 1 bilateral, 4 a multilateral's own outflows, 6
           private grants
       - name: climate_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate-related commitment, current USD
         data_tests:
           - not_null
       - name: adaptation_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to adaptation, including the overlap, current USD
         data_tests:
           - not_null
       - name: mitigation_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to mitigation, including the overlap, current USD
         data_tests:
           - not_null
       - name: overlap_usd
-        data_type: decimal(38,12)
+        data_type: double
         description: The part relevant to both adaptation and mitigation, current USD
         data_tests:
           - not_null
@@ -390,7 +390,7 @@ models:
         data_tests:
           - not_null
       - name: face_usd_at_dac
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           Face value as the party reports it in its own currency, converted to
           USD at the OECD DAC exchange rate
@@ -481,12 +481,12 @@ models:
               config:
                 where: "import_name != 'unfccc_btr'"
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate finance, current USD
         data_tests:
           - not_null
       - name: adaptation
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part counted towards adaptation, current USD. Under the OECD's
           full value it includes the cross-cutting part. Null for the UNFCCC
@@ -496,7 +496,7 @@ models:
               config:
                 where: "import_name != 'unfccc_btr'"
       - name: mitigation
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part counted towards mitigation, current USD. Under the OECD's
           full value it includes the cross-cutting part. Null for the UNFCCC
@@ -506,7 +506,7 @@ models:
               config:
                 where: "import_name != 'unfccc_btr'"
       - name: cross_cutting
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part counted towards both adaptation and mitigation, current USD.
           Null for the UNFCCC totals.
@@ -515,7 +515,7 @@ models:
               config:
                 where: "import_name != 'unfccc_btr'"
       - name: unsplit
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The attributed part with no split by objective, current USD. Null for
           the UNFCCC totals.
@@ -524,7 +524,7 @@ models:
               config:
                 where: "import_name != 'unfccc_btr'"
       - name: no_adaptation_marker
-        data_type: decimal(38,12)
+        data_type: double
         description: >
           The part of value with no adaptation marker, held in mitigation,
           current USD. Null for the UNFCCC totals.
@@ -688,7 +688,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Climate finance counted towards the objective, current USD, unrounded
         data_tests:
           - not_null
@@ -881,7 +881,7 @@ models:
           - not_null
       - &value_column
         name: value
-        data_type: decimal(18,2)
+        data_type: double
         description: Climate finance counted towards the objective, current USD
         data_tests:
           - not_null

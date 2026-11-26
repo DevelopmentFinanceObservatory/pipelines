@@ -16,7 +16,7 @@ with donors as (
 select
     dac1.year,
     dac1.amount_type,
-    cast(dac1.value as double) as value,
+    dac1.value,
     case
         when dac1.donor_code = '20001' then 'dcid:DACCountriesTotal'
         else donors.dcid

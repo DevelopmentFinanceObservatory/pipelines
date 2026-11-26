@@ -107,8 +107,8 @@ select
     -- Ratios are not in millions.
     case
         when statvars.measurement_denominator is not null
-            then cast(unified.value as decimal(38, 6))
-        else cast(round(unified.value * 1000000, 2) as decimal(38, 6))
+            then {{ round_significant("unified.value") }}
+        else {{ round_significant("round(unified.value * 1000000, 2)") }}
     end as value
 from {{ ref("int_dac2a_unified") }} as unified
 left join statvars

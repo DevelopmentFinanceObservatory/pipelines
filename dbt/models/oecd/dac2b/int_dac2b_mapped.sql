@@ -70,7 +70,7 @@ select
     unified.donor,
     unified.year,
     indicators.unit,
-    cast(round(unified.value * 1000000, 2) as decimal(38, 6)) as value
+    {{ round_significant("round(unified.value * 1000000, 2)") }} as value
 from {{ ref("int_dac2b_unified") }} as unified
 left join indicators
     on unified.aid_type = indicators.aid_type

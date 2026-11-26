@@ -31,8 +31,6 @@ select
     series_name,
     series_code,
     cast(year as integer) as year,
-    -- decimal(38, 5) used here as decimal(18, 5) (as per CRS) not sufficient
-    -- to represent magnitude of the raw data
-    cast(value as decimal(38, 5)) as value
+    cast(value as double) as value
 from unpivoted
 where series_code not in {{ ids_excluded_series() }}

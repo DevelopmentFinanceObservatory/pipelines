@@ -16,6 +16,7 @@ recipe, so every export states its recipe, or that it has none, on its spec.
 
 import hashlib
 import logging
+import re
 import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -49,6 +50,18 @@ DOCUMENTATION_FILES = {
     "dataTransformationDescription": "transformations.md",
     "dataTransformationChangelog": "changelog.md",
 }
+
+
+def without_unreleased(markdown: str) -> str:
+    """`markdown` without its `## Unreleased` sections, which the release to `main` dates
+
+    The graph's readers accept only dated releases in a changelog.
+    """
+    sections = re.split(r"(?m)^(?=## )", markdown)
+    return "".join(
+        section for section in sections if not section.startswith("## Unreleased")
+    )
+
 
 # The provenance property `ExportSpec.conversion_recipe` is written onto.
 CONVERSION_RECIPE_PROPERTY = "conversionRecipe"
@@ -288,7 +301,9 @@ def export_bundle(
         else {CONVERSION_RECIPE_PROPERTY: spec.conversion_recipe.value}
     )
     documentation = {
-        name: escape_markdown((spec.docs_dir / file_name).read_text())
+        name: escape_markdown(
+            without_unreleased((spec.docs_dir / file_name).read_text())
+        )
         for name, file_name in DOCUMENTATION_FILES.items()
     }
     provenance.setdefault(

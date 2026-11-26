@@ -10,4 +10,5 @@ has two pages:
   the source data, always describing the current state of the dataset. Rewritten
   in place.
 - `changelog.md` — dated entries for every production release that changes how the
-  data is processed. Append-only, newest first.
+  data is processed. Append-only, newest first. An entry is headed `Unreleased` until
+  the release to `main`, which replaces that word with the release date.

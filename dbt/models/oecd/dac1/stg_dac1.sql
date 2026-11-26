@@ -5,6 +5,6 @@ select
     cast(flows as string) as flow,
     cast(amounttype as string) as amount_type,
     cast(year as integer) as year,
-    cast(value as decimal(38, 12)) as value
+    cast(value as double) as value
 from {{ source("oecd_dac1", "raw_dac1") }}
 where value is not null

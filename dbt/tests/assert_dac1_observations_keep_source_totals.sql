@@ -1,9 +1,9 @@
 {{ config(meta={"dagster": {"ref": {"name": "dc_dac1_flow_observations"}}}) }}
 {#-
     Each year's published total for each unit matches the source's to within
-    what rounding each observation can lose: half a cent for an amount, half a
-    person for population and half a millionth for a percentage. A year or unit
-    present on only one side fails too.
+    what the rule loses on each observation: half a cent for an amount, half a
+    person for population and 15 significant digits for a percentage. A year or
+    unit present on only one side fails too.
 -#}
 with source_totals as (
     select
@@ -11,8 +11,9 @@ with source_totals as (
         indicator_mapping.unit,
         sum(
             case
-                when indicator_mapping.unit = 'dcid:Percent' then unified.value
-                else unified.value * 1000000
+                when indicator_mapping.unit = 'dcid:Percent'
+                    then cast(unified.value as decimal(38, 12))
+                else cast(unified.value as decimal(38, 12)) * 1000000
             end
         ) as total
     from {{ ref("int_dac1_unified") }} as unified
@@ -41,7 +42,7 @@ published_totals as (
     select
         date as year,
         unit,
-        sum(value) as total,
+        sum(cast(value as decimal(38, 12))) as total,
         count(*) as observation_count
     from observations
     group by date, unit

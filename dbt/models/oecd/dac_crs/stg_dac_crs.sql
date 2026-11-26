@@ -8,10 +8,10 @@ select
     cast(finance_t as string) as finance_t,
     cast(aid_t as string) as aid_t,
     cast(purpose_code as string) as purpose_code,
-    cast(usd_commitment as decimal(38, 12)) as usd_commitment,
-    cast(usd_disbursement as decimal(38, 12)) as usd_disbursement,
-    cast(usd_received as decimal(38, 12)) as usd_received,
-    cast(usd_grant_equiv as decimal(38, 12)) as usd_grant_equiv
+    cast(usd_commitment as double) as usd_commitment,
+    cast(usd_disbursement as double) as usd_disbursement,
+    cast(usd_received as double) as usd_received,
+    cast(usd_grant_equiv as double) as usd_grant_equiv
 from {{ source("oecd_dac_crs", "raw_dac_crs") }}
 -- bi_multi = 2 rows are a donor's core contributions to multilateral
 -- organisations, which the multilateral then spends and reports under its own

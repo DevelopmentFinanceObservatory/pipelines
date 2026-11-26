@@ -19,12 +19,12 @@ with spending as (
         year,
         financing_provider,
         financing_recipient,
-        cast(sum(value) as decimal(38, 12)) as value,
-        cast(sum(adaptation) as decimal(38, 12)) as adaptation,
-        cast(sum(mitigation) as decimal(38, 12)) as mitigation,
-        cast(sum(cross_cutting) as decimal(38, 12)) as cross_cutting,
-        cast(sum(unsplit) as decimal(38, 12)) as unsplit,
-        cast(sum(no_adaptation_marker) as decimal(38, 12)) as no_adaptation_marker
+        sum(value) as value,
+        sum(adaptation) as adaptation,
+        sum(mitigation) as mitigation,
+        sum(cross_cutting) as cross_cutting,
+        sum(unsplit) as unsplit,
+        sum(no_adaptation_marker) as no_adaptation_marker
     from {{ ref("int_climate_finance_spending_resolved") }}
     group by
         family,
@@ -46,12 +46,12 @@ crdf as (
         year,
         financing_provider,
         financing_recipient,
-        cast(sum(climate_usd) as decimal(38, 12)) as value,
-        cast(sum(adaptation_usd) as decimal(38, 12)) as adaptation,
-        cast(sum(mitigation_usd) as decimal(38, 12)) as mitigation,
-        cast(sum(overlap_usd) as decimal(38, 12)) as cross_cutting,
-        cast(0 as decimal(38, 12)) as unsplit,
-        cast(0 as decimal(38, 12)) as no_adaptation_marker
+        cast(0 as double) as unsplit,
+        cast(0 as double) as no_adaptation_marker,
+        sum(climate_usd) as value,
+        sum(adaptation_usd) as adaptation,
+        sum(mitigation_usd) as mitigation,
+        sum(overlap_usd) as cross_cutting
     from {{ ref("int_climate_finance_crdf_commitments_resolved") }}
     group by
         year,
@@ -68,12 +68,12 @@ btr as (
         cast(null as string) as method,  -- noqa: RF04
         cast(null as string) as attribution,
         cast(null as string) as financing_recipient,
-        cast(null as decimal(38, 12)) as adaptation,
-        cast(null as decimal(38, 12)) as mitigation,
-        cast(null as decimal(38, 12)) as cross_cutting,
-        cast(null as decimal(38, 12)) as unsplit,
-        cast(null as decimal(38, 12)) as no_adaptation_marker,
-        cast(sum(face_usd_at_dac) as decimal(38, 12)) as value,
+        cast(null as double) as adaptation,
+        cast(null as double) as mitigation,
+        cast(null as double) as cross_cutting,
+        cast(null as double) as unsplit,
+        cast(null as double) as no_adaptation_marker,
+        sum(face_usd_at_dac) as value,
         case status
             when 'committed' then 'commitments'
             when 'disbursed' then 'disbursements'

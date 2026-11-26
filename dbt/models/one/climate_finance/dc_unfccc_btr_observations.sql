@@ -4,7 +4,7 @@ select
     statvar_dcid as variable,
     year as date,
     financing_provider,
-    cast(value as decimal(18, 2)) as value,
+    {{ round_significant("round(value, 2)") }} as value,
     unit,
     measurement_method
 from {{ ref("int_climate_finance_mapped") }}

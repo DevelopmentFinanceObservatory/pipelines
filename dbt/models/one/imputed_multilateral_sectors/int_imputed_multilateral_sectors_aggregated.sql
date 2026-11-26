@@ -6,6 +6,6 @@ select
     donor,
     recipient,
     purpose_code,
-    cast(sum(value) as decimal(38, 12)) as value
+    sum(value) as value
 from {{ ref("int_imputed_multilateral_sectors_resolved") }}
 group by all

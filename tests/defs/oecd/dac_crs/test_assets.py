@@ -161,7 +161,7 @@ select
     date::integer as date,
     financing_provider,
     financing_recipient,
-    value::decimal(18, 5) as value,
+    value::double as value,
     unit
 from (values
     ('{COMMITMENT_STATVAR}', 1973, 'country/FRA', 'country/KEN', 1.5, 'USDollar'),

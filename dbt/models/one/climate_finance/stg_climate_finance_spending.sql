@@ -21,12 +21,12 @@ select
     cast(year as integer) as year,
     cast(provider_code as string) as provider_code,
     cast(bi_multi as integer) as bi_multi,
-    cast(value as decimal(38, 12)) as value,
-    cast(adaptation as decimal(38, 12)) as adaptation,
-    cast(mitigation as decimal(38, 12)) as mitigation,
-    cast(cross_cutting as decimal(38, 12)) as cross_cutting,
-    cast(unsplit as decimal(38, 12)) as unsplit,
-    cast(no_adaptation_marker as decimal(38, 12)) as no_adaptation_marker,
+    cast(value as double) as value,
+    cast(adaptation as double) as adaptation,
+    cast(mitigation as double) as mitigation,
+    cast(cross_cutting as double) as cross_cutting,
+    cast(unsplit as double) as unsplit,
+    cast(no_adaptation_marker as double) as no_adaptation_marker,
     case
         when recipient_code = 998 or (recipient_code is null and family = 'provided')
             then '9998'

@@ -3,7 +3,7 @@ select
     date,
     financing_provider,
     financing_recipient,
-    value,
+    {{ round_significant("value") }} as value,
     unit,
     measurement_method
 from {{ ref("int_ids_observations") }}

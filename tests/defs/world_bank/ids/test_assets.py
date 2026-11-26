@@ -655,7 +655,7 @@ select
     date::integer as date,
     financing_provider,
     financing_recipient,
-    value::decimal(18, 5) as value,
+    value::double as value,
     unit,
     measurement_method
 from (values
@@ -673,7 +673,7 @@ select
     variable,
     date::integer as date,
     observation_about,
-    value::decimal(18, 5) as value,
+    value::double as value,
     unit,
     measurement_method
 from (values
@@ -763,13 +763,13 @@ def test_ids_dc_export_registers_the_observation_columns(tmp_path: Path) -> None
         "measurement_method"
     )
     assert (out_dir / "observations_2023.csv").read_text() == (
-        f"{header}\n{TOTAL_STATVAR},2023,,country/AFG,1.50000,dcid:USDollars,\n"
+        f"{header}\n{TOTAL_STATVAR},2023,,country/AFG,1.5,dcid:USDollars,\n"
     )
     lines = (out_dir / "observations_2024.csv").read_text().splitlines()
     assert lines[0] == header
     assert set(lines[1:]) == {
-        f"{TOTAL_STATVAR},2024,,country/AFG,2.50000,dcid:USDollars,dcid:Estimated",
-        f"{BREAKDOWN_STATVAR},2024,country/AUT,country/AFG,3.50000,dcid:Percent,",
+        f"{TOTAL_STATVAR},2024,,country/AFG,2.5,dcid:USDollars,dcid:Estimated",
+        f"{BREAKDOWN_STATVAR},2024,country/AUT,country/AFG,3.5,dcid:Percent,",
     }
 
 

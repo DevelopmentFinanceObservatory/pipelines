@@ -59,7 +59,7 @@ select
     dimensions.financing_event_type,
     dimensions.netting_basis,
     dimensions.valuation_basis,
-    cast(sum(measure_values.value) as decimal(38, 12)) as value
+    sum(measure_values.value) as value
 from measure_values
 left join measure_dimensions as dimensions
     on measure_values.measure = dimensions.measure

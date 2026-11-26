@@ -145,10 +145,10 @@ select
     -- Millions to units: amounts to cents, population to whole persons.
     case
         when statvars.unit = 'dcid:Percent'
-            then cast(unified.value as decimal(38, 6))
+            then {{ round_significant("unified.value") }}
         when statvars.unit is null
-            then cast(round(unified.value * 1000000) as decimal(38, 6))
-        else cast(round(unified.value * 1000000, 2) as decimal(38, 6))
+            then {{ round_significant("round(unified.value * 1000000)") }}
+        else {{ round_significant("round(unified.value * 1000000, 2)") }}
     end as value
 from {{ ref("int_dac1_unified") }} as unified
 left join statvars
