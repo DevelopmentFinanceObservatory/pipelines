@@ -513,7 +513,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(18,2)
+        data_type: double
         description: >
           The observed amount, in whole units of the currency the unit names. The CRS
           reports in millions, so this is the source figure scaled up.

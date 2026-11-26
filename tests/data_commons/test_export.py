@@ -119,7 +119,7 @@ select
     date::integer as date,
     entity1,
     entity2,
-    value::decimal(18, 5) as value,
+    value::double as value,
     unit
 from (values
     ('{ONE_CONSTRAINT_STATVAR}', 2000, 'Entity1', 'Entity2', 1.5, 'Unit1'),
@@ -219,7 +219,7 @@ def test_export_bundle_writes_one_observations_file_per_partition(
 
     assert (out_dir / "observations_2000.csv").read_text() == (
         "variable,date,entity1,entity2,value,unit\n"
-        f"{ONE_CONSTRAINT_STATVAR},2000,Entity1,Entity2,1.50000,Unit1\n"
+        f"{ONE_CONSTRAINT_STATVAR},2000,Entity1,Entity2,1.5,Unit1\n"
     )
     assert len((out_dir / "observations_2001.csv").read_text().splitlines()) == 3
 

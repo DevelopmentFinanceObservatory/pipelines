@@ -1055,7 +1055,7 @@ select
     date::integer as date,
     financing_provider,
     financing_recipient,
-    value::decimal(18, 2) as value,
+    value::double as value,
     unit,
     measurement_method
 from (values

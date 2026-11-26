@@ -245,7 +245,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,6)
+        data_type: double
         description: Amount in current US dollars rounded to cents
         data_tests:
           - not_null
@@ -378,7 +378,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,6)
+        data_type: double
         description: Amount in US dollars
         data_tests:
           - not_null

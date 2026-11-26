@@ -881,7 +881,7 @@ models:
           - not_null
       - &value_column
         name: value
-        data_type: decimal(18,2)
+        data_type: double
         description: Climate finance counted towards the objective, current USD
         data_tests:
           - not_null

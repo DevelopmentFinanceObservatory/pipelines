@@ -17,7 +17,7 @@ with source_totals as (
 published_totals as (
     select
         date as year,
-        sum(value) as total,
+        sum(cast(value as decimal(38, 12))) as total,
         count(*) as observation_count
     from {{ ref("dc_imputed_multilateral_sectors_observations") }}
     group by date

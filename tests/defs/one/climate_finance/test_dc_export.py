@@ -140,7 +140,7 @@ def _dc_models_sql(export: Export) -> list[str]:
             year as date,
             'country/FRA' as financing_provider,
             {recipient_column}
-            value::decimal(18, 2) as value,
+            value::double as value,
             'dcid:CurrencyUSD' as unit,
             measurement_method
         from (values

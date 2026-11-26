@@ -257,7 +257,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,6)
+        data_type: double
         description: >
           Amount in current US dollars rounded to cents, US dollars per person,
           or the percentage of the recipient's GNI
@@ -398,7 +398,7 @@ models:
         data_type: string
         description: DCID of the measurement method, set for modelled values only
       - name: value
-        data_type: decimal(38,6)
+        data_type: double
         description: Amount in US dollars, US dollars per person, or the percentage of the recipient's GNI
         data_tests:
           - not_null

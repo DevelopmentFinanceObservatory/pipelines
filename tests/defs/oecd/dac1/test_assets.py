@@ -157,14 +157,14 @@ select * from (values
 
 create or replace table oecd_dac1.dc_dac1_flow_observations as
 select * from (values
-    ('{FLOW_STATVAR}', 2024, 'dcid:country/USA', 'dcid:country/PSE', 208530512.35, 'dcid:CurrencyUSD'),
-    ('{SHARE_STATVAR}', 2024, 'dcid:country/USA', null, 0.225381, 'dcid:Percent')
+    ('{FLOW_STATVAR}', 2024, 'dcid:country/USA', 'dcid:country/PSE', 208530512.35::double, 'dcid:CurrencyUSD'),
+    ('{SHARE_STATVAR}', 2024, 'dcid:country/USA', null, 0.225381::double, 'dcid:Percent')
 ) as observations (variable, date, financing_provider, financing_recipient, value, unit);
 
 create or replace table oecd_dac1.dc_dac1_donor_observations as
 select * from (values
-    ('{GNI_STATVAR}', 2024, 'dcid:country/USA', 29050950000000.0, 'dcid:CurrencyUSD'),
-    ('dcid:Count_Person', 2024, 'dcid:country/USA', 340110000.0, null)
+    ('{GNI_STATVAR}', 2024, 'dcid:country/USA', 29050950000000.0::double, 'dcid:CurrencyUSD'),
+    ('dcid:Count_Person', 2024, 'dcid:country/USA', 340110000.0::double, null)
 ) as observations (variable, date, observation_about, value, unit);
 """
 

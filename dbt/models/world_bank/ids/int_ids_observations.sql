@@ -1,6 +1,5 @@
 -- The IDS reports whole units of currency, not millions as the CRS does, so the
--- value is carried through unscaled. decimal(38,5) is kept from stg_ids because the
--- same column holds both trillion-dollar stocks and sub-percent ratios.
+-- value is carried through unscaled.
 with last_reported as (
     -- The debt stock is reported and never projected, so its last year is the last
     -- year of reported data.

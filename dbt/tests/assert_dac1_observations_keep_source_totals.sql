@@ -11,8 +11,9 @@ with source_totals as (
         indicator_mapping.unit,
         sum(
             case
-                when indicator_mapping.unit = 'dcid:Percent' then unified.value
-                else unified.value * 1000000
+                when indicator_mapping.unit = 'dcid:Percent'
+                    then cast(unified.value as decimal(38, 12))
+                else cast(unified.value as decimal(38, 12)) * 1000000
             end
         ) as total
     from {{ ref("int_dac1_unified") }} as unified
@@ -41,7 +42,7 @@ published_totals as (
     select
         date as year,
         unit,
-        sum(value) as total,
+        sum(cast(value as decimal(38, 12))) as total,
         count(*) as observation_count
     from observations
     group by date, unit
