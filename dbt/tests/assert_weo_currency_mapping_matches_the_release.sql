@@ -21,9 +21,9 @@ from release_currencies
 inner join {{ ref("weo_currency_mapping") }} as mapped
     on release_currencies.imf_area_code = mapped.imf_area_code
 where
-    {{ replace_every_match(
-        "lower(release_currencies.primary_domestic_currency)", "'[^a-z]'", "''"
-    ) }}
-    != {{ replace_every_match(
-        "lower(mapped.primary_domestic_currency)", "'[^a-z]'", "''"
-    ) }}
+    array_to_string(
+        regexp_extract_all(lower(release_currencies.primary_domestic_currency), '[a-z]+'), ''
+    )
+    != array_to_string(
+        regexp_extract_all(lower(mapped.primary_domestic_currency), '[a-z]+'), ''
+    )
