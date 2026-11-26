@@ -1,6 +1,5 @@
 [sqlfluff]
 dialect = duckdb
-# int_ids_mapped nests three array_to_string joins through mint_ids_statvar_name.
 max_parse_depth = 400
 templater = dbt
 max_line_length = 100
