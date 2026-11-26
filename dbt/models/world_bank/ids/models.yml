@@ -272,18 +272,18 @@ models:
           description: >
             Rejoining the positions reproduces the code they were split from,
             which is what fails if the split is truncated, the delimiter is
-            wrong or a position is transposed. Nulls are skipped, so the
+            wrong or a position is transposed. array_to_string skips nulls, so the
             codes carrying fewer than five segments reconstruct from their
             populated positions alone.
           arguments:
             expression: >
-              {% call join_skipping_nulls("'.'") -%}
+              array_to_string([
                 series_code_pos_1,
                 series_code_pos_2,
                 series_code_pos_3,
                 series_code_pos_4,
                 series_code_pos_5
-              {%- endcall %} = series_code
+              ], '.') = series_code
     columns:
       - name: debtor
         data_type: string

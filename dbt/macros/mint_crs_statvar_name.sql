@@ -11,11 +11,11 @@
         combinations - commitments, gross and net disbursements, and grant
         equivalents.
 
-        join_skipping_nulls omits a null argument along with its separator, so a StatVar
-        with no cooperation modality leaves no gap behind.
+        array_to_string omits a null argument along with its separator, so a StatVar with
+        no cooperation modality leaves no gap behind.
     -#}
     {%- set flow = strip_label_parenthetical(type_of_flow_label) -%}
-    {% call join_skipping_nulls("' '") -%}
+    array_to_string([
         upper(left({{ flow }}, 1)) || substr({{ flow }}, 2),
         case
             when {{ financial_obligation_type }} = 'dcid:Commitment'
@@ -33,11 +33,11 @@
         end,
         'for',
         {{ strip_label_parenthetical(purpose_label) }}
-    {%- endcall %}
+    ], ' ')
     || ' ('
-    || {% call join_skipping_nulls("', '") -%}
+    || coalesce(array_to_string([
         {{ strip_label_parenthetical(type_of_finance_label) }},
         {{ strip_label_parenthetical(cooperation_modality_label) }}
-    {%- endcall %}
+    ], ', '), '')
     || ')'
 {%- endmacro %}
