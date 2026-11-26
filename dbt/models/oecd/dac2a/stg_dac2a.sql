@@ -5,6 +5,6 @@ select
     cast(aidtype as string) as aid_type,
     cast(datatype as string) as amount_type,
     cast(year as integer) as year,
-    cast(value as double) as value
+    cast(value as {{ dbt.type_float() }}) as value
 from {{ source("oecd_dac2a", "raw_dac2a") }}
 where value is not null

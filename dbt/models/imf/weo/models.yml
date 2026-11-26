@@ -45,7 +45,7 @@ models:
         data_tests:
           - not_null
       - name: obs_value
-        data_type: double
+        data_type: &double "{{ 'float64' if target.type == 'bigquery' else 'double' }}"
         description: Value, in units of scale_code
         data_tests:
           - not_null
@@ -107,7 +107,7 @@ models:
         data_tests:
           - not_null
       - name: obs_value
-        data_type: double
+        data_type: *double
         description: Value, in units of scale_code
         data_tests:
           - not_null
@@ -160,7 +160,7 @@ models:
         data_type: string
         description: IMF unit code. Null on the PPP series, which the IMF leaves unset.
       - name: value
-        data_type: double
+        data_type: *double
         description: Value in whole units, e.g. US dollars rather than billions
         data_tests:
           - not_null
@@ -300,7 +300,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: Value in whole units
         data_tests:
           - not_null
@@ -429,7 +429,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: Value in whole units
         data_tests:
           - not_null

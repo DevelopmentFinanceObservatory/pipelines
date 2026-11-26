@@ -78,7 +78,7 @@ models:
                 min_value: 1970
                 strictly: false
       - name: value
-        data_type: double
+        data_type: &double "{{ 'float64' if target.type == 'bigquery' else 'double' }}"
         description: >
           Observed value of the series, in the units the indicator declares.
 
@@ -123,7 +123,7 @@ models:
         data_type: integer
         description: Year the observation is reported against
       - name: value
-        data_type: double
+        data_type: *double
         description: Observed value of the series, in the units the indicator declares
 
   - name: int_ids_resolved
@@ -213,7 +213,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           Observed value of the series, in the units the series declares.
 
@@ -319,7 +319,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           Observed value of the series, in the units the series declares.
       - name: series_code_pos_1
@@ -833,7 +833,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           The observed value, unscaled. The IDS reports whole units of currency
           rather than millions, and the same column holds both trillion-dollar
@@ -909,7 +909,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: The observed value, unscaled
         data_tests:
           - not_null
@@ -963,7 +963,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: The observed value, in US dollars
         data_tests:
           - not_null

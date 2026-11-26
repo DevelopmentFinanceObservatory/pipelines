@@ -38,7 +38,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: &double "{{ 'float64' if target.type == 'bigquery' else 'double' }}"
         description: Total net ODA, in millions of the amount type's currency
         data_tests:
           - not_null
@@ -66,15 +66,15 @@ models:
         data_tests:
           - not_null
       - name: current_usd
-        data_type: double
+        data_type: *double
         description: Total net ODA in millions of current US dollars. Null when unreported.
       - name: constant_usd
-        data_type: double
+        data_type: *double
         description: >
           Total net ODA in millions of constant US dollars of the DAC base year.
           Null when unreported.
       - name: national_currency
-        data_type: double
+        data_type: *double
         description: >
           Total net ODA in millions of the donor's national currency. Null for
           DAC Countries, Total and for donors that report in US dollars outright.
@@ -104,13 +104,13 @@ models:
         data_tests:
           - not_null
       - name: gdp_national_currency
-        data_type: double
+        data_type: *double
         description: GDP in national currency (NGDP). Null when WEO publishes none that year.
       - name: gdp_usd
-        data_type: double
+        data_type: *double
         description: GDP in US dollars (NGDPD). Null when WEO publishes none that year.
       - name: gdp_deflator
-        data_type: double
+        data_type: *double
         description: GDP deflator in national currency (NGDP_D). Null when WEO publishes none that year.
       - name: rate_is_estimate
         data_type: boolean
@@ -161,7 +161,7 @@ models:
         data_tests:
           - not_null
       - name: rate
-        data_type: double
+        data_type: *double
         description: Units of the currency per US dollar, as the area's own data implies
         data_tests:
           - not_null
@@ -265,7 +265,7 @@ models:
         data_tests:
           - not_null
       - name: rate
-        data_type: double
+        data_type: *double
         description: Units of the currency per US dollar
         data_tests:
           - not_null
@@ -326,12 +326,12 @@ models:
         data_tests:
           - not_null
       - name: member_rate
-        data_type: double
+        data_type: *double
         description: The member's own rate in its last actual year
         data_tests:
           - not_null
       - name: reference_rate
-        data_type: double
+        data_type: *double
         description: >
           The currency's rate in the member's last actual year. Null, and
           failing this test, when the reference has no rate that year, so the
@@ -339,12 +339,12 @@ models:
         data_tests:
           - not_null
       - name: relative_deviation
-        data_type: double
+        data_type: *double
         description: Absolute relative difference between the member's rate and the reference's
         data_tests:
           - not_null
       - name: tolerance
-        data_type: double
+        data_type: *double
         description: Largest relative_deviation accepted, 1e-6 for both sources
         data_tests:
           - not_null
@@ -400,17 +400,17 @@ models:
         data_tests:
           - not_null
       - name: dac_rate
-        data_type: double
+        data_type: *double
         description: The DAC table's rate, from DAC1
         data_tests:
           - not_null
       - name: imf_rate
-        data_type: double
+        data_type: *double
         description: The IMF table's reported rate, from the WEO
         data_tests:
           - not_null
       - name: rate_ratio
-        data_type: double
+        data_type: *double
         description: dac_rate divided by imf_rate
         data_tests:
           - not_null
@@ -440,7 +440,7 @@ models:
         data_tests:
           - not_null
       - name: deflator
-        data_type: double
+        data_type: *double
         description: US-dollar deflator on the source's own base
         data_tests:
           - not_null
@@ -484,7 +484,7 @@ models:
         data_tests:
           - not_null
       - name: deflator
-        data_type: double
+        data_type: *double
         description: US-dollar deflator, 100 in the base year
         data_tests:
           - not_null
@@ -625,7 +625,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: Units of the currency per US dollar, or index points
         data_tests:
           - not_null
@@ -675,7 +675,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: Units of the currency per US dollar, or index points
         data_tests:
           - not_null
