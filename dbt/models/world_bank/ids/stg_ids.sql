@@ -21,7 +21,11 @@ with unpivoted as (
         trim({{ adapter.quote("Series Code") }}) as series_code
     -- unpivot drops rows with a null value
     from {{ source("world_bank_ids", "raw_ids") }}
-    unpivot (value for year in ({{ ids_year_columns() }}))
+    unpivot (value for year in (
+        {%- for year in ids_year_columns() %}
+        {{ adapter.quote(year) }}{{ "," if not loop.last }}
+        {%- endfor %}
+    ))
 )
 
 select

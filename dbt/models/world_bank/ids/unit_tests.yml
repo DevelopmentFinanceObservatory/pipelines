@@ -14,7 +14,7 @@ unit_tests:
       distinct from "zero".
     overrides:
       macros:
-        ids_year_columns: '"2023", "2024"'
+        ids_year_columns: ["2023", "2024"]
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
@@ -78,7 +78,7 @@ unit_tests:
       added INCLUDE NULLS.
     overrides:
       macros:
-        ids_year_columns: '"2023", "2024"'
+        ids_year_columns: ["2023", "2024"]
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
@@ -104,7 +104,7 @@ unit_tests:
       Code on some rows, so this also fails if the filter runs before the trim.
     overrides:
       macros:
-        ids_year_columns: '"2023", "2024"'
+        ids_year_columns: ["2023", "2024"]
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
