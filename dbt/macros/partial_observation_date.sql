@@ -4,13 +4,14 @@
         the dataset's completing release in the following year; null once it
         is complete.
     -#}
+    {%- set completing_release_month = var("release_calendars")[dataset].completing_release_month -%}
     case
         when {{ release_date }}
-            < {{ date_from_parts(
-                "cast(" ~ latest_observation_date ~ " as integer) + 1",
-                var("release_calendars")[dataset].completing_release_month,
-                1
-            ) }}
+            < cast(
+                cast(cast({{ latest_observation_date }} as integer) + 1 as string)
+                || '-{{ "%02d" | format(completing_release_month) }}-01'
+                as date
+            )
             then {{ latest_observation_date }}
     end
 {%- endmacro %}
