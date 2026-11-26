@@ -45,7 +45,7 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'OECD (' || extraction.source_release_year || '), OECD DAC1, '
     || 'OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC1/Table1_Data.zip'

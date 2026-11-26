@@ -41,7 +41,7 @@ select
         ],
         ','
     ) as source_data_url,
-    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'ONE Data (' || metadata.release_year || '), ONE Data Climate Finance, '
     || 'computed from OECD, Creditor Reporting System (CRS) and '
     || 'Climate-related Development Finance (CRDF), and UNFCCC, Biennial '

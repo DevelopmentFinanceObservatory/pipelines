@@ -33,7 +33,7 @@ select
     {{ var("conversion_tables_deflator_base_year") }} as deflator_base_year,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'ONE (' || extraction.refresh_year || '), ONE Conversion Tables (IMF), '
     || 'https://docs.one.org/methodologies/data/oda/currency-conversion/ '
     || '(accessed on ' || extraction.access_date || '), computed from '

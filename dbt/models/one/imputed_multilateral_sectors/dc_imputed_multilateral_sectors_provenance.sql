@@ -92,7 +92,7 @@ select
             )
         }}
     ) as partial_observation_date,
-    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'ONE (' || extraction.latest_release_year || '), Imputed Multilateral Sectors, '
     || 'https://docs.one.org/methodologies/data/oda/imputed-multilateral-sectors/ '
     || '(accessed on ' || extraction.access_date || '), computed from '

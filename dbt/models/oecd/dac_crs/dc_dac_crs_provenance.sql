@@ -46,7 +46,7 @@ select
             'observation_range.latest_observation_date'
         )
     }} as partial_observation_date,
-    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'OECD (' || extraction.source_release_year || '), '
     || 'Creditor Reporting System (CRS), OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_CRS/CRS.parquet'
