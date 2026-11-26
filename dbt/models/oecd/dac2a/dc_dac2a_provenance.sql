@@ -25,6 +25,13 @@ observation_range as (
     from {{ ref("dc_dac2a_observations") }}
 )
 
+{%- set description -%}
+DAC2A is the OECD Development Assistance Committee's table of ODA disbursements by donor
+and recipient country or region. It covers bilateral donors and multilateral agencies
+reporting their own outflows, and includes the OECD's estimate of each donor's core
+multilateral contributions attributed to recipients.
+{%- endset %}
+
 select
     'OECD DAC2A' as name,
     'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
@@ -47,11 +54,7 @@ select
             'observation_range.latest_observation_date'
         )
     }} as partial_observation_date,
-    'DAC2A is the OECD Development Assistance Committee''s table of ODA '
-    || 'disbursements by donor and recipient country or region. It covers '
-    || 'bilateral donors and multilateral agencies reporting their own '
-    || 'outflows, and includes the OECD''s estimate of each donor''s core '
-    || 'multilateral contributions attributed to recipients.' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'OECD (' || extraction.source_release_year || '), OECD DAC2A, '
     || 'OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2a_Data.zip'

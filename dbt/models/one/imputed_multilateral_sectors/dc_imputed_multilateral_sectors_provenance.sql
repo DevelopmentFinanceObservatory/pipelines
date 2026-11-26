@@ -61,6 +61,15 @@ observation_range as (
     from {{ ref("dc_imputed_multilateral_sectors_observations") }} as observations
 )
 
+{%- set description -%}
+Imputed Multilateral Sectors is ONE's estimate of how each DAC donor's core
+contributions to multilateral organisations are spent, by recipient and sector. ONE
+computes it from the OECD Creditor Reporting System and Members' Total Use of the
+Multilateral System, attributing each multilateral organisation's spending to its donors
+in proportion to their core contributions to that organisation. Values are gross ODA
+disbursements in current US dollars.
+{%- endset %}
+
 select
     'ONE Imputed Multilateral Sectors' as name,
     'source/ONEData' as source,
@@ -92,14 +101,7 @@ select
             )
         }}
     ) as partial_observation_date,
-    'Imputed Multilateral Sectors is ONE''s estimate of how each DAC '
-    || 'donor''s core contributions to multilateral organisations are '
-    || 'spent, by recipient and sector. ONE computes it from the OECD '
-    || 'Creditor Reporting System and Members'' Total Use of the '
-    || 'Multilateral System, attributing each multilateral organisation''s '
-    || 'spending to its donors in proportion to their core contributions '
-    || 'to that organisation. Values are gross ODA disbursements in '
-    || 'current US dollars.' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'ONE (' || extraction.latest_release_year || '), Imputed Multilateral Sectors, '
     || 'https://docs.one.org/methodologies/data/oda/imputed-multilateral-sectors/ '
     || '(accessed on ' || extraction.access_date || '), computed from '
@@ -107,7 +109,8 @@ select
     || 'System (CRS), '
     || 'https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_CRS@DF_CRS/ '
     || '(accessed on ' || extraction.access_date || ') and OECD ('
-    || extraction.multisystem_release_year || '), Members'' Total Use of the '
+    || extraction.multisystem_release_year || '), '
+    || '{{ dbt.escape_single_quotes("Members' Total Use of the ") }}'
     || 'Multilateral System, '
     || 'https://sdmx.oecd.org/public/rest/dataflow/OECD.DCD.FSD/DSD_MULTI@DF_MULTI/ '
     || '(accessed on ' || extraction.access_date || ')'
