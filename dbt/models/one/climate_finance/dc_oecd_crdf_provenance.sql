@@ -14,6 +14,12 @@ observation_range as (
     from {{ ref("dc_oecd_crdf_observations") }} as observations
 )
 
+{%- set description -%}
+Climate-related development finance commitments the OECD publishes in its CRDF dataset,
+by provider and recipient. Rio-marked projects count at full value, and development
+banks' projects at the climate share the banks report.
+{%- endset %}
+
 select
     'OECD Climate-related Development Finance' as name,
     'dc/s/OrganisationForEconomicCo-operationAndDevelopmentOecd' as source,
@@ -25,7 +31,7 @@ select
     observation_range.latest_observation_date,
     'https://www.oecd.org/en/topics/sub-issues/'
     || 'development-finance-for-climate-and-the-environment.html' as url,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'Source: OECD, Climate-related Development Finance, recipient '
     || 'perspective, https://webfs.oecd.org/climate/RecipientPerspective/. '
     || 'This is an adaptation of an original work by the OECD. The opinions '

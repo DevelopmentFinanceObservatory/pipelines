@@ -32,6 +32,15 @@ observation_range as (
     from {{ ref("dc_conversion_tables_dac_observations") }} as observations
 )
 
+{%- set description -%}
+ONE Conversion Tables (DAC) holds the exchange rates and US-dollar deflators that
+convert OECD development finance data to other currencies and to constant prices.
+Deflators and the exchange rates of DAC donor currencies come from the OECD DAC1 table.
+Every other currency's rate comes from the IMF World Economic Outlook. Each rate is in
+units of the currency per US dollar, and each deflator series is rebased to equal 100 in
+the declared base year.
+{%- endset %}
+
 select
     'ONE Conversion Tables (DAC)' as name,
     'source/ONEData' as source,
@@ -46,7 +55,7 @@ select
     {{ var("conversion_tables_deflator_base_year") }} as deflator_base_year,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'ONE (' || extraction.refresh_year || '), ONE Conversion Tables (DAC), '
     || 'https://docs.one.org/methodologies/data/oda/currency-conversion/ '
     || '(accessed on ' || extraction.access_date || '), computed from '

@@ -981,15 +981,6 @@ models:
       observations model.
     config:
       contract: {enforced: true}
-      meta:
-        dataset_description: >-
-          International Debt Statistics (IDS) is the World Bank's annual dataset on the
-          external debt of low- and middle-income countries. It reports debt stocks,
-          disbursements, debt service and projected repayments by borrower and creditor
-          type, with public and publicly guaranteed debt broken down by creditor, from
-          1970 onwards. The data come mainly from countries' loan-by-loan reporting of
-          public and publicly guaranteed debt to the World Bank's Debtor Reporting System,
-          which is a condition of borrowing from IBRD and IDA.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_provenance_row

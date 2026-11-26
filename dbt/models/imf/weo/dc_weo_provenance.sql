@@ -27,6 +27,14 @@ observation_range as (
     from {{ ref("dc_weo_observations") }} as observations
 )
 
+{%- set description -%}
+The World Economic Outlook (WEO) database holds the IMF's macroeconomic data and
+projections for its member economies and country groups. It covers national accounts,
+inflation, unemployment, the balance of payments, government revenue, spending and debt,
+trade and commodity prices, with data from 1980 and projections for most series five
+years ahead.
+{%- endset %}
+
 select
     'IMF World Economic Outlook (WEO)' as name,
     weo_source.dcid as source,
@@ -40,7 +48,7 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'Source: International Monetary Fund, World Economic Outlook Database, '
     || 'https://data.imf.org/en/datasets/IMF.RES:WEO' as license_attribution
 from extraction

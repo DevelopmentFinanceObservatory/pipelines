@@ -407,13 +407,6 @@ models:
     description: Provenance node for DAC2a data.
     config:
       contract: {enforced: true}
-      meta:
-        dataset_description: >-
-          DAC2A is the OECD Development Assistance Committee's table of ODA disbursements
-          by donor and recipient country or region. It covers bilateral donors and
-          multilateral agencies reporting their own outflows, and includes the OECD's
-          estimate of each donor's core multilateral contributions attributed to
-          recipients.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_dac2a_provenance_row

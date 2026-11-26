@@ -23,6 +23,20 @@ observation_range as (
     from {{ ref("dc_one_climate_finance_observations") }} as observations
 )
 
+{%- set description -%}
+Climate finance commitments and payments estimated by ONE Data with its climate-finance
+package, from the OECD's CRS and CRDF and the parties' Biennial Transparency Reports to
+the UNFCCC. Each CRS payment is linked to the commitment it pays and takes that
+commitment's climate share. Marker-score weighting uses the coefficients each donor
+applies when it reports to the UNFCCC, else the shares its Biennial Transparency Report
+implies, else 40% of a significant project and 100% of a principal one. Under both
+weightings, development banks' projects count at the climate share the banks report.
+Spending-share attribution takes each institution's climate share from its commitments
+over the year and the year before, or the OECD's share where the institution reports no
+CRS data. Funding-share attribution uses the shares the OECD attributes to developed
+countries in its count towards the USD 100bn goal.
+{%- endset %}
+
 select
     'ONE Data Climate Finance' as name,
     'source/ONEData' as source,
@@ -41,7 +55,7 @@ select
         ],
         ','
     ) as source_data_url,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(description | replace("\n", " ")) }}' as description,
     'ONE Data (' || metadata.release_year || '), ONE Data Climate Finance, '
     || 'computed from OECD, Creditor Reporting System (CRS) and '
     || 'Climate-related Development Finance (CRDF), and UNFCCC, Biennial '

@@ -387,13 +387,6 @@ models:
     description: Provenance node for DAC2b data.
     config:
       contract: {enforced: true}
-      meta:
-        dataset_description: >-
-          DAC2B is the OECD Development Assistance Committee's table of other official
-          flows and officially supported export credits by donor and recipient. It covers
-          non-concessional official lending, grants and equity outside ODA. Bilateral
-          donors report mostly against regional and income-group aggregates, so
-          country-level detail comes largely from multilateral lenders.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_dac2b_provenance_row
