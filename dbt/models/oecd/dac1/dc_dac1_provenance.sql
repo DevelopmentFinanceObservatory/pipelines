@@ -10,7 +10,7 @@ extraction as (
     select
         metadata.release_year as source_release_year,
         cast(metadata.source_release_date as string) as imported_source_release_date,
-        cast({{ utc_date("metadata.downloaded_at") }} as string)
+        cast(cast(metadata.downloaded_at as date) as string)
             as access_date,
         {{ next_source_release_date('oecd_dac1', 'metadata.source_release_date') }}
             as next_source_release_date

@@ -4,4 +4,7 @@ dfo_pipelines:
     local:
       type: duckdb
       path: "{{ env_var('DUCKDB_PATH') }}"
+      # A timestamp with time zone casts to its UTC date, as on BigQuery.
+      settings:
+        TimeZone: UTC
       threads: 24
