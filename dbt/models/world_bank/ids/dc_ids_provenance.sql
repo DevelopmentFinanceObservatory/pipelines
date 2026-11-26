@@ -29,7 +29,7 @@ metadata as (
 
 extraction as (
     select
-        strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
+        cast(metadata.source_release_date as string) as imported_source_release_date,
         case
             when metadata.release_month < 12 then metadata.release_year || '-12'
             else metadata.following_year || '-12'

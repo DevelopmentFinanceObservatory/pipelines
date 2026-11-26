@@ -39,11 +39,11 @@ extraction as (
             greatest(metadata.crs_release_year, metadata.multisystem_release_year)
             as string
         ) as latest_release_year,
-        strftime(
-            greatest(metadata.crs_release_date, metadata.multisystem_release_date),
-            '%Y-%m-%d'
+        cast(
+            greatest(metadata.crs_release_date, metadata.multisystem_release_date)
+            as string
         ) as imported_source_release_date,
-        strftime(metadata.downloaded_at at time zone 'UTC', '%Y-%m-%d')
+        cast({{ utc_date("metadata.downloaded_at") }} as string)
             as access_date,
         -- CRS and Members' Total Use each have their own release calendar.
         -- The source next in line is whichever of the two comes first.

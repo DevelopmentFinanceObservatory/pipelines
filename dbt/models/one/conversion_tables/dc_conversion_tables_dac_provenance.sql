@@ -18,8 +18,8 @@ with extraction as (
 -- The later of the DAC1 and WEO releases the table is computed from.
 source_release as (
     select
-        strftime(
-            greatest(dac1.source_release_date, weo.source_release_date), '%Y-%m-%d'
+        cast(
+            greatest(dac1.source_release_date, weo.source_release_date) as string
         ) as imported_source_release_date
     from {{ source("oecd_dac1", "raw_dac1_metadata") }} as dac1
     cross join {{ source("imf_weo", "raw_weo_metadata") }} as weo
