@@ -751,6 +751,14 @@ models:
       from the observations model.
     config:
       contract: {enforced: true}
+      meta:
+        dataset_description: >-
+          ONE Conversion Tables (DAC) holds the exchange rates and US-dollar deflators
+          that convert OECD development finance data to other currencies and to constant
+          prices. Deflators and the exchange rates of DAC donor currencies come from the
+          OECD DAC1 table. Every other currency's rate comes from the IMF World Economic
+          Outlook. Each rate is in units of the currency per US dollar, and each deflator
+          series is rebased to equal 100 in the declared base year.
     data_tests: &provenance_tests
       - dbt_expectations.expect_table_row_count_to_equal:
           arguments:
@@ -846,5 +854,14 @@ models:
       from the observations model.
     config:
       contract: {enforced: true}
+      meta:
+        dataset_description: >-
+          ONE Conversion Tables (IMF) holds the exchange rates and US-dollar deflators
+          that convert IMF and World Bank data to other currencies and to constant prices,
+          computed from the IMF World Economic Outlook. Each currency's rate is
+          national-currency GDP divided by US-dollar GDP, and each country's deflator is
+          the GDP deflator multiplied by US-dollar GDP over national-currency GDP, rebased
+          to equal 100 in the declared base year. Years after a country's last actual year
+          are IMF projections.
     data_tests: *provenance_tests
     columns: *provenance_columns

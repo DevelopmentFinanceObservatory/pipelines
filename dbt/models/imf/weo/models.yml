@@ -446,6 +446,13 @@ models:
     description: Provenance node for the WEO data
     config:
       contract: {enforced: true}
+      meta:
+        dataset_description: >-
+          The World Economic Outlook (WEO) database holds the IMF's macroeconomic data and
+          projections for its member economies and country groups. It covers national
+          accounts, inflation, unemployment, the balance of payments, government revenue,
+          spending and debt, trade and commodity prices, with data from 1980 and
+          projections for most series five years ahead.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_weo_provenance_row

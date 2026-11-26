@@ -45,12 +45,7 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    'DAC1 is the OECD Development Assistance Committee''s table of total '
-    || 'flows by provider. It reports each donor''s ODA, other official flows, '
-    || 'export credits and private flows by aid type, with no recipient or '
-    || 'sector breakdown. It is the official source for headline ODA, the '
-    || 'bilateral and multilateral split, in-donor costs such as refugees in '
-    || 'donor countries, and the ODA/GNI ratio.' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'OECD (' || extraction.source_release_year || '), OECD DAC1, '
     || 'OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC1/Table1_Data.zip'

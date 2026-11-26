@@ -29,6 +29,7 @@ Every node the pipeline references, such as the population type, measurement met
 Some of a pipeline's text reaches people who use the data and never see the code. The export writes `transformations.md` and `changelog.md` into the provenance node, and a property DFO adds to the graph carries its description to every user of the graph. Write that text for its reader: what the data means, in as few sentences as it takes, naming no SQL file, macro, asset or var. Cutoffs, checks and the logic behind a value go in code comments.
 
 - **A column description** in `models.yml` says how to read the value. How it is computed belongs in the SQL.
+- **A dataset's description** goes in its provenance model's `meta.dataset_description` in `models.yml`, which the SQL renders through `dbt.escape_single_quotes`, so an apostrophe is escaped for each warehouse.
 - **A source's concepts** take the publisher's own terms, checked against its documents. The OECD, for instance, calls its April figures preliminary and a year only some donors have reported partial, and the two mean different things.
 - **A graph property's description** follows the wording of the nearest existing Data Commons property and holds for any graph, so it names no DFO source or process.
 - **The changelog** records changes to the values, the coverage or how the data is modelled, and leaves out changes a user cannot see.

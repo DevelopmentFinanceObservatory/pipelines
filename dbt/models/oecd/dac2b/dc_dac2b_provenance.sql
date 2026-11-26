@@ -47,12 +47,7 @@ select
             'observation_range.latest_observation_date'
         )
     }} as partial_observation_date,
-    'DAC2B is the OECD Development Assistance Committee''s table of other '
-    || 'official flows and officially supported export credits by donor and '
-    || 'recipient. It covers non-concessional official lending, grants and '
-    || 'equity outside ODA. Bilateral donors report mostly against regional and '
-    || 'income-group aggregates, so country-level detail comes largely from '
-    || 'multilateral lenders.' as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'OECD (' || extraction.source_release_year || '), OECD DAC2B, '
     || 'OECD Data Explorer, '
     || 'https://webfs-dcd.oecd.org/files/dotStat/DSD_DAC2/Table2b_Data.zip'

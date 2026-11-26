@@ -439,6 +439,13 @@ models:
       observation models.
     config:
       contract: {enforced: true}
+      meta:
+        dataset_description: >-
+          DAC1 is the OECD Development Assistance Committee's table of total flows by
+          provider. It reports each donor's ODA, other official flows, export credits and
+          private flows by aid type, with no recipient or sector breakdown. It is the
+          official source for headline ODA, the bilateral and multilateral split, in-donor
+          costs such as refugees in donor countries, and the ODA/GNI ratio.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_dac1_provenance_row

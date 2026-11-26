@@ -992,6 +992,20 @@ models:
       dates are taken from the observations.
     config:
       contract: { enforced: true }
+      meta:
+        dataset_description: >-
+          Climate finance commitments and payments estimated by ONE Data with its
+          climate-finance package, from the OECD's CRS and CRDF and the parties' Biennial
+          Transparency Reports to the UNFCCC. Each CRS payment is linked to the commitment
+          it pays and takes that commitment's climate share. Marker-score weighting uses
+          the coefficients each donor applies when it reports to the UNFCCC, else the
+          shares its Biennial Transparency Report implies, else 40% of a significant
+          project and 100% of a principal one. Under both weightings, development banks'
+          projects count at the climate share the banks report. Spending-share attribution
+          takes each institution's climate share from its commitments over the year and
+          the year before, or the OECD's share where the institution reports no CRS data.
+          Funding-share attribution uses the shares the OECD attributes to developed
+          countries in its count towards the USD 100bn goal.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_one_climate_finance_provenance_row
@@ -1074,6 +1088,11 @@ models:
       commitments. Observation dates are taken from the observations.
     config:
       contract: { enforced: true }
+      meta:
+        dataset_description: >-
+          Climate-related development finance commitments the OECD publishes in its CRDF
+          dataset, by provider and recipient. Rio-marked projects count at full value, and
+          development banks' projects at the climate share the banks report.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_oecd_crdf_provenance_row
@@ -1120,6 +1139,12 @@ models:
       observations.
     config:
       contract: { enforced: true }
+      meta:
+        dataset_description: >-
+          Climate finance each party reports to the UNFCCC in its Biennial Transparency
+          Report. Each party works out its climate amounts itself, with its own
+          coefficients or by assessing each project. The DFO takes the bilateral totals of
+          Table III.1 by party, year and status.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_unfccc_btr_provenance_row

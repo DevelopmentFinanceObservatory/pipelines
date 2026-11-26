@@ -33,14 +33,7 @@ select
     {{ var("conversion_tables_deflator_base_year") }} as deflator_base_year,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    'ONE Conversion Tables (IMF) holds the exchange rates and US-dollar '
-    || 'deflators that convert IMF and World Bank data to other currencies and '
-    || 'to constant prices, computed from the IMF World Economic Outlook. Each '
-    || 'currency''s rate is national-currency GDP divided by US-dollar GDP, and '
-    || 'each country''s deflator is the GDP deflator multiplied by US-dollar GDP '
-    || 'over national-currency GDP, rebased to equal 100 in the declared base '
-    || 'year. Years after a country''s last actual year are IMF projections.'
-        as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'ONE (' || extraction.refresh_year || '), ONE Conversion Tables (IMF), '
     || 'https://docs.one.org/methodologies/data/oda/currency-conversion/ '
     || '(accessed on ' || extraction.access_date || '), computed from '

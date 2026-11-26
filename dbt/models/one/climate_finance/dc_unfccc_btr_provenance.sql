@@ -25,11 +25,7 @@ select
     metadata.imported_source_release_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    'Climate finance each party reports to the UNFCCC in its Biennial '
-    || 'Transparency Report. Each party works out its climate amounts itself, '
-    || 'with its own coefficients or by assessing each project. The DFO takes '
-    || 'the bilateral totals of Table III.1 by party, year and status.'
-        as description,
+    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
     'Source: UNFCCC, Biennial Transparency Reports, '
     || 'https://unfccc.int/biennial-transparency-reports' as license_attribution
 from metadata

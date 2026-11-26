@@ -530,6 +530,16 @@ models:
       from the observations model.
     config:
       contract: { enforced: true }
+      meta:
+        dataset_description: >-
+          The Creditor Reporting System (CRS) is the OECD Development Assistance
+          Committee's activity-level database of development finance. Each record is a
+          project, programme or contribution reported by a bilateral provider, a
+          multilateral organisation or a private foundation, with its recipient, sector
+          and purpose, channel of delivery, aid type, and commitment and disbursement
+          amounts. It covers ODA, other official flows, private sector instruments and
+          private philanthropy, and is the source for any breakdown by sector, channel or
+          project.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_provenance_row

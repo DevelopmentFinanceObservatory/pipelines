@@ -461,6 +461,14 @@ models:
       dates are read from the observations model.
     config:
       contract: { enforced: true }
+      meta:
+        dataset_description: >-
+          Imputed Multilateral Sectors is ONE's estimate of how each DAC donor's core
+          contributions to multilateral organisations are spent, by recipient and sector.
+          ONE computes it from the OECD Creditor Reporting System and Members' Total Use
+          of the Multilateral System, attributing each multilateral organisation's
+          spending to its donors in proportion to their core contributions to that
+          organisation. Values are gross ODA disbursements in current US dollars.
     data_tests:
       - dbt_expectations.expect_table_row_count_to_equal:
           name: exactly_one_provenance_row
