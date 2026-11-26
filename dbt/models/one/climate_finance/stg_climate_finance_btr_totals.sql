@@ -11,7 +11,7 @@ select
     cast(year as integer) as year,
     status,
     funding,
-    cast(face_usd_at_dac as decimal(38, 12)) as face_usd_at_dac
+    cast(face_usd_at_dac as double) as face_usd_at_dac
 from {{ source("one_climate_finance", "raw_climate_finance_btr_totals") }}
 where
     status in ('committed', 'disbursed')

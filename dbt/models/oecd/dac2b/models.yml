@@ -63,7 +63,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Amount as DAC2b reports it, in millions of US dollars
         data_tests:
           - not_null
@@ -116,7 +116,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Amount as DAC2b reports it, in millions of US dollars
         data_tests:
           - not_null
@@ -158,7 +158,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: decimal(38,12)
+        data_type: double
         description: Amount in millions of current US dollars
         data_tests:
           - not_null

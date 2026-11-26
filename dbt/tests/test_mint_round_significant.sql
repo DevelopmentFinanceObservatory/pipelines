@@ -31,8 +31,8 @@ with cases as (
             cast(0 as double), '0.0'
         ),
         (
-            'a rounded cents amount arrives intact from a decimal',
-            round(cast(123456789.123456789 as decimal(38, 12)), 2), '123456789.12'
+            'a double rounded to cents keeps its cents',
+            round(cast(123456789.123456789 as double), 2), '123456789.12'
         )
     ) as cases (case_name, input_value, expected)
 ),
