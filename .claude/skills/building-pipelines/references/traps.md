@@ -58,7 +58,7 @@ Every value is a `double` from staging to publication. A narrowing cast before t
 
 Round once, after the last sum, in the model that sets the unit. Every published value is a `double` through the `round_significant` macro, which keeps the 15 significant digits a Data Commons value carries (its API serves float64). Round a summed currency amount to cents first.
 
-Guard the sum with a singular test that casts the published values to `decimal(38,12)` before summing and reconciles each year's total with the source to within half a cent per observation. A unit test cannot, because dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
+Guard the sum with a singular test that reconciles each year's total with the source to within half a cent per observation. A unit test cannot, because dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
 
 ### A seed only tests read is no model's parent
 
