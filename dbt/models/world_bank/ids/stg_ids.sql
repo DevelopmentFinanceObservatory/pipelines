@@ -2,25 +2,26 @@ with unpivoted as (
     select
         year,
         value,
-        trim("Country Code") as country_code,
-        trim("Country Name") as country_name,
-        trim("Counterpart-Area Name") as counterpart_name,
+        trim({{ adapter.quote("Country Code") }}) as country_code,
+        trim({{ adapter.quote("Country Name") }}) as country_name,
+        trim({{ adapter.quote("Counterpart-Area Name") }}) as counterpart_name,
         -- Counterpart codes are three-digit strings ("004"), but the bulk XLSX
         -- files store some cells as numbers, which arrive as "4". Restore the
         -- zero padding so both forms resolve to the same creditor. Letter codes
         -- such as WLD pass through.
         lpad(
-            trim("Counterpart-Area Code"),
-            cast(greatest(length(trim("Counterpart-Area Code")), 3) as integer),
+            trim({{ adapter.quote("Counterpart-Area Code") }}),
+            cast(
+                greatest(length(trim({{ adapter.quote("Counterpart-Area Code") }})), 3)
+                as integer
+            ),
             '0'
         ) as counterpart_code,
-        trim("Series Name") as series_name,
-        trim("Series Code") as series_code
-    from (  -- unpivot drops rows with NULL value automatically
-        unpivot {{ source("world_bank_ids", "raw_ids") }}
-        on columns('^[0-9]{4}$')
-        into name year value value
-    )
+        trim({{ adapter.quote("Series Name") }}) as series_name,
+        trim({{ adapter.quote("Series Code") }}) as series_code
+    -- unpivot drops rows with a null value
+    from {{ source("world_bank_ids", "raw_ids") }}
+    unpivot (value for year in ({{ ids_year_columns() }}))
 )
 
 select

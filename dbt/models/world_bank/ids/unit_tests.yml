@@ -12,6 +12,9 @@ unit_tests:
       source rows, so that rows are shown to be handled independently rather
       than only the first surviving, and a zero value, so that "no value" stays
       distinct from "zero".
+    overrides:
+      macros:
+        ids_year_columns: '"2023", "2024"'
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
@@ -73,6 +76,9 @@ unit_tests:
       that behaviour: DuckDB's UNPIVOT excludes NULLs by default, so there is no
       filter in the model to read it off. This is what would fail if someone
       added INCLUDE NULLS.
+    overrides:
+      macros:
+        ids_year_columns: '"2023", "2024"'
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
@@ -96,6 +102,9 @@ unit_tests:
       Of a series out of scope and one in scope, only the one in scope is staged.
       The excluded series code is padded, as production source data pads Series
       Code on some rows, so this also fails if the filter runs before the trim.
+    overrides:
+      macros:
+        ids_year_columns: '"2023", "2024"'
     given:
       - input: source('world_bank_ids', 'raw_ids')
         rows:
