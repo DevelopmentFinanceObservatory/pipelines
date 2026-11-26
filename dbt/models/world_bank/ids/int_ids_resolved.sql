@@ -61,7 +61,7 @@ normalised as (
     left join creditors
         on ids.counterpart_code = creditors.wb_counterpart_code
     left join segment_creditors
-        on split_part(ids.series_code, '.', 3) = segment_creditors.wb_code
+        on {{ dbt.split_part("ids.series_code", "'.'", 3) }} = segment_creditors.wb_code
 ),
 
 -- The cells where the lender a series code names is already itemised against a
@@ -75,7 +75,7 @@ restated_totals as (
         ids.year
     from {{ ref("int_ids_pruned") }} as ids
     inner join segment_creditors
-        on split_part(ids.series_code, '.', 3) = segment_creditors.wb_code
+        on {{ dbt.split_part("ids.series_code", "'.'", 3) }} = segment_creditors.wb_code
     inner join creditors
         on
             ids.counterpart_code = creditors.wb_counterpart_code

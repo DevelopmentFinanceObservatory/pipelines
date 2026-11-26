@@ -39,7 +39,7 @@ unmatched_cells as (
         wld.year
     from {{ ref("int_ids_pruned") }} as wld
     inner join lender_segments
-        on split_part(wld.series_code, '.', 3) = lender_segments.code
+        on {{ dbt.split_part("wld.series_code", "'.'", 3) }} = lender_segments.code
     where
         wld.counterpart_code = 'WLD'
         and not exists (
@@ -61,7 +61,7 @@ source as (
         count(*) filter (
             where
             counterpart_code = 'WLD'
-            and split_part(series_code, '.', 3)
+            and {{ dbt.split_part("series_code", "'.'", 3) }}
             not in (select lender_segments.code from lender_segments)
         ) as totals_on_other_series,
         (select count(*) from unmatched_cells) as totals_with_no_itemised_row
@@ -74,13 +74,13 @@ resolved as (
         count(*) filter (
             where
             counterpart_code = 'WLD'
-            and split_part(series_code, '.', 3)
+            and {{ dbt.split_part("series_code", "'.'", 3) }}
             not in (select lender_segments.code from lender_segments)
         ) as totals_on_other_series,
         count(*) filter (
             where
             counterpart_code = 'WLD'
-            and split_part(series_code, '.', 3)
+            and {{ dbt.split_part("series_code", "'.'", 3) }}
             in (select lender_segments.code from lender_segments)
         ) as totals_with_no_itemised_row
     from {{ ref("int_ids_resolved") }}

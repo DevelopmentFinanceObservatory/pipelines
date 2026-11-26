@@ -12,8 +12,8 @@ select  -- noqa: ST06
     -- The World Bank name of each source series, in code order, less any currency.
     string_agg(
         regexp_replace(
-            regexp_replace(series_name, ', current US\$\)$', ')'),
-            ' \((current )?US\$\)$',
+            regexp_replace(series_name, ', current US[$][)]$', ')'),
+            ' [(](current )?US[$][)]$',
             ''
         ),
         '; ' order by series_code

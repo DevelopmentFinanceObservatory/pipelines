@@ -10,7 +10,7 @@ with unpivoted as (
         -- zero padding so both forms resolve to the same creditor. Letter codes
         -- such as WLD pass through.
         case
-            when regexp_full_match(trim("Counterpart-Area Code"), '[0-9]{1,2}')
+            when {{ matches_pattern('trim("Counterpart-Area Code")', "'^[0-9]{1,2}$'") }}
                 then lpad(trim("Counterpart-Area Code"), 3, '0')
             else trim("Counterpart-Area Code")
         end as counterpart_code,
