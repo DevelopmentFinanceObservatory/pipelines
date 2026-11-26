@@ -4,7 +4,33 @@
 -- own two nodes. Neither carries constraints or observation properties, so each
 -- observation's subject is its observationAbout. The unit is a rate or an index
 -- point, so nothing reads a table as money to convert.
-with dc_names as (
+with series as (
+    select
+        'exchange_rate' as series,
+        'dcid:exchangeRate' as measured_property,
+        'dcid:CurrencyUnit' as population_type,
+        'dcid:CurrencyPerUSDollar' as unit,  -- noqa: RF04
+        'Exchange rate per US dollar' as label  -- noqa: RF04
+    union all
+    select
+        'deflator' as series,
+        'dcid:deflator' as measured_property,
+        'dcid:EconomicProduction' as population_type,
+        'dcid:IndexPoint' as unit,  -- noqa: RF04
+        'US-dollar deflator' as label  -- noqa: RF04
+),
+
+recipes as (
+    select
+        'dcid:ConversionRecipeDAC' as recipe,
+        'DAC' as table_label
+    union all
+    select
+        'dcid:ConversionRecipeIMF' as recipe,
+        'IMF' as table_label
+),
+
+dc_names as (
     select
         recipes.recipe,
         series.series,
@@ -15,30 +41,8 @@ with dc_names as (
         recipes.recipe as measurement_qualifier,
         series.label || ' (' || recipes.table_label || ' conversion table)'
             as statvar_name
-    from (
-        select
-            'exchange_rate' as series,
-            'dcid:exchangeRate' as measured_property,
-            'dcid:CurrencyUnit' as population_type,
-            'dcid:CurrencyPerUSDollar' as unit,
-            'Exchange rate per US dollar' as label
-        union all
-        select
-            'deflator' as series,
-            'dcid:deflator' as measured_property,
-            'dcid:EconomicProduction' as population_type,
-            'dcid:IndexPoint' as unit,
-            'US-dollar deflator' as label
-    ) as series
-    cross join (
-        select
-            'dcid:ConversionRecipeDAC' as recipe,
-            'DAC' as table_label
-        union all
-        select
-            'dcid:ConversionRecipeIMF' as recipe,
-            'IMF' as table_label
-    ) as recipes
+    from series
+    cross join recipes
 )
 
 select
