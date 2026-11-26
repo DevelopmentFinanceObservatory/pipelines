@@ -36,16 +36,29 @@ measure_values as (
 ),
 
 measure_dimensions as (
-    select dimensions.*
-    from (
-        values
-        ('usd_commitment', 'commitment', 'gross', 'face_value'),
-        ('usd_disbursement', 'disbursement', 'gross', 'face_value'),
-        ('usd_net_disbursement', 'disbursement', 'net', 'face_value'),
-        ('usd_grant_equiv', 'disbursement', null, 'grant_equivalent')
-    ) as dimensions (
-        measure, financing_event_type, netting_basis, valuation_basis
-    )
+    select
+        'usd_commitment' as measure,
+        'commitment' as financing_event_type,
+        'gross' as netting_basis,
+        'face_value' as valuation_basis
+    union all
+    select
+        'usd_disbursement' as measure,
+        'disbursement' as financing_event_type,
+        'gross' as netting_basis,
+        'face_value' as valuation_basis
+    union all
+    select
+        'usd_net_disbursement' as measure,
+        'disbursement' as financing_event_type,
+        'net' as netting_basis,
+        'face_value' as valuation_basis
+    union all
+    select
+        'usd_grant_equiv' as measure,
+        'disbursement' as financing_event_type,
+        null as netting_basis,
+        'grant_equivalent' as valuation_basis
 )
 
 select

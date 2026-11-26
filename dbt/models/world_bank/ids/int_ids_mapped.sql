@@ -19,8 +19,8 @@ with series as (
 variants as (
     select
         series_code,
-        count(*) filter (where creditor is null) > 0 as has_total,
-        count(*) filter (where creditor is not null) > 0 as has_breakdown
+        count(case when creditor is null then 1 end) > 0 as has_total,
+        count(creditor) > 0 as has_breakdown
     from {{ ref("int_ids_unified") }}
     group by series_code
 ),

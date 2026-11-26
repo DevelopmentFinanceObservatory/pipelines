@@ -11,7 +11,7 @@ with series_state as (
         country_code,
         counterpart_code,
         series_code,
-        min(year) filter (where value <> 0) as first_nonzero_year
+        min(case when value <> 0 then year end) as first_nonzero_year
     from {{ ref("stg_ids") }}
     group by country_code, counterpart_code, series_code
 ),

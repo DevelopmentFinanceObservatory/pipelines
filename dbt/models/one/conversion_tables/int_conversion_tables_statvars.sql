@@ -16,27 +16,29 @@ with dc_names as (
         series.label || ' (' || recipes.table_label || ' conversion table)'
             as statvar_name
     from (
-        values
-        (
-            'exchange_rate',
-            'dcid:exchangeRate',
-            'dcid:CurrencyUnit',
-            'dcid:CurrencyPerUSDollar',
-            'Exchange rate per US dollar'
-        ),
-        (
-            'deflator',
-            'dcid:deflator',
-            'dcid:EconomicProduction',
-            'dcid:IndexPoint',
-            'US-dollar deflator'
-        )
-    ) as series (series, measured_property, population_type, unit, label)
+        select
+            'exchange_rate' as series,
+            'dcid:exchangeRate' as measured_property,
+            'dcid:CurrencyUnit' as population_type,
+            'dcid:CurrencyPerUSDollar' as unit,
+            'Exchange rate per US dollar' as label
+        union all
+        select
+            'deflator' as series,
+            'dcid:deflator' as measured_property,
+            'dcid:EconomicProduction' as population_type,
+            'dcid:IndexPoint' as unit,
+            'US-dollar deflator' as label
+    ) as series
     cross join (
-        values
-        ('dcid:ConversionRecipeDAC', 'DAC'),
-        ('dcid:ConversionRecipeIMF', 'IMF')
-    ) as recipes (recipe, table_label)
+        select
+            'dcid:ConversionRecipeDAC' as recipe,
+            'DAC' as table_label
+        union all
+        select
+            'dcid:ConversionRecipeIMF' as recipe,
+            'IMF' as table_label
+    ) as recipes
 )
 
 select

@@ -3,9 +3,10 @@
         The properties that constrain a StatVar, as a comma-delimited list in the
         order the model declared them. A property whose value is null does not
         constrain the variable, so it is left out of the list rather than named with
-        nothing behind it.
+        nothing behind it. BigQuery joins an array of nulls to '' where DuckDB
+        gives null, hence the nullif.
     -#}
-    array_to_string(
+    nullif(array_to_string(
         [
             {%- for property, value in constraints.items() %}
             case when {{ value }} is not null then '{{ property }}' end
@@ -13,5 +14,5 @@
             {%- endfor %}
         ],
         ','
-    )
+    ), '')
 {%- endmacro %}

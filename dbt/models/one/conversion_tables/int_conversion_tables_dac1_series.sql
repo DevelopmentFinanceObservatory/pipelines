@@ -4,8 +4,8 @@
 select
     entity,
     year,
-    any_value(value) filter (where amount_type = 'A') as current_usd,
-    any_value(value) filter (where amount_type = 'D') as constant_usd,
-    any_value(value) filter (where amount_type = 'N') as national_currency
+    any_value(case when amount_type = 'A' then value end) as current_usd,
+    any_value(case when amount_type = 'D' then value end) as constant_usd,
+    any_value(case when amount_type = 'N' then value end) as national_currency
 from {{ ref("int_conversion_tables_dac1_resolved") }}
 group by entity, year

@@ -7,5 +7,5 @@
     also a ONE Data StatVar row fails.
 -#}
 select * from {{ ref("dc_oecd_crdf_statvars") }}
-except
+except distinct
 select * from {{ ref("dc_one_climate_finance_statvars") }}
