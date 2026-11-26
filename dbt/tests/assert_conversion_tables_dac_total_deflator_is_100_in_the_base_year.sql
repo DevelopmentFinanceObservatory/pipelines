@@ -25,7 +25,7 @@ where not exists (select 1 from base_year_total)
 union all
 
 select
-    'DAC Countries, Total deflator is ' || cast(deflator as varchar)
+    'DAC Countries, Total deflator is ' || cast(deflator as string)
     || ' in the base year' as failure
 from base_year_total
 where abs(deflator - 100) > 0.01

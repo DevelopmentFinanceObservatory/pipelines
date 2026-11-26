@@ -20,8 +20,8 @@ with bulk_files as (
 metadata as (
     select
         source_release_date,
-        cast(extract(year from source_release_date) as varchar) as release_year,
-        cast(extract(year from source_release_date) + 1 as varchar)
+        cast(extract(year from source_release_date) as string) as release_year,
+        cast(extract(year from source_release_date) + 1 as string)
             as following_year,
         extract(month from source_release_date) as release_month
     from {{ source("world_bank_ids", "raw_ids_metadata") }}
@@ -39,8 +39,8 @@ extraction as (
 
 observation_range as (
     select
-        cast(min(observations.date) as varchar) as earliest_observation_date,
-        cast(max(observations.date) as varchar) as latest_observation_date
+        cast(min(observations.date) as string) as earliest_observation_date,
+        cast(max(observations.date) as string) as latest_observation_date
     from {{ ref("int_ids_observations") }} as observations
 )
 

@@ -32,12 +32,12 @@ extraction as (
     select
         metadata.crs_release_date,
         metadata.multisystem_release_date,
-        cast(metadata.crs_release_year as varchar) as crs_release_year,
-        cast(metadata.multisystem_release_year as varchar)
+        cast(metadata.crs_release_year as string) as crs_release_year,
+        cast(metadata.multisystem_release_year as string)
             as multisystem_release_year,
         cast(
             greatest(metadata.crs_release_year, metadata.multisystem_release_year)
-            as varchar
+            as string
         ) as latest_release_year,
         strftime(
             greatest(metadata.crs_release_date, metadata.multisystem_release_date),
@@ -56,8 +56,8 @@ extraction as (
 
 observation_range as (
     select
-        cast(min(observations.date) as varchar) as earliest_observation_date,
-        cast(max(observations.date) as varchar) as latest_observation_date
+        cast(min(observations.date) as string) as earliest_observation_date,
+        cast(max(observations.date) as string) as latest_observation_date
     from {{ ref("dc_imputed_multilateral_sectors_observations") }} as observations
 )
 

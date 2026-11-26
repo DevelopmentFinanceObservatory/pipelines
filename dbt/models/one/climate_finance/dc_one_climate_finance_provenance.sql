@@ -11,15 +11,15 @@
 -- release frequency and no next release date.
 with metadata as (
     select
-        cast(extract(year from source_release_date) as varchar) as release_year,
+        cast(extract(year from source_release_date) as string) as release_year,
         strftime(source_release_date, '%Y-%m-%d') as imported_source_release_date
     from {{ source("one_climate_finance", "raw_climate_finance_metadata") }}
 ),
 
 observation_range as (
     select
-        cast(min(observations.date) as varchar) as earliest_observation_date,
-        cast(max(observations.date) as varchar) as latest_observation_date
+        cast(min(observations.date) as string) as earliest_observation_date,
+        cast(max(observations.date) as string) as latest_observation_date
     from {{ ref("dc_one_climate_finance_observations") }} as observations
 )
 

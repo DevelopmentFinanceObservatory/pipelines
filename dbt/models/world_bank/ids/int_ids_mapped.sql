@@ -34,7 +34,7 @@ variants as (
 breakdowns as (
     select
         series_code,
-        cast(null as varchar) as creditor_breakdown,
+        cast(null as string) as creditor_breakdown,
         false as has_provider
     from variants
     where has_total and has_breakdown
@@ -50,7 +50,7 @@ breakdowns as (
     union all
     select
         series_code,
-        cast(null as varchar) as creditor_breakdown,
+        cast(null as string) as creditor_breakdown,
         has_breakdown as has_provider
     from variants
     where not (has_total and has_breakdown)
