@@ -16,7 +16,7 @@ select
     cast(donor_code as string) as donor_code,
     cast(channel_code as string) as channel_code,
     cast(year as integer) as year,
-    cast(value as double) as value,
+    cast(value as {{ dbt.type_float() }}) as value,
     case
         when
             allocation_status = 'unallocated'

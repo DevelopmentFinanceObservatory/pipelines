@@ -97,16 +97,16 @@ models:
                 to: ref('dac_purpose_code_codelist')
                 field: code
       - name: usd_commitment
-        data_type: double
+        data_type: &double "{{ 'float64' if target.type == 'bigquery' else 'double' }}"
         description: Commitment in current USD
       - name: usd_disbursement
-        data_type: double
+        data_type: *double
         description: Gross disbursement in current USD
       - name: usd_received
-        data_type: double
+        data_type: *double
         description: Amount received in current USD
       - name: usd_grant_equiv
-        data_type: double
+        data_type: *double
         description: Grant equivalent in current USD
   - name: int_dac_crs_resolved
     description: CRS microdata with the reporting provider and the recipient replaced by their DCIDs
@@ -151,16 +151,16 @@ models:
         data_tests:
           - not_null
       - name: usd_commitment
-        data_type: double
+        data_type: *double
         description: Commitment in current USD
       - name: usd_disbursement
-        data_type: double
+        data_type: *double
         description: Gross disbursement in current USD
       - name: usd_received
-        data_type: double
+        data_type: *double
         description: Amount received in current USD
       - name: usd_grant_equiv
-        data_type: double
+        data_type: *double
         description: Grant equivalent in current USD
   - name: int_dac_crs_unified
     description: >
@@ -277,7 +277,7 @@ models:
               arguments:
                 values: [face_value, grant_equivalent]
       - name: value
-        data_type: double
+        data_type: *double
         description: Sum of the source amounts for this combination of dimensions
         data_tests:
           - not_null
@@ -387,7 +387,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: The observed amount
         data_tests:
           - not_null
@@ -513,7 +513,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           The observed amount, in whole units of the currency the unit names. The CRS
           reports in millions, so this is the source figure scaled up.

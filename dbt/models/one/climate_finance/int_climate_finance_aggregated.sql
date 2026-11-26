@@ -46,8 +46,8 @@ crdf as (
         year,
         financing_provider,
         financing_recipient,
-        cast(0 as double) as unsplit,
-        cast(0 as double) as no_adaptation_marker,
+        cast(0 as {{ dbt.type_float() }}) as unsplit,
+        cast(0 as {{ dbt.type_float() }}) as no_adaptation_marker,
         sum(climate_usd) as value,
         sum(adaptation_usd) as adaptation,
         sum(mitigation_usd) as mitigation,
@@ -68,11 +68,11 @@ btr as (
         cast(null as string) as method,  -- noqa: RF04
         cast(null as string) as attribution,
         cast(null as string) as financing_recipient,
-        cast(null as double) as adaptation,
-        cast(null as double) as mitigation,
-        cast(null as double) as cross_cutting,
-        cast(null as double) as unsplit,
-        cast(null as double) as no_adaptation_marker,
+        cast(null as {{ dbt.type_float() }}) as adaptation,
+        cast(null as {{ dbt.type_float() }}) as mitigation,
+        cast(null as {{ dbt.type_float() }}) as cross_cutting,
+        cast(null as {{ dbt.type_float() }}) as unsplit,
+        cast(null as {{ dbt.type_float() }}) as no_adaptation_marker,
         sum(face_usd_at_dac) as value,
         case status
             when 'committed' then 'commitments'

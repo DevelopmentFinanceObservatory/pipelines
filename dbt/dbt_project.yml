@@ -19,6 +19,11 @@ clean-targets:
 
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
+# Lets the project's macros override dbt's, such as type_float on DuckDB.
+dispatch:
+  - macro_namespace: dbt
+    search_order: ["dfo_pipelines", "dbt"]
+
 vars:
   # The year every conversion-table deflator series is rebased to equal 100 in,
   # written onto both table provenances as deflatorBaseYear. It follows the base

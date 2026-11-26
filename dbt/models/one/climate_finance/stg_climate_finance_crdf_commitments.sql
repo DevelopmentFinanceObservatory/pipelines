@@ -9,10 +9,10 @@ select
     cast(year as integer) as year,
     cast(provider_code as string) as provider_code,
     cast(bi_multi as integer) as bi_multi,
-    cast(climate_usd as double) as climate_usd,
-    cast(adaptation_usd as double) as adaptation_usd,
-    cast(mitigation_usd as double) as mitigation_usd,
-    cast(overlap_usd as double) as overlap_usd,
+    cast(climate_usd as {{ dbt.type_float() }}) as climate_usd,
+    cast(adaptation_usd as {{ dbt.type_float() }}) as adaptation_usd,
+    cast(mitigation_usd as {{ dbt.type_float() }}) as mitigation_usd,
+    cast(overlap_usd as {{ dbt.type_float() }}) as overlap_usd,
     case
         when recipient_code = 998 then '9998'
         else cast(recipient_code as string)

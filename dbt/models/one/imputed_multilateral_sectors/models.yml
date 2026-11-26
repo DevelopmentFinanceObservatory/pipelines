@@ -62,7 +62,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: &double "{{ 'float64' if target.type == 'bigquery' else 'double' }}"
         description: Imputed spending, gross disbursement, current USD, in millions
         data_tests:
           - not_null
@@ -116,7 +116,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: Imputed spending, gross disbursement, current USD, in millions
         data_tests:
           - not_null
@@ -161,7 +161,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           Sum of the imputed spending value for this combination of dimensions,
           across every channel it passed through, gross disbursement, current USD,
@@ -295,7 +295,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: The observed amount
         data_tests:
           - not_null
@@ -436,7 +436,7 @@ models:
         data_tests:
           - not_null
       - name: value
-        data_type: double
+        data_type: *double
         description: >
           The observed amount, in whole units of the currency the unit names.
           oda-data returns millions, so this is the source figure scaled up.

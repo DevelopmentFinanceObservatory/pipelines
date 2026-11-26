@@ -31,6 +31,6 @@ select
     series_name,
     series_code,
     cast(year as integer) as year,
-    cast(value as double) as value
+    cast(value as {{ dbt.type_float() }}) as value
 from unpivoted
 where series_code not in {{ ids_excluded_series() }}
