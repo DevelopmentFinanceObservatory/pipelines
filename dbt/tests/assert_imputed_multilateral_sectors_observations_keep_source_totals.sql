@@ -9,7 +9,7 @@
 with source_totals as (
     select
         cast(year as integer) as year,
-        sum(cast(value as decimal(38, 12))) * 1000000 as total
+        sum(value) * 1000000 as total
     from {{ source("one_imputed_multilateral_sectors", "raw_imputed_multilateral_sectors") }}
     group by year
 ),
@@ -17,7 +17,7 @@ with source_totals as (
 published_totals as (
     select
         date as year,
-        sum(cast(value as decimal(38, 12))) as total,
+        sum(value) as total,
         count(*) as observation_count
     from {{ ref("dc_imputed_multilateral_sectors_observations") }}
     group by date

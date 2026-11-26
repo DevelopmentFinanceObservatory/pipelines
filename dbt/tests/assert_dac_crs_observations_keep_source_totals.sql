@@ -13,10 +13,10 @@ with source_totals as (
     select
         year,
         (
-            coalesce(sum(cast(usd_commitment as decimal(38, 12))), 0)
-            + 2 * coalesce(sum(cast(usd_disbursement as decimal(38, 12))), 0)
-            - coalesce(sum(cast(usd_received as decimal(38, 12))), 0)
-            + coalesce(sum(cast(usd_grant_equiv as decimal(38, 12))), 0)
+            coalesce(sum(usd_commitment), 0)
+            + 2 * coalesce(sum(usd_disbursement), 0)
+            - coalesce(sum(usd_received), 0)
+            + coalesce(sum(usd_grant_equiv), 0)
         ) * 1000000 as total
     from {{ source("oecd_dac_crs", "raw_dac_crs") }}
     where bi_multi is distinct from 2
@@ -26,7 +26,7 @@ with source_totals as (
 published_totals as (
     select
         date as year,
-        sum(cast(value as decimal(38, 12))) as total,
+        sum(value) as total,
         count(*) as observation_count
     from {{ ref("dc_dac_crs_observations") }}
     group by date
