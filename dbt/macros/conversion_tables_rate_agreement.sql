@@ -31,7 +31,7 @@
         select
             currency,
             area,
-            max(year) filter (where not is_estimate) as last_actual_year
+            max(case when not is_estimate then year end) as last_actual_year
         from {{ rate_members }}
         group by currency, area
     ),

@@ -4,16 +4,16 @@
 -- elsewhere, such as GNI and population.
 with referenced as (
     select variable as dcid from {{ ref("dc_dac1_flow_observations") }}
-    union
+    union distinct
     select variable as dcid from {{ ref("dc_dac1_donor_observations") }}
-    union
+    union distinct
     select measurement_denominator as dcid from {{ ref("dc_dac1_statvars") }}
     where measurement_denominator is not null
 ),
 
 known as (
     select dcid from {{ ref("dc_dac1_statvars") }}
-    union
+    union distinct
     select statvar_dcid as dcid from {{ ref("dac1_indicator_mapping") }}
     where statvar_dcid is not null
 )

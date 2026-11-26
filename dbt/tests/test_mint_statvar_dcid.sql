@@ -6,47 +6,66 @@
 with cases as (
     select cases.*
     from (
-        values
-        (
-            'a stat type contributing no segment leaves none behind',
-            null, 'amount', 'FinancialFlow', 'ODA', 'Gross', 'Nominal',
-            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal'
-        ),
-        (
-            'a stat type segment is taken as curated, not recased',
-            'Sum', 'amount', 'FinancialFlow', 'ODA', 'Gross', 'Nominal',
-            'dcid:Sum_Amount_FinancialFlow_ODA_Gross_Nominal'
-        ),
-        (
-            'a constraint that does not apply leaves no gap',
-            null, 'grantEquivalent', 'FinancialFlow', null, 'Gross', 'Nominal',
-            'dcid:GrantEquivalent_FinancialFlow_Gross_Nominal'
-        ),
-        (
-            'a prefixed constraint contributes its bare segment',
-            null, 'amount', 'FinancialFlow', 'dcid:ODA', 'Gross', 'Nominal',
-            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal'
-        ),
-        (
-            'a prefixed qualifier contributes its bare segment',
-            null, 'amount', 'FinancialFlow', 'ODA', 'Gross', 'dcid:Nominal',
-            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal'
-        ),
-        (
-            'a missing final segment leaves no trailing separator',
-            null, 'amount', 'FinancialFlow', 'ODA', 'Gross', null,
-            'dcid:Amount_FinancialFlow_ODA_Gross'
-        )
-    ) as cases (
-        case_name,
-        stat_type_dcid_segment,
-        measured_property,
-        population_type,
-        constraint_one,
-        constraint_two,
-        measurement_qualifier,
-        expected
-    )
+        select
+            'a stat type contributing no segment leaves none behind' as case_name,
+            null as stat_type_dcid_segment,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'ODA' as constraint_one,
+            'Gross' as constraint_two,
+            'Nominal' as measurement_qualifier,
+            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal' as expected
+        union all
+        select
+            'a stat type segment is taken as curated, not recased' as case_name,
+            'Sum' as stat_type_dcid_segment,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'ODA' as constraint_one,
+            'Gross' as constraint_two,
+            'Nominal' as measurement_qualifier,
+            'dcid:Sum_Amount_FinancialFlow_ODA_Gross_Nominal' as expected
+        union all
+        select
+            'a constraint that does not apply leaves no gap' as case_name,
+            null as stat_type_dcid_segment,
+            'grantEquivalent' as measured_property,
+            'FinancialFlow' as population_type,
+            null as constraint_one,
+            'Gross' as constraint_two,
+            'Nominal' as measurement_qualifier,
+            'dcid:GrantEquivalent_FinancialFlow_Gross_Nominal' as expected
+        union all
+        select
+            'a prefixed constraint contributes its bare segment' as case_name,
+            null as stat_type_dcid_segment,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'dcid:ODA' as constraint_one,
+            'Gross' as constraint_two,
+            'Nominal' as measurement_qualifier,
+            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal' as expected
+        union all
+        select
+            'a prefixed qualifier contributes its bare segment' as case_name,
+            null as stat_type_dcid_segment,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'ODA' as constraint_one,
+            'Gross' as constraint_two,
+            'dcid:Nominal' as measurement_qualifier,
+            'dcid:Amount_FinancialFlow_ODA_Gross_Nominal' as expected
+        union all
+        select
+            'a missing final segment leaves no trailing separator' as case_name,
+            null as stat_type_dcid_segment,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'ODA' as constraint_one,
+            'Gross' as constraint_two,
+            null as measurement_qualifier,
+            'dcid:Amount_FinancialFlow_ODA_Gross' as expected
+    ) as cases
 ),
 
 minted as (
@@ -71,29 +90,26 @@ minted as (
 scoped_cases as (
     select scoped_cases.*
     from (
-        values
-        (
-            'a scope segment sits between the constraints and the qualifier',
-            'amount', 'FinancialObligation', 'Commitment',
-            'ClimateChangePolicyObjective', 'AllRecipients', 'Nominal',
-            'dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_AllRecipients_Nominal'  -- noqa: LT05
-        ),
-        (
-            'a null scope segment leaves no gap',
-            'amount', 'FinancialObligation', 'Commitment',
-            'ClimateChangePolicyObjective', null, 'Nominal',
-            'dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_Nominal'  -- noqa: LT05
-        )
-    ) as scoped_cases (
-        case_name,
-        measured_property,
-        population_type,
-        constraint_one,
-        constraint_two,
-        scope_segment,
-        measurement_qualifier,
-        expected
-    )
+        select
+            'a scope segment sits between the constraints and the qualifier' as case_name,
+            'amount' as measured_property,
+            'FinancialObligation' as population_type,
+            'Commitment' as constraint_one,
+            'ClimateChangePolicyObjective' as constraint_two,
+            'AllRecipients' as scope_segment,
+            'Nominal' as measurement_qualifier,
+            'dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_AllRecipients_Nominal' as expected  -- noqa: LT05
+        union all
+        select
+            'a null scope segment leaves no gap' as case_name,
+            'amount' as measured_property,
+            'FinancialObligation' as population_type,
+            'Commitment' as constraint_one,
+            'ClimateChangePolicyObjective' as constraint_two,
+            null as scope_segment,
+            'Nominal' as measurement_qualifier,
+            'dcid:Amount_FinancialObligation_Commitment_ClimateChangePolicyObjective_Nominal' as expected  -- noqa: LT05
+    ) as scoped_cases
 ),
 
 scoped_minted as (

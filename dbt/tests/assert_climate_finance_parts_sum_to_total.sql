@@ -27,7 +27,15 @@ with observations as (
 ),
 
 totals as (
-    select * exclude (is_total)
+    select
+        import_name,
+        measured_property,
+        population_type,
+        financing_provider,
+        financing_recipient,
+        year,
+        measurement_method,
+        value
     from observations
     where is_total
 ),

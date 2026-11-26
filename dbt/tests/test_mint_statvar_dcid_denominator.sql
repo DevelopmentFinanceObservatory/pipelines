@@ -6,43 +6,51 @@
 with cases as (
     select cases.*
     from (
-        values
-        (
-            'a denominator contributes a trailing AsAFractionOf segment',
-            'amount', 'FinancialFlow', 'InterestPayment', null,
-            'Amount_EconomicActivity_Exports',
-            'dcid:Amount_FinancialFlow_InterestPayment_AsAFractionOf_Amount_EconomicActivity_Exports'  -- noqa: LT05
-        ),
-        (
-            'a denominator sits behind the qualifier, not in front of it',
-            'amount', 'FinancialPosition', 'AmountOutstanding', 'Nominal',
-            'Count_Person',
-            'dcid:Amount_FinancialPosition_AmountOutstanding_Nominal_AsAFractionOf_Count_Person'  -- noqa: LT05
-        ),
-        (
-            'a prefixed denominator contributes its bare segment',
-            'amount', 'FinancialFlow', 'InterestPayment', null, 'dcid:Count_Person',
-            'dcid:Amount_FinancialFlow_InterestPayment_AsAFractionOf_Count_Person'
-        ),
-        (
-            'no denominator leaves neither the marker nor a trailing separator',
-            'amount', 'FinancialFlow', 'InterestPayment', 'Nominal', null,
-            'dcid:Amount_FinancialFlow_InterestPayment_Nominal'
-        ),
-        (
-            'a variable with neither qualifier nor denominator is unchanged',
-            'amount', 'FinancialFlow', 'InterestPayment', null, null,
-            'dcid:Amount_FinancialFlow_InterestPayment'
-        )
-    ) as cases (
-        case_name,
-        measured_property,
-        population_type,
-        constraint_one,
-        measurement_qualifier,
-        measurement_denominator,
-        expected
-    )
+        select
+            'a denominator contributes a trailing AsAFractionOf segment' as case_name,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'InterestPayment' as constraint_one,
+            null as measurement_qualifier,
+            'Amount_EconomicActivity_Exports' as measurement_denominator,
+            'dcid:Amount_FinancialFlow_InterestPayment_AsAFractionOf_Amount_EconomicActivity_Exports' as expected  -- noqa: LT05
+        union all
+        select
+            'a denominator sits behind the qualifier, not in front of it' as case_name,
+            'amount' as measured_property,
+            'FinancialPosition' as population_type,
+            'AmountOutstanding' as constraint_one,
+            'Nominal' as measurement_qualifier,
+            'Count_Person' as measurement_denominator,
+            'dcid:Amount_FinancialPosition_AmountOutstanding_Nominal_AsAFractionOf_Count_Person' as expected  -- noqa: LT05
+        union all
+        select
+            'a prefixed denominator contributes its bare segment' as case_name,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'InterestPayment' as constraint_one,
+            null as measurement_qualifier,
+            'dcid:Count_Person' as measurement_denominator,
+            'dcid:Amount_FinancialFlow_InterestPayment_AsAFractionOf_Count_Person' as expected
+        union all
+        select
+            'no denominator leaves neither the marker nor a trailing separator' as case_name,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'InterestPayment' as constraint_one,
+            'Nominal' as measurement_qualifier,
+            null as measurement_denominator,
+            'dcid:Amount_FinancialFlow_InterestPayment_Nominal' as expected
+        union all
+        select
+            'a variable with neither qualifier nor denominator is unchanged' as case_name,
+            'amount' as measured_property,
+            'FinancialFlow' as population_type,
+            'InterestPayment' as constraint_one,
+            null as measurement_qualifier,
+            null as measurement_denominator,
+            'dcid:Amount_FinancialFlow_InterestPayment' as expected
+    ) as cases
 ),
 
 minted as (

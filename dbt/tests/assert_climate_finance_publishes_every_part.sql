@@ -22,12 +22,18 @@ with figures as (
 objectives as (
     select climate_policy_objective
     from (
-        values
-        ('dcid:ClimateChangePolicyObjective'),
-        ('dcid:AdaptationOnlyClimateChangePolicyObjective'),
-        ('dcid:MitigationOnlyClimateChangePolicyObjective'),
-        ('dcid:CrossCuttingClimateChangePolicyObjective')
-    ) as named (climate_policy_objective)
+        select
+            'dcid:ClimateChangePolicyObjective' as climate_policy_objective
+        union all
+        select
+            'dcid:AdaptationOnlyClimateChangePolicyObjective' as climate_policy_objective
+        union all
+        select
+            'dcid:MitigationOnlyClimateChangePolicyObjective' as climate_policy_objective
+        union all
+        select
+            'dcid:CrossCuttingClimateChangePolicyObjective' as climate_policy_objective
+    ) as named
 ),
 
 expected as (

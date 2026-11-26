@@ -57,12 +57,15 @@ unmatched_cells as (
 
 source as (
     select
-        count(*) filter (where counterpart_code <> 'WLD') as itemised,
-        count(*) filter (
-            where
-            counterpart_code = 'WLD'
-            and {{ dbt.split_part("series_code", "'.'", 3) }}
-            not in (select lender_segments.code from lender_segments)
+        count(case when counterpart_code <> 'WLD' then 1 end) as itemised,
+        count(
+            case
+                when
+                    counterpart_code = 'WLD'
+                    and {{ dbt.split_part("series_code", "'.'", 3) }}
+                    not in (select lender_segments.code from lender_segments)
+                    then 1
+            end
         ) as totals_on_other_series,
         (select count(*) from unmatched_cells) as totals_with_no_itemised_row
     from {{ ref("int_ids_pruned") }}
@@ -70,18 +73,24 @@ source as (
 
 resolved as (
     select
-        count(*) filter (where counterpart_code <> 'WLD') as itemised,
-        count(*) filter (
-            where
-            counterpart_code = 'WLD'
-            and {{ dbt.split_part("series_code", "'.'", 3) }}
-            not in (select lender_segments.code from lender_segments)
+        count(case when counterpart_code <> 'WLD' then 1 end) as itemised,
+        count(
+            case
+                when
+                    counterpart_code = 'WLD'
+                    and {{ dbt.split_part("series_code", "'.'", 3) }}
+                    not in (select lender_segments.code from lender_segments)
+                    then 1
+            end
         ) as totals_on_other_series,
-        count(*) filter (
-            where
-            counterpart_code = 'WLD'
-            and {{ dbt.split_part("series_code", "'.'", 3) }}
-            in (select lender_segments.code from lender_segments)
+        count(
+            case
+                when
+                    counterpart_code = 'WLD'
+                    and {{ dbt.split_part("series_code", "'.'", 3) }}
+                    in (select lender_segments.code from lender_segments)
+                    then 1
+            end
         ) as totals_with_no_itemised_row
     from {{ ref("int_ids_resolved") }}
 )
