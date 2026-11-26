@@ -56,9 +56,9 @@ A filter listing today's values silently drops any value the publisher adds late
 
 Cast a source value to `decimal(38,12)` in staging when the pipeline sums it, because a sum of doubles depends on row order. Otherwise keep the source's `double`. A narrower cast before the last sum, such as `decimal(18,5)` on a source reporting in millions, rounds every row to ten dollars, so aggregates lose value and small amounts publish as zero.
 
-Round once, after the last sum, in the model that sets the unit. Every published value is a `double` through the `round_significant` macro, which keeps the 15 significant digits a Data Commons value carries (its API serves float64). Round currency amounts to cents first.
+Round once, after the last sum, in the model that sets the unit. Every published value is a `double` through the `round_significant` macro, which keeps the 15 significant digits a Data Commons value carries (its API serves float64). Round a summed currency amount to cents first.
 
-Guard it with a singular test that reconciles each year's published total with the source to within half a cent per observation. A unit test cannot: dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
+Guard the sum with a singular test that casts the published double back to `decimal(38,12)` before summing and reconciles each year's total with the source to within half a cent per observation. A unit test cannot, because dbt casts the expected rows to the model's own output types, so a lossy cast rounds both sides alike.
 
 ### A seed only tests read is no model's parent
 

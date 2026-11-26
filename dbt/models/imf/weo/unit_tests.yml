@@ -276,3 +276,13 @@ unit_tests:
     expect:
       rows:
         - {next_source_release_date: "2026-04"}
+
+  - name: observations_drop_float_noise_beyond_15_significant_digits
+    model: dc_weo_observations
+    given:
+      - input: ref('int_weo_mapped')
+        rows:
+          - {statvar_dcid: SV1, time_period: 2024, observation_about: "dcid:country/KEN", value: 13964518865999.998, unit: "dcid:CurrencyUSD", measurement_method: null}
+    expect:
+      rows:
+        - {variable: SV1, date: 2024, observation_about: "dcid:country/KEN", value: 13964518866000, unit: "dcid:CurrencyUSD", measurement_method: null}

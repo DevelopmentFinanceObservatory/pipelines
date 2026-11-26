@@ -15,12 +15,12 @@ with cases as (
             cast(2.2841494455984202e+18 as double), '2.28414944559842e+18'
         ),
         (
-            'a value with 15 digits of noise is trimmed',
+            'a 15-digit value is kept whole',
             cast(5.55759999999999 as double), '5.55759999999999'
         ),
         (
-            'a value that is exact in decimal stays as written',
-            cast(0.1 as double), '0.1'
+            'float noise from a sum is dropped',
+            cast(0.1 as double) + cast(0.2 as double), '0.3'
         ),
         (
             'a negative keeps its sign',

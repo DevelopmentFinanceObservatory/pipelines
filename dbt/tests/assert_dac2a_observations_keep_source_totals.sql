@@ -1,8 +1,9 @@
 {{ config(meta={"dagster": {"ref": {"name": "dc_dac2a_observations"}}}) }}
 {#-
     Each year's published total for each unit matches the source's to within
-    what rounding each observation can lose: half a cent for an amount and half
-    a millionth for a ratio. A year or unit present on only one side fails too.
+    what the rule loses on each observation: half a cent for an amount and 15
+    significant digits for a ratio. A year or unit present on only one side
+    fails too.
 -#}
 with source_totals as (
     select

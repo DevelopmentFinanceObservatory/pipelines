@@ -197,10 +197,12 @@ unit_tests:
         rows:
           - {statvar_dcid: SV1, year: 2024, value: 1.44734, unit: "dcid:CurrencyUSD"}
           - {statvar_dcid: SV2, year: 2024, value: -3690.32613, unit: "dcid:CurrencyUSD"}
+          - {statvar_dcid: SV3, year: 2024, value: 1.2345678912, unit: "dcid:CurrencyUSD"}
     expect:
       rows:
         - {variable: SV1, date: 2024, value: 1447340.00, unit: "dcid:CurrencyUSD"}
         - {variable: SV2, date: 2024, value: -3690326130.00, unit: "dcid:CurrencyUSD"}
+        - {variable: SV3, date: 2024, value: 1234567.89, unit: "dcid:CurrencyUSD"}
 
   - name: provenance_reports_the_dates_it_publishes
     model: dc_dac_crs_provenance

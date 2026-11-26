@@ -146,6 +146,7 @@ unit_tests:
           - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2022, value: 0}
           - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2023, value: 0}
           - {country_code: ZMB, country_name: Zambia, counterpart_code: "WLD", counterpart_name: x, series_code: DT.INR.OFFT, series_name: x, year: 2023, value: 0}
+          - {country_code: ZMB, country_name: Zambia, counterpart_code: "071", counterpart_name: x, series_code: DT.GPA.OFFT, series_name: x, year: 2021, value: 3.798584854685877e-06}
     expect:
       rows:
         - {counterpart_code: "071", series_code: DT.DOD.BLAT.CD, year: 2021, value: 5}
@@ -158,6 +159,7 @@ unit_tests:
         - {counterpart_code: "071", series_code: DT.COM.OFFT.CD, year: 2023, value: 0}
         - {counterpart_code: "071", series_code: DT.INR.OFFT, year: 2021, value: 3.5}
         - {counterpart_code: "071", series_code: DT.INR.OFFT, year: 2022, value: 0}
+        - {counterpart_code: "071", series_code: DT.GPA.OFFT, year: 2021, value: 3.798584854685877e-06}
 
   - name: resolved_resolves_each_code_space_through_its_own_property
     model: int_ids_resolved
@@ -440,9 +442,11 @@ unit_tests:
         rows:
           - {variable: "dcid:Debt", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: financingRecipient}
           - {variable: "dcid:GNI", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 26271802177.3, unit: dcid:CurrencyUSD, measurement_method: null, entity_property: observationAbout}
+          - {variable: "dcid:Ratio", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 3.798584854685877e-06, unit: dcid:Percent, measurement_method: null, entity_property: financingRecipient}
     expect:
       rows:
         - {variable: "dcid:Debt", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 30, unit: dcid:CurrencyUSD, measurement_method: null}
+        - {variable: "dcid:Ratio", date: 2023, financing_provider: null, financing_recipient: "dcid:country/ZMB", value: 3.79858485468588e-06, unit: dcid:Percent, measurement_method: null}
 
   - name: economy_observations_keep_gni_about_the_economy
     model: dc_ids_economy_observations
