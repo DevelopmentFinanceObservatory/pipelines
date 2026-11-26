@@ -1,12 +1,9 @@
-## Unreleased Ratios and averages published at the World Bank's precision
+## Unreleased Full precision for ratios and averages
 
-### Changed
+### Fixed
 
-- Ratios, shares and averages keep the precision the World Bank publishes. They were
-  rounded to five decimal places, which turned values below 0.000005, such as very
-  small shares of concessional debt, into zero.
-- Averages on new commitments, such as grant element and interest rate, that were
-  rounded to zero and so left out are published.
+- Ratios, shares and averages keep the World Bank's full precision. Values below
+  0.000005, which were rounded to zero or left out, are published.
 
 ## 2026-10-14 First release
 
