@@ -24,7 +24,7 @@ commitments as (
         counterpart_code,
         year,
         value,
-        split_part(series_code, '.', 3) as creditor_group
+        {{ dbt.split_part("series_code", "'.'", 3) }} as creditor_group
     from {{ ref("stg_ids") }}
     where series_code in ('DT.COM.DPPG.CD', 'DT.COM.OFFT.CD', 'DT.COM.PRVT.CD')
 ),
@@ -42,9 +42,9 @@ averages_without_commitments as (
             averages.country_code = commitments.country_code
             and averages.counterpart_code = commitments.counterpart_code
             and averages.year = commitments.year
-            and split_part(averages.series_code, '.', 3) = commitments.creditor_group
+            and {{ dbt.split_part("averages.series_code", "'.'", 3) }} = commitments.creditor_group
     where
-        split_part(averages.series_code, '.', 2) in ('GPA', 'GRE', 'INR', 'MAT')
+        {{ dbt.split_part("averages.series_code", "'.'", 2) }} in ('GPA', 'GRE', 'INR', 'MAT')
         and averages.value = 0
         and coalesce(commitments.value, 0) = 0
 )

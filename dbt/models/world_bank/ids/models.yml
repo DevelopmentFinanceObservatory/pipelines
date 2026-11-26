@@ -272,19 +272,18 @@ models:
           description: >
             Rejoining the positions reproduces the code they were split from,
             which is what fails if the split is truncated, the delimiter is
-            wrong or a position is transposed. concat_ws skips nulls, so the
+            wrong or a position is transposed. array_to_string skips nulls, so the
             codes carrying fewer than five segments reconstruct from their
             populated positions alone.
           arguments:
             expression: >
-              concat_ws(
-                '.',
+              array_to_string([
                 series_code_pos_1,
                 series_code_pos_2,
                 series_code_pos_3,
                 series_code_pos_4,
                 series_code_pos_5
-              ) = series_code
+              ], '.') = series_code
     columns:
       - name: debtor
         data_type: string
@@ -997,7 +996,7 @@ models:
             downloads all six, so the provenance must name all six. Fails if the
             download list and the provenance fall out of step.
           arguments:
-            expression: "len(str_split(source_data_url, ',')) = 6"
+            expression: "length(source_data_url) - length(replace(source_data_url, ',', '')) = 5"
     columns:
       - name: name
         data_type: string

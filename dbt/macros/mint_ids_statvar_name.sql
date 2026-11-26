@@ -13,22 +13,20 @@
         every other property with its numerator. An unknown unit or denominator
         gives a null name, which the not_null test catches.
 
-        concat_ws skips a null argument and its separator, so a missing debtor or
+        array_to_string skips a null argument and its separator, so a missing debtor or
         creditor leaves no gap.
     -#}
     {%- set is_grant = financing_resource ~ " = 'dcid:UnrequitedTransfer'" -%}
     {#- Terms and instrument that read as qualifiers, e.g. `(without IMF credit)`. -#}
     {%- set qualifiers -%}
-        concat_ws(
-            ', ',
+        array_to_string([
             {{ labels.includes_imf_credit }},
             {{ labels.interest_rate_variability }},
             case when not {{ is_grant }} then {{ labels.financing_resource }} end,
             {{ labels.financing_form }}
-        )
+        ], ', ')
     {%- endset -%}
-    concat_ws(
-        ' ',
+    coalesce(array_to_string([
         -- Measure: what is counted, e.g. `Disbursements on`, `Outstanding`.
         case
             when {{ measured_property }} = 'dcid:primaryIncome'
@@ -78,13 +76,12 @@
         case
             when {{ population_type }} <> 'dcid:EconomicUnit'
                 then
-                    concat_ws(
-                        ' ',
+                    array_to_string([
                         regexp_replace({{ labels.maturity_band }}, ' maturity$', ''),
                         {{ labels.ids_concessionality }},
                         {{ labels.guarantee_status }},
                         case when {{ is_grant }} then 'grants' else 'external debt' end
-                    )
+                    ], ' ')
                     || coalesce(' denominated in ' || {{ labels.currency_of_denomination }}, '')
                     || coalesce(' (' || nullif({{ qualifiers }}, '') || ')', '')
         end,
@@ -97,7 +94,7 @@
                 then {{ labels.ids_creditor_type }} || ' creditors'
             else {{ labels.ids_creditor_type }}
         end
-    )
+    ], ' '), '')
     -- Creditor breakdown.
     || case when {{ creditor_breakdown }} is not null then ', by creditor' else '' end
     -- Unit, and the denominator of a ratio. A currency is dropped.
