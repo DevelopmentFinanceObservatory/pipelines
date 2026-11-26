@@ -6,11 +6,11 @@
     -#}
     case
         when {{ release_date }}
-            < make_date(
-                cast({{ latest_observation_date }} as integer) + 1,
-                {{ var("release_calendars")[dataset].completing_release_month }},
+            < {{ date_from_parts(
+                "cast(" ~ latest_observation_date ~ " as integer) + 1",
+                var("release_calendars")[dataset].completing_release_month,
                 1
-            )
+            ) }}
             then {{ latest_observation_date }}
     end
 {%- endmacro %}
