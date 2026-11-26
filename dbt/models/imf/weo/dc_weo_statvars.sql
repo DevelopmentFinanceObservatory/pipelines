@@ -17,21 +17,9 @@ select
 from {{ ref("int_weo_mapped") }}
 group by all
 
-union all
+union all by name
 
 select
-    dcid,
-    name,
-    population_type,
-    measured_property,
-    stat_type,
-    measurement_qualifier,
-    measurement_denominator,
-    constraint_properties,
-    product_tax_basis,
-    fixed_capital_consumption_basis,
-    cyclical_adjustment,
-    currency_conversion_basis,
-    final_expenditure_type,
+    *,
     cast(null as string) as source_indicator_code
 from {{ ref("weo_extra_statvars") }}
