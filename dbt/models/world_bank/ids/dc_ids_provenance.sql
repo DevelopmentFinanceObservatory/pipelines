@@ -58,7 +58,7 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
     'International Debt Statistics by the World Bank, '
     || 'https://datacatalog.worldbank.org/search/dataset/0038015/international-debt-statistics'
     || ', licensed under CC BY 4.0. Modified by The ONE Campaign.'

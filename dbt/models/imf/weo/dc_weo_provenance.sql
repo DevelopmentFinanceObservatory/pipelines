@@ -40,7 +40,7 @@ select
     extraction.next_source_release_date as next_data_refresh_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
     'Source: International Monetary Fund, World Economic Outlook Database, '
     || 'https://data.imf.org/en/datasets/IMF.RES:WEO' as license_attribution
 from extraction

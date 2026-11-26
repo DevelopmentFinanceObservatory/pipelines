@@ -25,7 +25,7 @@ select
     metadata.imported_source_release_date,
     observation_range.earliest_observation_date,
     observation_range.latest_observation_date,
-    '{{ dbt.escape_single_quotes(config.get("meta").dataset_description) }}' as description,
+    '{{ dbt.escape_single_quotes(config.meta_require("dataset_description")) }}' as description,
     'Source: UNFCCC, Biennial Transparency Reports, '
     || 'https://unfccc.int/biennial-transparency-reports' as license_attribution
 from metadata
