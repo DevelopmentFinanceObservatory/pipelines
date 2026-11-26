@@ -10,7 +10,7 @@ with extraction as (
 ),
 
 source_release as (
-    select strftime(source_release_date, '%Y-%m-%d') as imported_source_release_date
+    select cast(source_release_date as string) as imported_source_release_date
     from {{ source("imf_weo", "raw_weo_metadata") }}
 ),
 

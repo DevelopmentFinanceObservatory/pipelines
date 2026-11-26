@@ -3,7 +3,7 @@
 -- release date is that release's. The release is cut by hand, so the node
 -- carries no next release date. The UNFCCC terms have no licence type node.
 with metadata as (
-    select strftime(source_release_date, '%Y-%m-%d') as imported_source_release_date
+    select cast(source_release_date as string) as imported_source_release_date
     from {{ source("one_climate_finance", "raw_climate_finance_metadata") }}
 ),
 

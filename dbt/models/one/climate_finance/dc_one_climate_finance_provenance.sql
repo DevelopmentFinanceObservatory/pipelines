@@ -12,7 +12,7 @@
 with metadata as (
     select
         cast(extract(year from source_release_date) as string) as release_year,
-        strftime(source_release_date, '%Y-%m-%d') as imported_source_release_date
+        cast(source_release_date as string) as imported_source_release_date
     from {{ source("one_climate_finance", "raw_climate_finance_metadata") }}
 ),
 

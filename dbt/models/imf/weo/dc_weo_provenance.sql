@@ -8,7 +8,7 @@ with metadata as (
 
 extraction as (
     select
-        strftime(metadata.source_release_date, '%Y-%m-%d') as imported_source_release_date,
+        cast(metadata.source_release_date as string) as imported_source_release_date,
         -- The IMF publishes WEO in April and October.
         case
             when metadata.release_month < 4
