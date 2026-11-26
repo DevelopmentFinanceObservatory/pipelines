@@ -2,7 +2,7 @@ with metadata as (
     select
         downloaded_at,
         source_release_date,
-        cast(extract(year from source_release_date) as varchar) as release_year
+        cast(extract(year from source_release_date) as string) as release_year
     from {{ source("oecd_dac1", "raw_dac1_metadata") }}
 ),
 
@@ -25,8 +25,8 @@ observation_dates as (
 
 observation_range as (
     select
-        cast(min(date) as varchar) as earliest_observation_date,
-        cast(max(date) as varchar) as latest_observation_date
+        cast(min(date) as string) as earliest_observation_date,
+        cast(max(date) as string) as latest_observation_date
     from observation_dates
 )
 

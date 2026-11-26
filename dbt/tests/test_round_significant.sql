@@ -41,7 +41,7 @@ rounded as (
     select
         cases.case_name,
         cases.expected,
-        cast({{ round_significant("cases.input_value") }} as varchar) as rounded_value
+        cast({{ round_significant("cases.input_value") }} as string) as rounded_value
     from cases
 )
 

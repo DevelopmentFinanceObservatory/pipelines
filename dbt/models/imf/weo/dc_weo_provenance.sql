@@ -12,18 +12,18 @@ extraction as (
         -- The IMF publishes WEO in April and October.
         case
             when metadata.release_month < 4
-                then cast(metadata.release_year as varchar) || '-04'
+                then cast(metadata.release_year as string) || '-04'
             when metadata.release_month < 10
-                then cast(metadata.release_year as varchar) || '-10'
-            else cast(metadata.release_year + 1 as varchar) || '-04'
+                then cast(metadata.release_year as string) || '-10'
+            else cast(metadata.release_year + 1 as string) || '-04'
         end as next_source_release_date
     from metadata
 ),
 
 observation_range as (
     select
-        cast(min(observations.date) as varchar) as earliest_observation_date,
-        cast(max(observations.date) as varchar) as latest_observation_date
+        cast(min(observations.date) as string) as earliest_observation_date,
+        cast(max(observations.date) as string) as latest_observation_date
     from {{ ref("dc_weo_observations") }} as observations
 )
 

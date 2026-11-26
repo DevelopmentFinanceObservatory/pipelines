@@ -10,10 +10,10 @@
     case
         {%- for month in months %}
         when extract(month from {{ release_date }}) < {{ month }}
-            then cast(extract(year from {{ release_date }}) as varchar)
+            then cast(extract(year from {{ release_date }}) as string)
                 || '-{{ "%02d" | format(month) }}'
         {%- endfor %}
-        else cast(extract(year from {{ release_date }}) + 1 as varchar)
+        else cast(extract(year from {{ release_date }}) + 1 as string)
             || '-{{ "%02d" | format(months[0]) }}'
     end
 {%- endmacro %}
